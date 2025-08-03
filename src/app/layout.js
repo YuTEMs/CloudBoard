@@ -1,15 +1,8 @@
-import "./globals.css";
-import { HeroUIProvider } from "@heroui/react";
+import { Inter } from "next/font/google"
+import "./globals.css"
+import {Providers} from "../app/provider"
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const inter = Inter({ subsets: ["latin"] })
 
 export const metadata = {
   title: "Smart Bulletin Board",
@@ -21,12 +14,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <HeroUIProvider>
+      <body>
+        <Providers>
           {children}
-        </HeroUIProvider>
+        </Providers>
       </body>
     </html>
   );
