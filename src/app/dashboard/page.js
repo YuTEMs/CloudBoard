@@ -55,7 +55,7 @@ export default function DashboardPage() {
                         Preview
                       </Button>
                     </Link>
-                    <Link href="/upload">
+                    <Link href="/organize">
                       <Button color="primary" size="sm">
                         Edit
                       </Button>
