@@ -8,13 +8,13 @@ import { AppHeader } from "../../components/layout/app-hearder"
 // Mock data for available content
 const mockAssets = {
   images: [
-    { id: "img1", name: "Logo.png", url: "/placeholder.svg?height=100&width=150&text=Logo", type: "image" },
-    { id: "img2", name: "Banner.jpg", url: "/placeholder.svg?height=100&width=200&text=Banner", type: "image" },
-    { id: "img3", name: "Product.png", url: "/placeholder.svg?height=120&width=120&text=Product", type: "image" },
+    { id: "img1", name: "Logo.png", url: "/placeholder.svg?height=100&width=150&text=Logo", type: "image", size: { width: 150, height: 100 } },
+    { id: "img2", name: "Banner.jpg", url: "/placeholder.svg?height=100&width=200&text=Banner", type: "image", size: { width: 150, height: 100 } },
+    { id: "img3", name: "Product.png", url: "/placeholder.svg?height=120&width=120&text=Product", type: "image", size: { width: 150, height: 100 } },
   ],
   videos: [
-    { id: "vid1", name: "Promo.mp4", thumbnail: "/placeholder.svg?height=100&width=150&text=Video1", type: "video" },
-    { id: "vid2", name: "Demo.mp4", thumbnail: "/placeholder.svg?height=100&width=150&text=Video2", type: "video" },
+    { id: "vid1", name: "Promo.mp4", thumbnail: "/placeholder.svg?height=100&width=150&text=Video1", type: "video", size: { width: 150, height: 100 } },
+    { id: "vid2", name: "Demo.mp4", thumbnail: "/placeholder.svg?height=100&width=150&text=Video2", type: "video", size: { width: 150, height: 100 } },
   ],
 }
 
@@ -57,6 +57,12 @@ export default function OrganizePage() {
 
   // Add element to canvas
   const addElementToCanvas = (asset, position = { x: 50, y: 50 }) => {
+    console.log(asset.size)
+    const originalWidth = asset.size.width;
+    const originalHeight = asset.size.height;
+    console.log(originalWidth)
+    console.log(originalHeight)
+
     const newElement = {
       id: `element_${Date.now()}`,
       assetId: asset.id,
@@ -64,8 +70,10 @@ export default function OrganizePage() {
       name: asset.name,
       url: asset.url || asset.thumbnail,
       position,
-      size: { width: 150, height: 100 },
+      size: { width: originalWidth, height: originalHeight },
       zIndex: canvasElements.length + 1,
+      originalHeight: originalHeight,
+      originalWidth: originalWidth,
     }
     setCanvasElements([...canvasElements, newElement])
   }
@@ -169,85 +177,83 @@ export default function OrganizePage() {
           {/* Tab Navigation */}
           <div className="flex mb-4 border-b">
             <button
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === "existing"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "existing"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
               onClick={() => setActiveTab("existing")}
             >
               Library
             </button>
             <button
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === "upload"
-                  ? "border-blue-500 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "upload"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
               onClick={() => setActiveTab("upload")}
             >
               Upload ({uploadedFiles.length})
             </button>
           </div>
-            
-            {/* Existing Assets Tab */}
+
+          {/* Existing Assets Tab */}
           {activeTab === "existing" && (
             <>
-          {/* Images Section */}
-          <div className="mb-6">
-            <h4 className="font-medium mb-3 flex items-center gap-2">
-              <ImageIcon className="w-4 h-4" />
-              Images ({allAssets.images.length})
-            </h4>
-            <div className="grid grid-cols-2 gap-2">
-              {allAssets.images.map((asset) => (
-                <div
-                  key={asset.id}
-                  className="border rounded-lg p-2 cursor-pointer hover:bg-gray-50 transition-colors"
-                  onClick={() => addElementToCanvas(asset)}
-                >
-                  <img
-                    src={asset.url || "/placeholder.svg"}
-                    alt={asset.name}
-                    className="w-full h-16 object-cover rounded mb-1"
-                  />
-                  <p className="text-xs text-gray-600 truncate">{asset.name}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Videos Section */}
-          <div className="mb-6">
-            <h4 className="font-medium mb-3 flex items-center gap-2">
-              <Video className="w-4 h-4" />
-              Videos ({allAssets.videos.length})
-            </h4>
-            <div className="grid grid-cols-2 gap-2">
-              {allAssets.videos.map((asset) => (
-                <div
-                  key={asset.id}
-                  className="border rounded-lg p-2 cursor-pointer hover:bg-gray-50 transition-colors"
-                  onClick={() => addElementToCanvas(asset)}
-                >
-                  <div className="relative">
-                    <img
-                      src={asset.thumbnail || asset.url || "/placeholder.svg"}
-                      alt={asset.name}
-                      className="w-full h-16 object-cover rounded mb-1"
-                    />
-                    <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="bg-black bg-opacity-50 rounded-full p-1">
-                        <Video className="w-4 h-4 text-white" />
-                      </div>
+              {/* Images Section */}
+              <div className="mb-6">
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4" />
+                  Images ({allAssets.images.length})
+                </h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {allAssets.images.map((asset) => (
+                    <div
+                      key={asset.id}
+                      className="border rounded-lg p-2 cursor-pointer hover:bg-gray-50 transition-colors"
+                      onClick={() => addElementToCanvas(asset)}
+                    >
+                      <img
+                        src={asset.url || "/placeholder.svg"}
+                        alt={asset.name}
+                        className="w-full h-16 object-cover rounded mb-1"
+                      />
+                      <p className="text-xs text-gray-600 truncate">{asset.name}</p>
                     </div>
-                  </div>
-                  <p className="text-xs text-gray-600 truncate">{asset.name}</p>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-          </>
+              </div>
+
+              {/* Videos Section */}
+              <div className="mb-6">
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <Video className="w-4 h-4" />
+                  Videos ({allAssets.videos.length})
+                </h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {allAssets.videos.map((asset) => (
+                    <div
+                      key={asset.id}
+                      className="border rounded-lg p-2 cursor-pointer hover:bg-gray-50 transition-colors"
+                      onClick={() => addElementToCanvas(asset)}
+                    >
+                      <div className="relative">
+                        <img
+                          src={asset.thumbnail || asset.url || "/placeholder.svg"}
+                          alt={asset.name}
+                          className="w-full h-16 object-cover rounded mb-1"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="bg-black bg-opacity-50 rounded-full p-1">
+                            <Video className="w-4 h-4 text-white" />
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-600 truncate">{asset.name}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
 
           {/* Upload Tab */}
@@ -326,6 +332,19 @@ export default function OrganizePage() {
                               src={file.url || "/placeholder.svg"}
                               alt={file.name}
                               className="w-full h-full object-cover rounded"
+                              onLoad={e => {
+                                const img = e.target;
+                                const width = img.naturalWidth;
+                                const height = img.naturalHeight;
+                                // Update the file object with its size
+                                setUploadedFiles(prev =>
+                                  prev.map(f =>
+                                    f.id === file.id
+                                      ? { ...f, size: { width, height } }
+                                      : f
+                                  )
+                                );
+                              }}
                             />
                           ) : (
                             <div className="w-full h-full bg-gray-200 rounded flex items-center justify-center">
@@ -368,7 +387,7 @@ export default function OrganizePage() {
                   <label className="text-sm text-gray-600">Width</label>
                   <input
                     type="number"
-                    value={selectedElement.size.width}
+                    value={selectedElement.size.width ?? 0}
                     onChange={(e) => {
                       const newWidth = Number.parseInt(e.target.value) || 0;
                       handleResize(selectedElement.id, { width: newWidth });
@@ -387,7 +406,7 @@ export default function OrganizePage() {
                   <label className="text-sm text-gray-600">Height</label>
                   <input
                     type="number"
-                    value={selectedElement.size.height}
+                    value={selectedElement.size.height ?? 0}
                     onChange={(e) => {
                       const newHeight = Number.parseInt(e.target.value) || 0;
                       handleResize(selectedElement.id, { height: newHeight });
@@ -420,6 +439,26 @@ export default function OrganizePage() {
                     />
                   </div>
                 )}
+                <Button
+                  size="sm"
+                  variant="bordered"
+                  onPress={() => {
+                    handleResize(selectedElement.id, {
+                      width: selectedElement.originalWidth,
+                      height: selectedElement.originalHeight,
+                    });
+                    setSelectedElement({
+                      ...selectedElement,
+                      size: { 
+                        ...selectedElement.size,
+                        width: selectedElement.originalWidth,
+                        height: selectedElement.originalHeight,},
+                    });
+                  }}
+                  className="w-full mt-2"
+                >
+                  Reset Size
+                </Button>
                 <Button
                   size="sm"
                   color="danger"
