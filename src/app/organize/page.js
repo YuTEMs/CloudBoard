@@ -1,7 +1,7 @@
 "use client"
 
-import { Button, useDisclosure } from "@heroui/react"
-import { Move, Plus, FileText, Check, ImageIcon, Video, Trash2 } from "lucide-react"
+import { Button, Card, CardBody } from "@heroui/react"
+import { Move, Plus, FileText, Check, ImageIcon, Video, Trash2, Upload } from "lucide-react"
 import { useState, useRef } from "react"
 import { AppHeader } from "../../components/layout/app-hearder"
 
@@ -27,6 +27,7 @@ export default function OrganizePage() {
   const [uploadedFiles, setUploadedFiles] = useState([])
   const imageInputRef = useRef(null)
   const videoInputRef = useRef(null)
+  const [activeTab, setActiveTab] = useState("existing") // "existing" or "upload"
 
   const handleFileUpload = (files, type) => {
     const newFiles = Array.from(files).map((file) => ({
@@ -136,9 +137,19 @@ export default function OrganizePage() {
     alert("Layout saved successfully!")
   }
 
+  // Get all available assets (existing + uploaded)
+  const getAllAssets = () => {
+    return {
+      images: [...mockAssets.images, ...uploadedFiles.filter((f) => f.type === "image")],
+      videos: [...mockAssets.videos, ...uploadedFiles.filter((f) => f.type === "video")],
+    }
+  }
+
+  const allAssets = getAllAssets()
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <AppHeader title="Organize Page" showBack backHref="/upload" />
+      <AppHeader title="Organize Page" showBack backHref="/dashboard" />
 
       <div className="flex h-[calc(100vh-80px)]">
         {/* Content Library Sidebar */}
@@ -155,14 +166,41 @@ export default function OrganizePage() {
             </Button>
           </div>
 
+          {/* Tab Navigation */}
+          <div className="flex mb-4 border-b">
+            <button
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === "existing"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+              onClick={() => setActiveTab("existing")}
+            >
+              Library
+            </button>
+            <button
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === "upload"
+                  ? "border-blue-500 text-blue-600"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+              onClick={() => setActiveTab("upload")}
+            >
+              Upload ({uploadedFiles.length})
+            </button>
+          </div>
+            
+            {/* Existing Assets Tab */}
+          {activeTab === "existing" && (
+            <>
           {/* Images Section */}
           <div className="mb-6">
             <h4 className="font-medium mb-3 flex items-center gap-2">
               <ImageIcon className="w-4 h-4" />
-              Images
+              Images ({allAssets.images.length})
             </h4>
             <div className="grid grid-cols-2 gap-2">
-              {mockAssets.images.map((asset) => (
+              {allAssets.images.map((asset) => (
                 <div
                   key={asset.id}
                   className="border rounded-lg p-2 cursor-pointer hover:bg-gray-50 transition-colors"
@@ -183,10 +221,10 @@ export default function OrganizePage() {
           <div className="mb-6">
             <h4 className="font-medium mb-3 flex items-center gap-2">
               <Video className="w-4 h-4" />
-              Videos
+              Videos ({allAssets.videos.length})
             </h4>
             <div className="grid grid-cols-2 gap-2">
-              {mockAssets.videos.map((asset) => (
+              {allAssets.videos.map((asset) => (
                 <div
                   key={asset.id}
                   className="border rounded-lg p-2 cursor-pointer hover:bg-gray-50 transition-colors"
@@ -194,7 +232,7 @@ export default function OrganizePage() {
                 >
                   <div className="relative">
                     <img
-                      src={asset.thumbnail || "/placeholder.svg"}
+                      src={asset.thumbnail || asset.url || "/placeholder.svg"}
                       alt={asset.name}
                       className="w-full h-16 object-cover rounded mb-1"
                     />
@@ -209,6 +247,117 @@ export default function OrganizePage() {
               ))}
             </div>
           </div>
+          </>
+          )}
+
+          {/* Upload Tab */}
+          {activeTab === "upload" && (
+            <div className="space-y-6">
+              {/* Image Upload */}
+              <div>
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4" />
+                  Upload Images
+                </h4>
+                <Card>
+                  <CardBody className="p-4">
+                    <div
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors cursor-pointer"
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleFileDrop(e, "image")}
+                      onClick={() => imageInputRef.current?.click()}
+                    >
+                      <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                      <p className="text-sm text-gray-600 mb-1">Drop images here</p>
+                      <p className="text-xs text-gray-500">or click to browse</p>
+                    </div>
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleFileUpload(e.target.files, "image")}
+                    />
+                  </CardBody>
+                </Card>
+              </div>
+
+              {/* Video Upload */}
+              <div>
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <Video className="w-4 h-4" />
+                  Upload Videos
+                </h4>
+                <Card>
+                  <CardBody className="p-4">
+                    <div
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors cursor-pointer"
+                      onDragOver={handleDragOver}
+                      onDrop={(e) => handleFileDrop(e, "video")}
+                      onClick={() => videoInputRef.current?.click()}
+                    >
+                      <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                      <p className="text-sm text-gray-600 mb-1">Drop videos here</p>
+                      <p className="text-xs text-gray-500">or click to browse</p>
+                    </div>
+                    <input
+                      ref={videoInputRef}
+                      type="file"
+                      multiple
+                      accept="video/*"
+                      className="hidden"
+                      onChange={(e) => handleFileUpload(e.target.files, "video")}
+                    />
+                  </CardBody>
+                </Card>
+              </div>
+
+              {/* Uploaded Files Display */}
+              {uploadedFiles.length > 0 && (
+                <div>
+                  <h4 className="font-medium mb-3">Uploaded Files ({uploadedFiles.length})</h4>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {uploadedFiles.map((file) => (
+                      <div key={file.id} className="flex items-center gap-3 p-2 border rounded-lg">
+                        <div className="w-12 h-12 flex-shrink-0">
+                          {file.type === "image" ? (
+                            <img
+                              src={file.url || "/placeholder.svg"}
+                              alt={file.name}
+                              className="w-full h-full object-cover rounded"
+                            />
+                          ) : (
+                            <div className="w-full h-full bg-gray-200 rounded flex items-center justify-center">
+                              <Video className="w-6 h-6 text-gray-500" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{file.name}</p>
+                          <p className="text-xs text-gray-500">{file.type}</p>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button size="sm" variant="bordered" onPress={() => addElementToCanvas(file)}>
+                            Add
+                          </Button>
+                          <Button
+                            size="sm"
+                            color="danger"
+                            variant="light"
+                            isIconOnly
+                            onPress={() => removeUploadedFile(file.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Selected Element Properties */}
           {selectedElement && (
@@ -351,14 +500,7 @@ export default function OrganizePage() {
 
                 {/* Resize Handle */}
                 {selectedElement?.id === element.id && (
-                  <div
-                    className="absolute bottom-0 right-0 w-3 h-3 bg-blue-500 cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity"
-                    onMouseDown={(e) => {
-                      e.stopPropagation()
-                      setIsResizing(true)
-                      // Add resize logic here if needed
-                    }}
-                  />
+                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-blue-500 cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity" />
                 )}
               </div>
             ))}
@@ -368,7 +510,7 @@ export default function OrganizePage() {
                 <div className="text-center">
                   <Move className="w-12 h-12 mx-auto mb-2 opacity-50" />
                   <p>Click on content from the library to add it to the canvas</p>
-                  <p className="text-sm">Then drag and resize to position elements</p>
+                  <p className="text-sm">Upload new files or use existing assets</p>
                 </div>
               </div>
             )}
