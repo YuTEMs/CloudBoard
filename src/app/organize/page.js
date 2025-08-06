@@ -113,9 +113,15 @@ export default function OrganizePage() {
   }
 
   // Handle resize
-  const handleResize = (elementId, newSize) => {
-    setCanvasElements((elements) => elements.map((el) => (el.id === elementId ? { ...el, size: newSize } : el)))
-  }
+  const handleResize = (elementId, sizeUpdate) => {
+    setCanvasElements((elements) =>
+      elements.map((el) =>
+        el.id === elementId
+          ? { ...el, size: { ...el.size, ...sizeUpdate } }
+          : el
+      )
+    );
+  };
 
   // Delete element
   const deleteElement = (elementId) => {
@@ -214,12 +220,17 @@ export default function OrganizePage() {
                   <input
                     type="number"
                     value={selectedElement.size.width}
-                    onChange={(e) =>
-                      handleResize(selectedElement.id, {
-                        ...selectedElement.size,
-                        width: Number.parseInt(e.target.value),
-                      })
-                    }
+                    onChange={(e) => {
+                      const newWidth = Number.parseInt(e.target.value) || 0;
+                      handleResize(selectedElement.id, { width: newWidth });
+                      setSelectedElement({
+                        ...selectedElement,
+                        size: {
+                          ...selectedElement.size,
+                          width: newWidth,
+                        },
+                      });
+                    }}
                     className="w-full px-2 py-1 border rounded text-sm"
                   />
                 </div>
@@ -228,12 +239,17 @@ export default function OrganizePage() {
                   <input
                     type="number"
                     value={selectedElement.size.height}
-                    onChange={(e) =>
-                      handleResize(selectedElement.id, {
-                        ...selectedElement.size,
-                        height: Number.parseInt(e.target.value),
-                      })
-                    }
+                    onChange={(e) => {
+                      const newHeight = Number.parseInt(e.target.value) || 0;
+                      handleResize(selectedElement.id, { height: newHeight });
+                      setSelectedElement({
+                        ...selectedElement,
+                        size: {
+                          ...selectedElement.size,
+                          height: newHeight,
+                        },
+                      });
+                    }}
                     className="w-full px-2 py-1 border rounded text-sm"
                   />
                 </div>
