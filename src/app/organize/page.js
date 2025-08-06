@@ -24,7 +24,35 @@ export default function OrganizePage() {
   const [draggedElement, setDraggedElement] = useState(null)
   const [isResizing, setIsResizing] = useState(false)
   const canvasRef = useRef(null)
-  const { isOpen, onOpen, onClose } = useDisclosure()
+  const [uploadedFiles, setUploadedFiles] = useState([])
+  const imageInputRef = useRef(null)
+  const videoInputRef = useRef(null)
+
+  const handleFileUpload = (files, type) => {
+    const newFiles = Array.from(files).map((file) => ({
+      id: `${type}_${Date.now()}_${Math.random()}`,
+      name: file.name,
+      type: type,
+      file: file,
+      url: URL.createObjectURL(file),
+      size: file.size,
+    }))
+
+    setUploadedFiles((prev) => [...prev, ...newFiles])
+  }
+  const handleDragOver = (e) => {
+    e.preventDefault()
+  }
+
+  const handleDrop = (e, type) => {
+    e.preventDefault()
+    const files = e.dataTransfer.files
+    handleFileUpload(files, type)
+  }
+
+  const removeFile = (fileId) => {
+    setUploadedFiles((prev) => prev.filter((file) => file.id !== fileId))
+  }
 
   // Add element to canvas
   const addElementToCanvas = (asset, position = { x: 50, y: 50 }) => {
@@ -268,9 +296,8 @@ export default function OrganizePage() {
                   e.stopPropagation()
                   setSelectedElement(element)
                 }}
-                className={`absolute cursor-move border-2 ${
-                  selectedElement?.id === element.id ? "border-blue-500" : "border-transparent"
-                } hover:border-blue-300 transition-colors group`}
+                className={`absolute cursor-move border-2 ${selectedElement?.id === element.id ? "border-blue-500" : "border-transparent"
+                  } hover:border-blue-300 transition-colors group`}
                 style={{
                   left: element.position.x,
                   top: element.position.y,
