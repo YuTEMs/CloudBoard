@@ -57,11 +57,8 @@ export default function OrganizePage() {
 
   // Add element to canvas
   const addElementToCanvas = (asset, position = { x: 50, y: 50 }) => {
-    console.log(asset.size)
     const originalWidth = asset.size.width;
     const originalHeight = asset.size.height;
-    console.log(originalWidth)
-    console.log(originalHeight)
 
     const newElement = {
       id: `element_${Date.now()}`,
