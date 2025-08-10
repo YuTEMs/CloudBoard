@@ -1,7 +1,18 @@
 "use client"
 
 import { Button, Card, CardBody } from "@heroui/react"
-import { Move, Plus, FileText, Check, ImageIcon, Video, Trash2, Upload } from "lucide-react"
+import {
+  Move,
+  Plus,
+  FileText,
+  Check,
+  ImageIcon,
+  Video,
+  Trash2,
+  Upload,
+  ChevronUp,
+  ChevronDown,
+} from "lucide-react"
 import { useState, useRef } from "react"
 import { AppHeader } from "../../components/layout/app-hearder"
 
@@ -19,15 +30,14 @@ const mockAssets = {
 }
 
 export default function OrganizePage() {
-  const [canvasElements, setCanvasElements] = useState([])
-  const [selectedElement, setSelectedElement] = useState(null)
-  const [draggedElement, setDraggedElement] = useState(null)
+  const [selectedSlide, setSelectedSlide] = useState(null)
   const [isResizing, setIsResizing] = useState(false)
-  const canvasRef = useRef(null)
   const [uploadedFiles, setUploadedFiles] = useState([])
   const imageInputRef = useRef(null)
   const videoInputRef = useRef(null)
   const [activeTab, setActiveTab] = useState("existing") // "existing" or "upload"
+  const [playlist, setPlaylist] = useState([])
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
 
   const handleFileUpload = (files, type) => {
     const newFiles = Array.from(files).map((file) => ({
@@ -55,72 +65,9 @@ export default function OrganizePage() {
     setUploadedFiles((prev) => prev.filter((file) => file.id !== fileId))
   }
 
-  // Add element to canvas
-  const addElementToCanvas = (asset, position = { x: 50, y: 50 }) => {
-    const originalWidth = asset.size.width;
-    const originalHeight = asset.size.height;
-
-    const newElement = {
-      id: `element_${Date.now()}`,
-      assetId: asset.id,
-      type: asset.type,
-      name: asset.name,
-      url: asset.url || asset.thumbnail,
-      position,
-      size: { width: originalWidth, height: originalHeight },
-      zIndex: canvasElements.length + 1,
-      originalHeight: originalHeight,
-      originalWidth: originalWidth,
-    }
-    setCanvasElements([...canvasElements, newElement])
-  }
-
-  // Add text element
-  const addTextElement = () => {
-    const newElement = {
-      id: `text_${Date.now()}`,
-      type: "text",
-      content: "Sample Text",
-      position: { x: 100, y: 100 },
-      size: { width: 200, height: 50 },
-      style: { fontSize: "18px", color: "#000000", fontWeight: "normal" },
-      zIndex: canvasElements.length + 1,
-    }
-    setCanvasElements([...canvasElements, newElement])
-  }
-
-  // Handle drag start
-  const handleDragStart = (e, element) => {
-    setDraggedElement(element)
-    setSelectedElement(element)
-    const rect = e.currentTarget.getBoundingClientRect()
-    const offsetX = e.clientX - rect.left
-    const offsetY = e.clientY - rect.top
-    e.dataTransfer.setData("text/plain", JSON.stringify({ offsetX, offsetY }))
-  }
-
-  // Handle drop on canvas
-  const handleCanvasDrop = (e) => {
-    e.preventDefault()
-    if (!draggedElement) return
-
-    const canvasRect = canvasRef.current.getBoundingClientRect()
-    const dropData = JSON.parse(e.dataTransfer.getData("text/plain"))
-
-    const newPosition = {
-      x: e.clientX - canvasRect.left - dropData.offsetX,
-      y: e.clientY - canvasRect.top - dropData.offsetY,
-    }
-
-    setCanvasElements((elements) =>
-      elements.map((el) => (el.id === draggedElement.id ? { ...el, position: newPosition } : el)),
-    )
-    setDraggedElement(null)
-  }
-
   // Handle resize
   const handleResize = (elementId, sizeUpdate) => {
-    setCanvasElements((elements) =>
+    setPlaylist((elements) =>
       elements.map((el) =>
         el.id === elementId
           ? { ...el, size: { ...el.size, ...sizeUpdate } }
@@ -129,17 +76,15 @@ export default function OrganizePage() {
     );
   };
 
-  // Delete element
-  const deleteElement = (elementId) => {
-    setCanvasElements((elements) => elements.filter((el) => el.id !== elementId))
-    setSelectedElement(null)
-  }
-
-  // Save layout
-  const saveLayout = () => {
-    console.log("Saving layout:", canvasElements)
-    // Here you would typically send the layout to your backend
-    alert("Layout saved successfully!")
+  // Save playlist
+  const savePlaylist = () => {
+    console.log("Saving playlist:", playlist)
+    console.log(
+      "Total duration:",
+      playlist.reduce((sum, slide) => sum + slide.duration, 0),
+      "seconds",
+    )
+    alert("Playlist saved successfully!")
   }
 
   // Get all available assets (existing + uploaded)
@@ -150,7 +95,62 @@ export default function OrganizePage() {
     }
   }
 
+
+  // Add content to playlist
+  const addToPlaylist = (asset) => {
+    const originalWidth = asset.size.width;
+    const originalHeight = asset.size.height;
+    const newSlide = {
+      id: `slide_${Date.now()}`,
+      assetId: asset.id,
+      type: asset.type,
+      name: asset.name,
+      url: asset.url || asset.thumbnail,
+      duration: 5, // Default 5 seconds
+      order: playlist.length + 1,
+      size: { height: originalHeight, width: originalWidth },
+      originalHeight: originalHeight,
+      originalWidth: originalWidth,
+    }
+    setPlaylist([...playlist, newSlide])
+  }
+
+  // Remove slide from playlist
+  const removeSlide = (slideId) => {
+    setPlaylist((prev) => prev.filter((slide) => slide.id !== slideId))
+    setSelectedSlide(null)
+  }
+
+  // Move slide up/down in order
+  const moveSlide = (slideId, direction) => {
+    const slideIndex = playlist.findIndex((slide) => slide.id === slideId)
+    const newPlaylist = [...playlist]
+    const targetIndex = direction === "up" ? slideIndex - 1 : slideIndex + 1
+
+    if ((direction === "up" && slideIndex === 0) || (direction === "down" && slideIndex === playlist.length - 1)) {
+      return
+    }
+    // Swap slides
+    ;[newPlaylist[slideIndex], newPlaylist[targetIndex]] = [newPlaylist[targetIndex], newPlaylist[slideIndex]]
+
+    setPlaylist(newPlaylist)
+  }
+
+  // Update slide duration
+  const updateSlideDuration = (slideId, duration) => {
+    const newDuration = Number.parseInt(duration)
+
+    setPlaylist((prev) => prev.map((slide) => (slide.id === slideId ? { ...slide, duration: newDuration } : slide)))
+
+    // Also update selectedSlide if it's the one being modified
+    if (selectedSlide && selectedSlide.id === slideId) {
+      setSelectedSlide((prev) => ({ ...prev, duration: newDuration }))
+    }
+  }
+
   const allAssets = getAllAssets()
+  const currentSlide = playlist[currentSlideIndex]
+  const totalDuration = playlist.reduce((sum, slide) => sum + slide.duration, 0)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -163,9 +163,6 @@ export default function OrganizePage() {
 
           {/* Action Buttons */}
           <div className="flex gap-2 mb-6 flex-wrap">
-            <Button size="sm" variant="bordered" startContent={<Plus className="w-4 h-4" />} onPress={addTextElement}>
-              Add Text
-            </Button>
             <Button size="sm" variant="bordered" startContent={<FileText className="w-4 h-4" />}>
               Template
             </Button>
@@ -207,7 +204,7 @@ export default function OrganizePage() {
                     <div
                       key={asset.id}
                       className="border rounded-lg p-2 cursor-pointer hover:bg-gray-50 transition-colors"
-                      onClick={() => addElementToCanvas(asset)}
+                      onClick={() => addToPlaylist(asset)}
                     >
                       <img
                         src={asset.url || "/placeholder.svg"}
@@ -231,7 +228,7 @@ export default function OrganizePage() {
                     <div
                       key={asset.id}
                       className="border rounded-lg p-2 cursor-pointer hover:bg-gray-50 transition-colors"
-                      onClick={() => addElementToCanvas(asset)}
+                      onClick={() => addToPlaylist(asset)}
                     >
                       <div className="relative">
                         <img
@@ -324,7 +321,29 @@ export default function OrganizePage() {
                     {uploadedFiles.map((file) => (
                       <div key={file.id} className="flex items-center gap-3 p-2 border rounded-lg">
                         <div className="w-12 h-12 flex-shrink-0">
-                          {file.type === "image" ? (
+                          {file.type === "video" ? (
+                            <>
+                              <div className="w-full h-full bg-gray-200 rounded flex items-center justify-center">
+                                <Video className="w-6 h-6 text-gray-500" />
+                              </div>
+                              <video
+                                src={file.url}
+                                style={{ display: "none" }}
+                                onLoadedMetadata={e => {
+                                  const video = e.target;
+                                  const width = video.videoWidth;
+                                  const height = video.videoHeight;
+                                  setUploadedFiles(prev =>
+                                    prev.map(f =>
+                                      f.id === file.id
+                                        ? { ...f, size: { width, height } }
+                                        : f
+                                    )
+                                  );
+                                }}
+                              />
+                            </>
+                          ) : (
                             <img
                               src={file.url || "/placeholder.svg"}
                               alt={file.name}
@@ -333,7 +352,6 @@ export default function OrganizePage() {
                                 const img = e.target;
                                 const width = img.naturalWidth;
                                 const height = img.naturalHeight;
-                                // Update the file object with its size
                                 setUploadedFiles(prev =>
                                   prev.map(f =>
                                     f.id === file.id
@@ -343,10 +361,6 @@ export default function OrganizePage() {
                                 );
                               }}
                             />
-                          ) : (
-                            <div className="w-full h-full bg-gray-200 rounded flex items-center justify-center">
-                              <Video className="w-6 h-6 text-gray-500" />
-                            </div>
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
@@ -354,7 +368,7 @@ export default function OrganizePage() {
                           <p className="text-xs text-gray-500">{file.type}</p>
                         </div>
                         <div className="flex gap-1">
-                          <Button size="sm" variant="bordered" onPress={() => addElementToCanvas(file)}>
+                          <Button size="sm" variant="bordered" onPress={() => addToPlaylist(file)}>
                             Add
                           </Button>
                           <Button
@@ -376,7 +390,7 @@ export default function OrganizePage() {
           )}
 
           {/* Selected Element Properties */}
-          {selectedElement && (
+          {currentSlide && (
             <div className="border-t pt-4">
               <h4 className="font-medium mb-3">Properties</h4>
               <div className="space-y-2">
@@ -384,14 +398,14 @@ export default function OrganizePage() {
                   <label className="text-sm text-gray-600">Width</label>
                   <input
                     type="number"
-                    value={selectedElement.size.width ?? 0}
+                    value={currentSlide.size.width ?? 0}
                     onChange={(e) => {
                       const newWidth = Number.parseInt(e.target.value) || 0;
-                      handleResize(selectedElement.id, { width: newWidth });
-                      setSelectedElement({
-                        ...selectedElement,
+                      handleResize(currentSlide.id, { width: newWidth });
+                      setSelectedSlide({
+                        ...currentSlide,
                         size: {
-                          ...selectedElement.size,
+                          ...currentSlide.size,
                           width: newWidth,
                         },
                       });
@@ -403,14 +417,14 @@ export default function OrganizePage() {
                   <label className="text-sm text-gray-600">Height</label>
                   <input
                     type="number"
-                    value={selectedElement.size.height ?? 0}
+                    value={currentSlide.size.height ?? 0}
                     onChange={(e) => {
                       const newHeight = Number.parseInt(e.target.value) || 0;
-                      handleResize(selectedElement.id, { height: newHeight });
-                      setSelectedElement({
-                        ...selectedElement,
+                      handleResize(currentSlide.id, { height: newHeight });
+                      setSelectedSlide({
+                        ...currentSlide,
                         size: {
-                          ...selectedElement.size,
+                          ...currentSlide.size,
                           height: newHeight,
                         },
                       });
@@ -418,38 +432,21 @@ export default function OrganizePage() {
                     className="w-full px-2 py-1 border rounded text-sm"
                   />
                 </div>
-                {selectedElement.type === "text" && (
-                  <div>
-                    <label className="text-sm text-gray-600">Text Content</label>
-                    <input
-                      type="text"
-                      value={selectedElement.content}
-                      onChange={(e) => {
-                        setCanvasElements((elements) =>
-                          elements.map((el) =>
-                            el.id === selectedElement.id ? { ...el, content: e.target.value } : el,
-                          ),
-                        )
-                        setSelectedElement({ ...selectedElement, content: e.target.value })
-                      }}
-                      className="w-full px-2 py-1 border rounded text-sm"
-                    />
-                  </div>
-                )}
                 <Button
                   size="sm"
                   variant="bordered"
                   onPress={() => {
-                    handleResize(selectedElement.id, {
-                      width: selectedElement.originalWidth,
-                      height: selectedElement.originalHeight,
+                    handleResize(selectedSlide.id, {
+                      width: selectedSlide.originalWidth,
+                      height: selectedSlide.originalHeight,
                     });
-                    setSelectedElement({
-                      ...selectedElement,
-                      size: { 
-                        ...selectedElement.size,
-                        width: selectedElement.originalWidth,
-                        height: selectedElement.originalHeight,},
+                    selectedSlide({
+                      ...selectedSlide,
+                      size: {
+                        ...selectedSlide.size,
+                        width: selectedSlide.originalWidth,
+                        height: selectedSlide.originalHeight,
+                      },
                     });
                   }}
                   className="w-full mt-2"
@@ -461,7 +458,7 @@ export default function OrganizePage() {
                   color="danger"
                   variant="bordered"
                   startContent={<Trash2 className="w-4 h-4" />}
-                  onPress={() => deleteElement(selectedElement.id)}
+                  onPress={() => removeSlide(selectedSlide.id)}
                   className="w-full"
                 >
                   Delete
@@ -471,93 +468,205 @@ export default function OrganizePage() {
           )}
         </div>
 
-        {/* Canvas Area */}
-        <div className="flex-1 p-4">
-          <div className="mb-4 flex justify-between items-center">
-            <h3 className="text-lg font-semibold">Canvas (1920x1080)</h3>
-            <Button color="primary" startContent={<Check className="w-4 h-4" />} onPress={saveLayout}>
-              Save Layout
-            </Button>
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col">
+          {/* Preview Area */}
+          <div className="flex-1 p-6 bg-white">
+            <div className="mb-4 flex justify-between items-center">
+              <div>
+                <h3 className="text-lg font-semibold">Preview</h3>
+                <p className="text-sm text-gray-600">
+                  Slide {currentSlideIndex + 1} of {playlist.length} | Total Duration: {totalDuration}s
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button color="primary" startContent={<Check className="w-4 h-4" />} onPress={savePlaylist}>
+                  Save Playlist
+                </Button>
+              </div>
+            </div>
+
+            {/* Preview Display */}
+            <div className="bg-gray-100 rounded-lg flex items-center justify-center" style={{ height: "400px" }}>
+              {currentSlide ? (
+                <div className="w-full h-full flex items-center justify-center">
+                  {currentSlide.type === "image" && (
+                    <img
+                      src={currentSlide.url || "/placeholder.svg"}
+                      alt={currentSlide.name}
+                      className="max-w-full max-h-full object-contain rounded"
+                      style={{
+                        width: currentSlide.size.width,
+                        height: currentSlide.size.height,
+                      }}
+                    />
+                  )}
+                  {currentSlide.type === "video" && (
+                    <div className="w-full h-full bg-gray-800 rounded flex items-center justify-center">
+                      <div className="text-center text-white">
+                        <video
+                          src={currentSlide.url}
+                          className="max-w-full max-h-full object-contain rounded"
+                          style={{
+                            width: currentSlide.size.width,
+                            height: currentSlide.size.height,
+                          }}
+                          controls
+                          muted
+                          onError={(e) => {
+                            // Fallback to placeholder if video fails to load
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {currentSlide.type === "text" && (
+                    <div
+                      className="w-full h-full flex items-center justify-center rounded"
+                      style={{
+                        backgroundColor: currentSlide.style?.backgroundColor || "#ffffff",
+                        color: currentSlide.style?.color || "#000000",
+                        fontSize: currentSlide.style?.fontSize || "24px",
+                        textAlign: currentSlide.style?.textAlign || "center",
+                      }}
+                    >
+                      <div className="p-8">
+                        <p>{currentSlide.content}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center text-gray-500">
+                  <Plus className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg">No content in playlist</p>
+                  <p className="text-sm">Add images, videos, or text from the library</p>
+                </div>
+              )}
+            </div>
           </div>
 
-          <div
-            ref={canvasRef}
-            className="relative bg-white border-2 border-dashed border-gray-300 rounded-lg overflow-hidden"
-            style={{ width: "800px", height: "450px" }} // 16:9 aspect ratio scaled down
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={handleCanvasDrop}
-            onClick={() => setSelectedElement(null)}
-          >
-            {canvasElements.map((element) => (
-              <div
-                key={element.id}
-                draggable
-                onDragStart={(e) => handleDragStart(e, element)}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setSelectedElement(element)
-                }}
-                className={`absolute cursor-move border-2 ${selectedElement?.id === element.id ? "border-blue-500" : "border-transparent"
-                  } hover:border-blue-300 transition-colors group`}
-                style={{
-                  left: element.position.x,
-                  top: element.position.y,
-                  width: element.size.width,
-                  height: element.size.height,
-                  zIndex: element.zIndex,
-                }}
-              >
-                {element.type === "image" && (
-                  <img
-                    src={element.url || "/placeholder.svg"}
-                    alt={element.name}
-                    className="w-full h-full object-cover rounded"
-                    draggable={false}
-                  />
-                )}
-
-                {element.type === "video" && (
-                  <div className="w-full h-full bg-gray-200 rounded flex items-center justify-center relative">
-                    <Video className="w-8 h-8 text-gray-500" />
-                    <div className="absolute bottom-1 left-1 bg-black bg-opacity-75 text-white text-xs px-1 rounded">
-                      {element.name}
-                    </div>
-                  </div>
-                )}
-
-                {element.type === "text" && (
-                  <div
-                    className="w-full h-full flex items-center justify-center bg-transparent border border-dashed border-gray-400 rounded"
-                    style={element.style}
+          {/* Timeline/Playlist Area */}
+          <div className="bg-white border-t p-4">
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="font-medium">Playlist Timeline ({playlist.length} slides)</h4>
+              {selectedSlide && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">Duration:</span>
+                  <select
+                    className="px-2 py-1 border border-gray-300 rounded text-sm w-20"
+                    value={selectedSlide.duration}
+                    onChange={(e) => updateSlideDuration(selectedSlide.id, e.target.value)}
                   >
-                    {element.content}
+                    <option value="3">3s</option>
+                    <option value="5">5s</option>
+                    <option value="10">10s</option>
+                    <option value="15">15s</option>
+                    <option value="30">30s</option>
+                    <option value="60">60s</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Timeline Slides */}
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {playlist.map((slide, index) => (
+                <div
+                  key={slide.id}
+                  className={`flex-shrink-0 border-2 rounded-lg p-2 cursor-pointer transition-colors ${selectedSlide?.id === slide.id
+                    ? "border-blue-500 bg-blue-50"
+                    : currentSlideIndex === index
+                      ? "border-green-500 bg-green-50"
+                      : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  style={{ width: "120px" }}
+                  onClick={() => {
+                    setSelectedSlide(slide)
+                    setCurrentSlideIndex(index)
+                  }}
+                >
+                  {/* Slide Preview */}
+                  <div className="w-full h-16 bg-gray-100 rounded mb-2 flex items-center justify-center overflow-hidden">
+                    {slide.type === "image" && (
+                      <img
+                        src={slide.url || "/placeholder.svg"}
+                        alt={slide.name}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                    {slide.type === "video" && (
+                      <div className="w-full h-16 bg-gray-800 flex items-center justify-center">
+                        <Video className="w-6 h-6 text-white" />
+                      </div>
+                    )}
+                    {slide.type === "text" && (
+                      <div className="w-full h-16 flex items-center justify-center text-xs p-1">
+                        <span className="truncate">{slide.content}</span>
+                      </div>
+                    )}
                   </div>
-                )}
 
-                {/* Resize Handle */}
-                {selectedElement?.id === element.id && (
-                  <div className="absolute bottom-0 right-0 w-3 h-3 bg-blue-500 cursor-se-resize opacity-0 group-hover:opacity-100 transition-opacity" />
-                )}
-              </div>
-            ))}
+                  {/* Slide Info */}
+                  <div className="text-center">
+                    <p className="text-xs font-medium truncate">{index + 1}</p>
+                    <p className="text-xs text-gray-500">{slide.duration}s</p>
+                  </div>
 
-            {canvasElements.length === 0 && (
-              <div className="absolute inset-0 flex items-center justify-center text-gray-500">
-                <div className="text-center">
-                  <Move className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>Click on content from the library to add it to the canvas</p>
-                  <p className="text-sm">Upload new files or use existing assets</p>
+                  {/* Controls */}
+                  {selectedSlide?.id === slide.id && (
+                    <div className="flex justify-center gap-1 mt-2">
+                      <Button
+                        size="sm"
+                        variant="light"
+                        isIconOnly
+                        onPress={() => moveSlide(slide.id, "up")}
+                        isDisabled={index === 0}
+                      >
+                        <ChevronUp className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="light"
+                        isIconOnly
+                        onPress={() => moveSlide(slide.id, "down")}
+                        isDisabled={index === playlist.length - 1}
+                      >
+                        <ChevronDown className="w-3 h-3" />
+                      </Button>
+                      <Button size="sm" color="danger" variant="light" isIconOnly onPress={() => removeSlide(slide.id)}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* Add New Slide Button */}
+              <div
+                className="flex-shrink-0 border-2 border-dashed border-gray-300 rounded-lg p-2 cursor-pointer hover:border-gray-400 transition-colors flex items-center justify-center"
+                style={{ width: "120px", height: "120px" }}
+                onClick={() => setActiveTab("existing")}
+              >
+                <div className="text-center text-gray-500">
+                  <Plus className="w-8 h-8 mx-auto mb-1" />
+                  <p className="text-xs">Add Slide</p>
                 </div>
               </div>
-            )}
-          </div>
+            </div>
 
-          {/* Canvas Info */}
-          <div className="mt-4 text-sm text-gray-600">
-            <p>
-              Elements: {canvasElements.length} | Selected:{" "}
-              {selectedElement ? selectedElement.name || selectedElement.content : "None"}
-            </p>
+            {/* Text Editor for Selected Text Slide */}
+            {selectedSlide?.type === "text" && (
+              <div className="mt-4 p-4 border rounded-lg bg-gray-50">
+                <h5 className="font-medium mb-2">Edit Text Content</h5>
+                <Input
+                  value={selectedSlide.content}
+                  onChange={(e) => updateTextContent(selectedSlide.id, e.target.value)}
+                  placeholder="Enter your text content"
+                  className="mb-2"
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>
