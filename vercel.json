@@ -2,6 +2,10 @@
   "version": 2,
   "builds": [
     {
+      "src": "package.json",
+      "use": "@vercel/next"
+    },
+    {
       "src": "api/main.py",
       "use": "@vercel/python"
     }
@@ -10,6 +14,10 @@
     {
       "src": "/api/(.*)",
       "dest": "api/main.py"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
     }
   ]
 }
