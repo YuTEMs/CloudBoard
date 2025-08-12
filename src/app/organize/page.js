@@ -15,7 +15,7 @@ import {
 } from "lucide-react"
 import { useState, useRef } from "react"
 import { AppHeader } from "../../components/layout/app-hearder"
-
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000"
 // Mock data for available content
 const mockAssets = {
   images: [
@@ -77,14 +77,78 @@ export default function OrganizePage() {
   };
 
   // Save playlist
-  const savePlaylist = () => {
-    console.log("Saving playlist:", playlist)
-    console.log(
-      "Total duration:",
-      playlist.reduce((sum, slide) => sum + slide.duration, 0),
-      "seconds",
-    )
-    alert("Playlist saved successfully!")
+  const savePlaylist = async () => {
+    try {
+      if (!playlist.length) {
+        alert("Add items to the playlist first.")
+        return
+      }
+
+      const form = new FormData()
+      const durationsOut = []
+      let appendedCount = 0
+
+      for (const slide of playlist) {
+        const durationValue = Number.isFinite(slide.duration) ? slide.duration : 5
+
+        // Prefer original uploaded file if present
+        const matchedUpload = uploadedFiles.find((f) => f.id === slide.assetId)
+        if (matchedUpload?.file) {
+          form.append("files", matchedUpload.file)
+          durationsOut.push(durationValue)
+          appendedCount++
+          continue
+        }
+
+        // Fallback: fetch by URL and upload as File
+        try {
+          if (!slide.url) continue
+          const res = await fetch(slide.url, { mode: "cors" })
+          if (!res.ok) {
+            console.warn("Skipping asset (fetch failed):", slide.url, res.status)
+            continue
+          }
+          const blob = await res.blob()
+          const urlPath = (slide.url || "").split("?")[0]
+          const ext = urlPath.includes(".") ? urlPath.substring(urlPath.lastIndexOf(".") + 1) : ""
+          const safeName = (slide.name || `slide_${Date.now()}`).replace(/[^a-zA-Z0-9._-]/g, "_")
+          const filename = ext && !safeName.endsWith(`.${ext}`) ? `${safeName}.${ext}` : safeName
+          const fileFromBlob = new File([blob], filename, { type: blob.type || undefined })
+          form.append("files", fileFromBlob)
+          durationsOut.push(durationValue)
+          appendedCount++
+        } catch (err) {
+          console.error("Skipping asset (fetch error):", slide.url, err)
+        }
+      }
+
+      if (appendedCount === 0) {
+        alert("No valid files to upload.")
+        return
+      }
+
+      form.append("durations", JSON.stringify(durationsOut))
+      form.append("loop", "true")
+
+      const response = await fetch(`${BACKEND_URL}/upload-playlist`, {
+        method: "POST",
+        body: form,
+        mode: "cors",
+      })
+
+      if (!response.ok) {
+        const text = await response.text()
+        alert(`Failed to save playlist: ${text}`)
+        return
+      }
+
+      const data = await response.json()
+      console.log("Playlist saved:", data)
+      alert("Playlist saved and broadcasting to display!")
+    } catch (e) {
+      console.error(e)
+      alert("Unexpected error saving playlist.")
+    }
   }
 
   // Get all available assets (existing + uploaded)
@@ -98,8 +162,8 @@ export default function OrganizePage() {
 
   // Add content to playlist
   const addToPlaylist = (asset) => {
-    const originalWidth = asset.size.width;
-    const originalHeight = asset.size.height;
+    const originalWidth = asset.size?.width ?? 300;
+    const originalHeight = asset.size?.height ?? 300;
     const newSlide = {
       id: `slide_${Date.now()}`,
       assetId: asset.id,
@@ -264,7 +328,7 @@ export default function OrganizePage() {
                     <div
                       className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors cursor-pointer"
                       onDragOver={handleDragOver}
-                      onDrop={(e) => handleFileDrop(e, "image")}
+                      onDrop={(e) => handleDrop(e, "image")}
                       onClick={() => imageInputRef.current?.click()}
                     >
                       <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
@@ -294,7 +358,7 @@ export default function OrganizePage() {
                     <div
                       className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors cursor-pointer"
                       onDragOver={handleDragOver}
-                      onDrop={(e) => handleFileDrop(e, "video")}
+                      onDrop={(e) => handleDrop(e, "video")}
                       onClick={() => videoInputRef.current?.click()}
                     >
                       <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
@@ -376,7 +440,7 @@ export default function OrganizePage() {
                             color="danger"
                             variant="light"
                             isIconOnly
-                            onPress={() => removeUploadedFile(file.id)}
+                            onPress={() => removeFile(file.id)}
                           >
                             <Trash2 className="w-4 h-4" />
                           </Button>
@@ -440,7 +504,7 @@ export default function OrganizePage() {
                       width: selectedSlide.originalWidth,
                       height: selectedSlide.originalHeight,
                     });
-                    selectedSlide({
+                    setSelectedSlide({
                       ...selectedSlide,
                       size: {
                         ...selectedSlide.size,
@@ -673,3 +737,4 @@ export default function OrganizePage() {
     </div>
   )
 }
+
