@@ -1,13 +1,15 @@
 {
-  "functions": {
-    "api/main.py": {
-      "runtime": "python3.9"
-    }
-  },
-  "rewrites": [
+  "version": 2,
+  "builds": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/main.py"
+      "src": "api/main.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "api/main.py"
     }
   ]
 }
