@@ -1,21 +1,15 @@
 import os
 import uuid
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from supabase import create_client
 from dotenv import load_dotenv
-from fastapi.responses import StreamingResponse
-import asyncio
 import json
 from datetime import datetime
-from fastapi import Form
 import logging
-from typing import Optional
-try:
-    import httpx
-except Exception:  # httpx might not be installed directly, guard import
-    httpx = None
+from typing import Optional, List
+from pydantic import BaseModel
 import re
 import unicodedata
 
@@ -26,7 +20,8 @@ load_dotenv()
 # Load your environment variables (replace or use dotenv)
 SUPABASE_URL = (os.getenv("SUPABASE_URL") or "").strip()
 SUPABASE_KEY = (os.getenv("SUPABASE_SERVICE_KEY") or "").strip()
-BUCKET = (os.getenv("SUPABASE_BUCKET") or "media").strip()
+MEDIA_BUCKET = (os.getenv("SUPABASE_MEDIA_BUCKET") or "media").strip()
+MANIFESTS_BUCKET = (os.getenv("SUPABASE_MANIFESTS_BUCKET") or "manifests").strip()
 
 SUPABASE_INIT_ERROR: Optional[str] = None
 supabase = None
@@ -63,154 +58,137 @@ def sanitize_storage_key(original_name: str) -> str:
         name = (root[:100] + ext[:15]) if ext else root[:115]
     return name
 
+# Pydantic models
+class MediaItem(BaseModel):
+    type: str
+    url: str
+
+class ManifestRequest(BaseModel):
+    room: str
+    version: int
+    items: List[MediaItem]
+
 # FastAPI app
 app = FastAPI()
 
 
+# Configure CORS for Vercel deployment
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], 
-    allow_methods=["*"],
+    allow_origins=[
+        "http://localhost:3000", 
+        "http://127.0.0.1:3000",
+        "https://*.vercel.app",  # Allow all Vercel domains
+        "https://vercel.app",
+        "*"  # Allow all origins for development - restrict this in production
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
-event_queue: asyncio.Queue[str] = asyncio.Queue()
-
-@app.get("/events")
-async def sse_events():
-    async def event_generator():
-        while True:
-            data = await event_queue.get()
-            yield f"data: {data}\n\n"
-
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
-
+@app.get("/")
+async def root():
+    return {"message": "TV Display Control Backend", "status": "running"}
 
 @app.post("/upload")
-async def upload(file: UploadFile = File(...)):
-    if SUPABASE_INIT_ERROR or supabase is None:
-        return JSONResponse({"error": f"Supabase not configured: {SUPABASE_INIT_ERROR}"}, status_code=500)
-
-    data = await file.read()
-    safe_name = sanitize_storage_key(file.filename)
-    filename = f"{uuid.uuid4().hex}_{safe_name}"
-
-    try:
-        res = supabase.storage.from_(BUCKET).upload(
-            path=filename,
-            file=data,
-            file_options={"content-type": file.content_type or "application/octet-stream"},
-        )
-    except Exception as e:
-        logger.exception("Upload failed")
-        return JSONResponse({"error": f"Upload failed: {e}"}, status_code=500)
-
-    if res is None:
-        return JSONResponse({"error": "Upload failed"}, status_code=500)
-
-    public_url = f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET}/{filename}"
-
-    # Notify the display page via SSE
-    await event_queue.put(public_url)
-
-    return {
-        "message": "Uploaded successfully!",
-        "filename": filename,
-        "url": public_url,
-        "content_type": file.content_type,
-    }
-
-@app.post("/upload-playlist")
-async def upload_playlist(
-    files: list[UploadFile] = File(...),
-    durations: str = Form(...),
-    loop: bool = Form(False),
+async def upload_files(
+    room: str = Form(...),
+    files: List[UploadFile] = File(...)
 ):
+    """
+    Upload multiple files to Supabase Storage and return array of {type, url} objects.
+    """
     if SUPABASE_INIT_ERROR or supabase is None:
         return JSONResponse({"error": f"Supabase not configured: {SUPABASE_INIT_ERROR}"}, status_code=500)
 
+    if not room or not room.strip():
+        return JSONResponse({"error": "Room ID is required"}, status_code=400)
+
+    uploaded_items = []
+
     try:
-        durations_list = json.loads(durations)
-    except Exception:
-        return JSONResponse(
-            {"error": "Invalid 'durations' JSON. Provide an array of numbers in seconds."},
-            status_code=400,
-        )
+        for file in files:
+            # Read file data
+            data = await file.read()
+            
+            # Generate unique filename
+            safe_name = sanitize_storage_key(file.filename or "file")
+            filename = f"{uuid.uuid4().hex}_{safe_name}"
 
-    if not isinstance(durations_list, list) or len(durations_list) != len(files):
-        return JSONResponse(
-            {"error": "Number of durations must match number of files"},
-            status_code=400,
-        )
+            # Determine file type
+            content_type = file.content_type or "application/octet-stream"
+            file_type = "video" if content_type.startswith("video/") else "image"
 
-    public_urls: list[str] = []
-    content_types: list[str] = []
-
-    for file in files:
-        data = await file.read()
-        safe_name = sanitize_storage_key(file.filename)
-        filename = f"{uuid.uuid4().hex}_{safe_name}"
-        try:
-            res = supabase.storage.from_(BUCKET).upload(
+            # Upload to Supabase Storage
+            res = supabase.storage.from_(MEDIA_BUCKET).upload(
                 path=filename,
                 file=data,
-                file_options={"content-type": file.content_type or "application/octet-stream"},
+                file_options={"content-type": content_type},
             )
-        except Exception as e:
-            logger.exception("Upload failed for %s", file.filename)
-            return JSONResponse({"error": f"Upload failed for {file.filename}: {e}"}, status_code=500)
 
-        if res is None:
-            return JSONResponse(
-                {"error": f"Upload failed for {file.filename}"}, status_code=500
-            )
-        public_url = f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET}/{filename}"
-        public_urls.append(public_url)
-        content_types.append(file.content_type or "")
+            if res is None:
+                return JSONResponse({"error": f"Upload failed for {file.filename}"}, status_code=500)
 
-    playlist_items = []
-    for i, url in enumerate(public_urls):
-        try:
-            duration_ms = int(float(durations_list[i]) * 1000)
-        except Exception:
-            duration_ms = 5000
-        playlist_items.append(
-            {
-                "url": url,
-                "durationMs": duration_ms,
-                "contentType": content_types[i],
+            # Generate public URL
+            public_url = f"{SUPABASE_URL}/storage/v1/object/public/{MEDIA_BUCKET}/{filename}"
+
+            uploaded_items.append({
+                "type": file_type,
+                "url": public_url
+            })
+
+    except Exception as e:
+        logger.exception("Upload failed")
+        return JSONResponse({"error": f"Upload failed: {str(e)}"}, status_code=500)
+
+    return uploaded_items
+
+@app.post("/save-manifest")
+async def save_manifest(manifest: ManifestRequest):
+    """
+    Save manifest JSON to Supabase Storage as rooms/<room>/latest-manifest.json
+    """
+    if SUPABASE_INIT_ERROR or supabase is None:
+        return JSONResponse({"error": f"Supabase not configured: {SUPABASE_INIT_ERROR}"}, status_code=500)
+
+    if not manifest.room or not manifest.room.strip():
+        return JSONResponse({"error": "Room ID is required"}, status_code=400)
+
+    try:
+        # Create manifest data
+        manifest_data = {
+            "version": manifest.version,
+            "items": [item.dict() for item in manifest.items],
+            "timestamp": datetime.utcnow().isoformat() + "Z"
+        }
+
+        # Convert to JSON bytes
+        manifest_bytes = json.dumps(manifest_data, indent=2).encode("utf-8")
+        
+        # Save to manifests bucket
+        manifest_path = f"rooms/{manifest.room}/latest-manifest.json"
+        
+        res = supabase.storage.from_(MANIFESTS_BUCKET).upload(
+            path=manifest_path,
+            file=manifest_bytes,
+            file_options={
+                "content-type": "application/json",
+                "cache-control": "no-cache"
             }
         )
 
-    playlist = {
-        "items": playlist_items,
-        "loop": bool(loop),
-        "createdAt": datetime.utcnow().isoformat() + "Z",
-    }
+        if res is None:
+            return JSONResponse({"error": "Failed to save manifest"}, status_code=500)
 
-    playlist_bytes = json.dumps(playlist).encode("utf-8")
-    playlist_filename = f"{uuid.uuid4().hex}_playlist.json"
-    try:
-        res = supabase.storage.from_(BUCKET).upload(
-            path=playlist_filename,
-            file=playlist_bytes,
-            file_options={"content-type": "application/json"},
-        )
+        public_url = f"{SUPABASE_URL}/storage/v1/object/public/{MANIFESTS_BUCKET}/{manifest_path}"
+
+        return {
+            "message": "Manifest saved successfully",
+            "url": public_url,
+            "version": manifest.version
+        }
+
     except Exception as e:
-        logger.exception("Playlist upload failed")
-        return JSONResponse({"error": f"Playlist upload failed: {e}"}, status_code=500)
-
-    if res is None:
-        return JSONResponse({"error": "Playlist upload failed"}, status_code=500)
-
-    playlist_url = (
-        f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET}/{playlist_filename}"
-    )
-
-    await event_queue.put(playlist_url)
-
-    return {
-        "message": "Playlist uploaded successfully!",
-        "playlist_url": playlist_url,
-        "items": playlist_items,
-    }
+        logger.exception("Save manifest failed")
+        return JSONResponse({"error": f"Save manifest failed: {str(e)}"}, status_code=500)
