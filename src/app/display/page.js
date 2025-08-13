@@ -1,10 +1,10 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { supabase, MANIFESTS_BUCKET } from '@/lib/supabase'
 
-export default function DisplayPage() {
+function DisplayContent() {
   const searchParams = useSearchParams()
   const roomId = searchParams.get('room')
   
@@ -56,7 +56,7 @@ export default function DisplayPage() {
 
   // Fetch latest manifest from storage
   const fetchLatestManifest = useCallback(async () => {
-    if (!roomId) return
+    if (!roomId || !supabase) return
 
     try {
       const manifestPath = `rooms/${roomId}/latest-manifest.json`
@@ -111,6 +111,12 @@ export default function DisplayPage() {
         await fetchLatestManifest()
         
         // Setup realtime channel
+        if (!supabase) {
+          setError('Supabase not configured')
+          setIsLoading(false)
+          return
+        }
+        
         const channel = supabase.channel(`room-${roomId}`)
         channelRef.current = channel
 
@@ -345,5 +351,20 @@ export default function DisplayPage() {
         </div>
       )}
     </div>
+  )
+}
+
+export default function DisplayPage() {
+  return (
+    <Suspense fallback={
+      <div className="fixed inset-0 bg-black flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-xl">Loading display...</p>
+        </div>
+      </div>
+    }>
+      <DisplayContent />
+    </Suspense>
   )
 }

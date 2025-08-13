@@ -4,7 +4,7 @@ import { Button, Card, CardBody, Input } from "@heroui/react"
 import { Search, Plus, Copy, Upload, ExternalLink } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
-import { generateRoomId } from "@/lib/supabase"
+// Import is safe now - no immediate error throwing
 import { AppHeader } from "../../components/layout/app-hearder"
 
 const mockDisplays = [

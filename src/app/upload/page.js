@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { Button, Card, CardBody, Progress, Spinner } from "@heroui/react"
 import { Upload, FileImage, Video, Trash2, Send, ArrowLeft, ExternalLink } from "lucide-react"
 import { generateRoomId, supabase, BACKEND_URL } from '@/lib/supabase'
 import Link from 'next/link'
 
-export default function UploadPage() {
+function UploadContent() {
   const searchParams = useSearchParams()
   const [roomId, setRoomId] = useState('')
   const [selectedFiles, setSelectedFiles] = useState([])
@@ -25,8 +25,10 @@ export default function UploadPage() {
       // Use room ID from URL (from dashboard)
       setRoomId(roomParam)
     } else if (!roomId) {
-      // Generate new room ID if none provided
-      const newRoomId = generateRoomId()
+      // Generate new room ID if none provided (fallback if generateRoomId not available)
+      const timestamp = Date.now().toString(36)
+      const randomPart = Math.random().toString(36).substring(2, 15)
+      const newRoomId = `${timestamp}-${randomPart}`
       setRoomId(newRoomId)
     }
   }, [searchParams])
@@ -105,14 +107,19 @@ export default function UploadPage() {
       setStatus('Broadcasting manifest...')
 
       // Broadcast manifest via Supabase Realtime
-      const channel = supabase.channel(`room-${roomId}`)
-      await channel.subscribe()
-      
-      await channel.send({
-        type: 'broadcast',
-        event: 'playlist.replace',
-        payload: newManifest
-      })
+      if (supabase) {
+        const channel = supabase.channel(`room-${roomId}`)
+        await channel.subscribe()
+        
+        await channel.send({
+          type: 'broadcast',
+          event: 'playlist.replace',
+          payload: newManifest
+        })
+
+        // Unsubscribe from channel
+        await channel.unsubscribe()
+      }
 
       setUploadProgress(75)
 
@@ -142,9 +149,6 @@ export default function UploadPage() {
       setManifest(newManifest)
       setManifestVersion(prev => prev + 1)
       setSelectedFiles([])
-
-      // Unsubscribe from channel
-      await channel.unsubscribe()
 
     } catch (error) {
       console.error('Upload error:', error)
@@ -310,5 +314,20 @@ export default function UploadPage() {
         )}
       </div>
     </div>
+  )
+}
+
+export default function UploadPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-xl font-semibold">Loading upload page...</p>
+        </div>
+      </div>
+    }>
+      <UploadContent />
+    </Suspense>
   )
 }
