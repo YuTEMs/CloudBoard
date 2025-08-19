@@ -4,23 +4,23 @@ import Link from "next/link"
 
 export function AppHeader({ title, showBack = false, backHref = "/" }) {
   return (
-    <header className="flex items-center justify-between p-4 border-b border-black bg-white">
+    <header className="flex items-center justify-between p-4 border-b bg-white">
       <div className="flex items-center gap-4">
         {showBack ? (
           <Link href={backHref}>
-            <Button isIconOnly variant="light" className="hover:bg-black hover:text-white">
-              <ArrowLeft className="w-5 h-5 text-black" />
+            <Button isIconOnly variant="light">
+              <ArrowLeft className="w-5 h-5" />
             </Button>
           </Link>
         ) : (
-          <Button isIconOnly variant="light" className="hover:bg-black hover:text-white">
-            <Menu className="w-5 h-5 text-black" />
+          <Button isIconOnly variant="light">
+            <Menu className="w-5 h-5" />
           </Button>
         )}
-        <h1 className="text-xl font-semibold text-black">{title}</h1>
+        <h1 className="text-xl font-semibold">{title}</h1>
       </div>
-      <Button isIconOnly variant="light" className="hover:bg-black hover:text-white">
-        <User className="w-5 h-5 text-black" />
+      <Button isIconOnly variant="light">
+        <User className="w-5 h-5" />
       </Button>
     </header>
   )
