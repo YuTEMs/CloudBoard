@@ -1,970 +1,339 @@
 "use client"
 
-import { Button, Card, CardBody, Input, Slider } from "@heroui/react"
+import { Button, Card, CardBody } from "@heroui/react"
 import {
+  Move,
   Plus,
-  Save,
-  Upload,
+  FileText,
+  Check,
   ImageIcon,
   Video,
   Trash2,
-  Move,
-  RotateCcw,
-  Clock,
-  CloudSun,
-  Type,
-  Settings,
-  Play,
+  Upload,
   ChevronUp,
   ChevronDown,
-  Pause
 } from "lucide-react"
-import { useState, useRef, useEffect, useCallback, Suspense } from "react"
-import { useSearchParams } from "next/navigation"
+import { useState, useRef } from "react"
 import { AppHeader } from "../../components/layout/app-hearder"
-
-// Widget Components
-const TimeWidget = ({ x, y, width, height, isSelected, item, onDragStart, setSelectedItem, onResizeStart }) => {
-  const [time, setTime] = useState(new Date())
-
-  useEffect(() => {
-    const timer = setInterval(() => setTime(new Date()), 1000)
-    return () => clearInterval(timer)
-  }, [])
-
-  return (
-    <div
-      draggable
-      className={`absolute bg-black text-white rounded-lg flex items-center justify-center font-bold text-center border-2 ${
-        isSelected ? 'cursor-move border-blue-500 shadow-lg' : 'cursor-move border-transparent hover:border-gray-300 hover:shadow-md transition-all duration-150'
-      }`}
-      style={{ 
-        left: x, 
-        top: y, 
-        width, 
-        height
-      }}
-      onDragStart={(e) => onDragStart(e, item)}
-      onClick={(e) => {
-        e.stopPropagation()
-        setSelectedItem(item)
-      }}
-    >
-      <div>
-        <div style={{ fontSize: Math.min(width * 0.08, height * 0.3, 24) }}>
-          {time.toLocaleTimeString()}
-        </div>
-        <div style={{ fontSize: Math.min(width * 0.05, height * 0.2, 14), opacity: 0.75 }}>
-          {time.toLocaleDateString()}
-        </div>
-      </div>
-      
-      {/* Selection handles */}
-      {isSelected && (
-        <>
-          <div 
-            className="absolute -top-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-nw-resize hover:bg-blue-600"
-            onMouseDown={(e) => onResizeStart && onResizeStart(e, 'nw')}
-          ></div>
-          <div 
-            className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-ne-resize hover:bg-blue-600"
-            onMouseDown={(e) => onResizeStart && onResizeStart(e, 'ne')}
-          ></div>
-          <div 
-            className="absolute -bottom-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-sw-resize hover:bg-blue-600"
-            onMouseDown={(e) => onResizeStart && onResizeStart(e, 'sw')}
-          ></div>
-          <div 
-            className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-se-resize hover:bg-blue-600"
-            onMouseDown={(e) => onResizeStart && onResizeStart(e, 'se')}
-          ></div>
-        </>
-      )}
-    </div>
-  )
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://127.0.0.1:8000"
+// Mock data for available content
+const mockAssets = {
+  images: [
+    { id: "img1", name: "Logo.png", url: "/placeholder.svg?height=100&width=150&text=Logo", type: "image", size: { width: 150, height: 100 } },
+    { id: "img2", name: "Banner.jpg", url: "/placeholder.svg?height=100&width=200&text=Banner", type: "image", size: { width: 150, height: 100 } },
+    { id: "img3", name: "Product.png", url: "/placeholder.svg?height=120&width=120&text=Product", type: "image", size: { width: 150, height: 100 } },
+  ],
+  videos: [
+    { id: "vid1", name: "Promo.mp4", thumbnail: "/placeholder.svg?height=100&width=150&text=Video1", type: "video", size: { width: 150, height: 100 } },
+    { id: "vid2", name: "Demo.mp4", thumbnail: "/placeholder.svg?height=100&width=150&text=Video2", type: "video", size: { width: 150, height: 100 } },
+  ],
 }
 
-const WeatherWidget = ({ x, y, width, height, isSelected, item, onDragStart, setSelectedItem, onResizeStart }) => {
-  const [weather] = useState({
-    temp: 22,
-    condition: 'Sunny',
-    humidity: 65
-  })
-
-  return (
-    <div
-      draggable
-      className={`absolute bg-gradient-to-br from-blue-400 to-blue-600 text-white rounded-lg p-4 border-2 ${
-        isSelected ? 'cursor-move border-blue-500 shadow-lg' : 'cursor-move border-transparent hover:border-gray-300 hover:shadow-md transition-all duration-150'
-      }`}
-      style={{ 
-        left: x, 
-        top: y, 
-        width, 
-        height
-      }}
-      onDragStart={(e) => onDragStart(e, item)}
-      onClick={(e) => {
-        e.stopPropagation()
-        setSelectedItem(item)
-      }}
-    >
-      <div className="flex items-center justify-between h-full">
-        <div>
-          <div style={{ fontSize: Math.min(width * 0.12, height * 0.3, 32) }} className="font-bold">
-            {weather.temp}°C
-          </div>
-          <div style={{ fontSize: Math.min(width * 0.06, height * 0.15, 16) }}>
-            {weather.condition}
-          </div>
-          <div style={{ fontSize: Math.min(width * 0.04, height * 0.12, 12), opacity: 0.75 }}>
-            Humidity: {weather.humidity}%
-          </div>
-        </div>
-        <CloudSun style={{ width: Math.min(width * 0.15, height * 0.4, 32), height: Math.min(width * 0.15, height * 0.4, 32) }} />
-      </div>
-      
-      {/* Selection handles */}
-      {isSelected && (
-        <>
-          <div 
-            className="absolute -top-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-nw-resize hover:bg-blue-600"
-            onMouseDown={(e) => onResizeStart && onResizeStart(e, 'nw')}
-          ></div>
-          <div 
-            className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-ne-resize hover:bg-blue-600"
-            onMouseDown={(e) => onResizeStart && onResizeStart(e, 'ne')}
-          ></div>
-          <div 
-            className="absolute -bottom-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-sw-resize hover:bg-blue-600"
-            onMouseDown={(e) => onResizeStart && onResizeStart(e, 'sw')}
-          ></div>
-          <div 
-            className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-se-resize hover:bg-blue-600"
-            onMouseDown={(e) => onResizeStart && onResizeStart(e, 'se')}
-          ></div>
-        </>
-      )}
-    </div>
-  )
-}
-
-const SlideshowWidget = ({ x, y, width, height, isSelected, item, onDragStart, setSelectedItem, onResizeStart, onAddToSlideshow, uploadedFiles = [] }) => {
-  const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
-  const [isPlaying, setIsPlaying] = useState(true) // Auto-play by default
-  const [playlist, setPlaylist] = useState(item.playlist || [])
-
-  const timelineHeight = Math.min(height * 0.3, 60)
-  const previewHeight = height - timelineHeight
-
-  // Auto-advance slides when playing with proper looping
-  useEffect(() => {
-    if (isPlaying && playlist.length > 1) { // Only auto-advance if there are multiple slides
-      const currentSlide = playlist[currentSlideIndex]
-      const duration = (currentSlide?.duration || 5) * 1000
-      
-      const timer = setTimeout(() => {
-        setCurrentSlideIndex((prev) => {
-          const nextIndex = prev + 1
-          // Loop back to 0 when reaching the end
-          return nextIndex >= playlist.length ? 0 : nextIndex
-        })
-      }, duration)
-      
-      return () => clearTimeout(timer)
-    }
-  }, [isPlaying, currentSlideIndex, playlist])
-
-  // Sync with updated playlist from parent component
-  useEffect(() => {
-    setPlaylist(item.playlist || [])
-    // Reset slide index if current index is out of bounds
-    if (currentSlideIndex >= (item.playlist || []).length && (item.playlist || []).length > 0) {
-      setCurrentSlideIndex(0)
-    }
-  }, [item.playlist, currentSlideIndex])
-
-  // Auto-start playing when widget is selected and has multiple slides
-  useEffect(() => {
-    if (isSelected && playlist.length > 1) {
-      setIsPlaying(true)
-    }
-  }, [isSelected, playlist.length])
-
-  const handleDrop = useCallback((e) => {
-    e.preventDefault()
-    e.stopPropagation()
-    
-    const draggedData = e.dataTransfer.getData("application/json")
-    if (draggedData) {
-      try {
-        const draggedItem = JSON.parse(draggedData)
-        if (draggedItem.type === 'image' || draggedItem.type === 'video') {
-          const newSlide = {
-            id: `slide_${Date.now()}_${Math.random()}`,
-            assetId: draggedItem.id,
-            type: draggedItem.type,
-            name: draggedItem.name,
-            url: draggedItem.url,
-            duration: 5,
-            order: playlist.length + 1
-          }
-          const newPlaylist = [...playlist, newSlide]
-          setPlaylist(newPlaylist)
-          if (onAddToSlideshow) {
-            onAddToSlideshow(item.id, newPlaylist)
-          }
-        }
-      } catch (error) {
-        console.error('Failed to parse dropped item:', error)
-      }
-    }
-  }, [playlist, onAddToSlideshow, item.id])
-
-  const removeSlide = (slideId) => {
-    const newPlaylist = playlist.filter(slide => slide.id !== slideId)
-    setPlaylist(newPlaylist)
-    if (currentSlideIndex >= newPlaylist.length && newPlaylist.length > 0) {
-      setCurrentSlideIndex(newPlaylist.length - 1)
-    }
-    if (onAddToSlideshow) {
-      onAddToSlideshow(item.id, newPlaylist)
-    }
-  }
-
-  const updateSlideDuration = (slideId, newDuration) => {
-    const updatedPlaylist = playlist.map(slide =>
-      slide.id === slideId ? { ...slide, duration: parseInt(newDuration) || 5 } : slide
-    )
-    setPlaylist(updatedPlaylist)
-    if (onAddToSlideshow) {
-      onAddToSlideshow(item.id, updatedPlaylist)
-    }
-  }
-
-  const currentSlide = playlist[currentSlideIndex]
-
-  return (
-    <div
-      draggable
-      className={`absolute bg-gray-900 text-white rounded-lg border-2 ${
-        isSelected ? 'cursor-move border-blue-500 shadow-lg' : 'cursor-move border-transparent hover:border-gray-300 hover:shadow-md transition-all duration-150'
-      }`}
-      style={{ 
-        left: x, 
-        top: y, 
-        width, 
-        height
-      }}
-      onDragStart={(e) => onDragStart(e, item)}
-      onClick={(e) => {
-        e.stopPropagation()
-        setSelectedItem(item)
-      }}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={handleDrop}
-    >
-      {/* Preview Area */}
-      <div className="relative" style={{ height: previewHeight }}>
-        {currentSlide ? (
-          <div className="w-full h-full flex items-center justify-center bg-black rounded-t-lg overflow-hidden">
-            {currentSlide.type === 'image' && (
-              <img
-                src={currentSlide.url}
-                alt={currentSlide.name}
-                className="w-full h-full object-contain"
-              />
-            )}
-            {currentSlide.type === 'video' && (
-              <video
-                key={currentSlide.id} // Force re-render when slide changes
-                src={currentSlide.url}
-                className="w-full h-full object-contain"
-                muted
-                playsInline
-                onError={(e) => {
-                  console.error('Video failed to load:', currentSlide.url)
-                }}
-              />
-            )}
-          </div>
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-gray-800 rounded-t-lg">
-            <div className="text-center">
-              <Plus className="w-8 h-8 mx-auto mb-2 opacity-60" />
-              <p style={{ fontSize: Math.min(width * 0.04, 12) }}>
-                Drop files here to create slideshow
-              </p>
-            </div>
-          </div>
-        )}
-
-        {/* Play Controls */}
-        <div className="absolute top-2 right-2 flex gap-1">
-          <Button
-            size="sm"
-            variant="light"
-            isIconOnly
-            onPress={() => setIsPlaying(!isPlaying)}
-            className="bg-black bg-opacity-50 hover:bg-opacity-75"
-          >
-            {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-          </Button>
-        </div>
-
-        {/* Slide Info */}
-        {currentSlide && (
-          <div className="absolute bottom-2 left-2 bg-black bg-opacity-75 rounded px-2 py-1">
-            <span style={{ fontSize: Math.min(width * 0.03, 10) }}>
-              {currentSlideIndex + 1}/{playlist.length} • {currentSlide.duration}s
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Timeline */}
-      <div className="border-t border-gray-700 p-1" style={{ height: timelineHeight }}>
-        <div className="flex gap-1 overflow-x-auto">
-          {playlist.map((slide, index) => (
-            <div
-              key={slide.id}
-              className={`flex-shrink-0 border rounded cursor-pointer ${
-                currentSlideIndex === index
-                  ? 'border-blue-500 bg-blue-900'
-                  : 'border-gray-600 hover:border-gray-400'
-              }`}
-              style={{ width: Math.max(width * 0.15, 30), height: timelineHeight - 8 }}
-              onClick={(e) => {
-                e.stopPropagation()
-                setCurrentSlideIndex(index)
-              }}
-            >
-              <div className="w-full h-full flex items-center justify-center overflow-hidden rounded text-xs">
-                {slide.type === 'image' && (
-                  <img
-                    src={slide.url}
-                    alt={slide.name}
-                    className="w-full h-full object-contain"
-                  />
-                )}
-                {slide.type === 'video' && (
-                  <video
-                    key={slide.id}
-                    src={slide.url}
-                    className="w-full h-full object-contain"
-                    muted
-                    playsInline
-                    onError={() => {
-                      // Fallback to icon if video fails to load
-                    }}
-                  />
-                )}
-              </div>
-            </div>
-          ))}
-          
-          {/* Add slide placeholder */}
-          <div
-            className="flex-shrink-0 border-2 border-dashed border-gray-600 rounded flex items-center justify-center cursor-pointer hover:border-gray-400"
-            style={{ width: Math.max(width * 0.15, 30), height: timelineHeight - 8 }}
-          >
-            <Plus className="w-3 h-3 text-gray-400" />
-          </div>
-        </div>
-      </div>
-      
-      {/* Selection handles */}
-      {isSelected && (
-        <>
-          <div 
-            className="absolute -top-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-nw-resize hover:bg-blue-600"
-            onMouseDown={(e) => onResizeStart && onResizeStart(e, 'nw')}
-          ></div>
-          <div 
-            className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-ne-resize hover:bg-blue-600"
-            onMouseDown={(e) => onResizeStart && onResizeStart(e, 'ne')}
-          ></div>
-          <div 
-            className="absolute -bottom-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-sw-resize hover:bg-blue-600"
-            onMouseDown={(e) => onResizeStart && onResizeStart(e, 'sw')}
-          ></div>
-          <div 
-            className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-se-resize hover:bg-blue-600"
-            onMouseDown={(e) => onResizeStart && onResizeStart(e, 'se')}
-          ></div>
-        </>
-      )}
-    </div>
-  )
-}
-
-function OrganizePageContent() {
-  const searchParams = useSearchParams()
-  const boardId = searchParams.get('board')
-  
-  // Canvas and board state
-  const [canvasItems, setCanvasItems] = useState([])
-  const [selectedItem, setSelectedItem] = useState(null)
-  const [draggedItem, setDraggedItem] = useState(null)
-  const [canvasSize] = useState({ width: 1920, height: 1080 })
-  const [uploadedFiles, setUploadedFiles] = useState([])
-  const [boardName, setBoardName] = useState("")
-  const [backgroundImage, setBackgroundImage] = useState(null)
-  const [backgroundColor, setBackgroundColor] = useState("#ffffff")
-  const [isUploading, setIsUploading] = useState(false)
+export default function OrganizePage() {
+  const [selectedSlide, setSelectedSlide] = useState(null)
   const [isResizing, setIsResizing] = useState(false)
-  const [resizeHandle, setResizeHandle] = useState(null)
-  const [resizeStartPos, setResizeStartPos] = useState({ x: 0, y: 0 })
-  const [resizeStartSize, setResizeStartSize] = useState({ width: 0, height: 0 })
-
-  
-  // File upload refs
+  const [uploadedFiles, setUploadedFiles] = useState([])
   const imageInputRef = useRef(null)
   const videoInputRef = useRef(null)
-  const backgroundInputRef = useRef(null)
-  const canvasRef = useRef(null)
-  
-  // Slideshow-specific upload refs (independent)
-  const slideshowImageInputRef = useRef(null)
-  const slideshowVideoInputRef = useRef(null)
+  const [activeTab, setActiveTab] = useState("existing") // "existing" or "upload"
+  const [playlist, setPlaylist] = useState([])
+  const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
 
-  // Load board data from localStorage
-  useEffect(() => {
-    if (boardId) {
-      const savedBoards = localStorage.getItem('smartBoards')
-      if (savedBoards) {
-        const boards = JSON.parse(savedBoards)
-        const currentBoard = boards.find(board => board.id === boardId)
-        if (currentBoard) {
-          setBoardName(currentBoard.name)
-          setCanvasItems(currentBoard.configuration?.items || [])
-          setBackgroundImage(currentBoard.configuration?.backgroundImage || null)
-          setBackgroundColor(currentBoard.configuration?.backgroundColor || "#ffffff")
-        }
-      }
-    }
-  }, [boardId])
-
-  // Save board configuration
-  const saveBoard = useCallback(() => {
-    if (!boardId) return
-
-    const savedBoards = localStorage.getItem('smartBoards')
-    if (savedBoards) {
-      const boards = JSON.parse(savedBoards)
-      const boardIndex = boards.findIndex(board => board.id === boardId)
-      if (boardIndex !== -1) {
-        boards[boardIndex].configuration = {
-          items: canvasItems,
-          canvasSize,
-          backgroundImage,
-          backgroundColor
-        }
-        boards[boardIndex].updatedAt = new Date().toISOString()
-        localStorage.setItem('smartBoards', JSON.stringify(boards))
-      }
-    }
-  }, [boardId, canvasItems, canvasSize, backgroundImage, backgroundColor])
-
-  // Widget size configurations
-  const widgetSizes = {
-    time: { width: 200, height: 100 },
-    weather: { width: 250, height: 150 },
-    slideshow: { width: 480, height: 270 } // 16:9 aspect ratio
-  }
-
-  // HTML5 Drag and Drop handlers (like proto.js)
-  const handleDragStart = (e, item) => {
-    // Prevent drag when resizing
-    if (isResizing) {
-      e.preventDefault()
-      return
-    }
-    setDraggedItem(item)
-    setSelectedItem(item)
-    const rect = e.currentTarget.getBoundingClientRect()
-    const scale = 0.6
-    const offsetX = (e.clientX - rect.left) / scale
-    const offsetY = (e.clientY - rect.top) / scale
-    e.dataTransfer.setData("text/plain", JSON.stringify({ offsetX, offsetY }))
-  }
-
-  const handleCanvasDrop = (e) => {
-    e.preventDefault()
-    if (!draggedItem) return
-
-    const canvasRect = canvasRef.current.getBoundingClientRect()
-    const dropData = JSON.parse(e.dataTransfer.getData("text/plain"))
-    const scale = 0.6
-
-    const newX = (e.clientX - canvasRect.left) / scale - dropData.offsetX
-    const newY = (e.clientY - canvasRect.top) / scale - dropData.offsetY
-
-    // Apply bounds checking
-    const boundedX = Math.max(0, Math.min(newX, canvasSize.width - draggedItem.width))
-    const boundedY = Math.max(0, Math.min(newY, canvasSize.height - draggedItem.height))
-
-    setCanvasItems(items =>
-      items.map(item =>
-        item.id === draggedItem.id
-          ? { ...item, x: boundedX, y: boundedY }
-          : item
-      )
-    )
-    setDraggedItem(null)
-  }
-
-  // Resize handlers
-  const handleResizeStart = (e, handle) => {
-    e.preventDefault()
-    e.stopPropagation()
-    
-    setIsResizing(true)
-    setResizeHandle(handle)
-    setResizeStartPos({ x: e.clientX, y: e.clientY })
-    setResizeStartSize({ 
-      width: selectedItem.width, 
-      height: selectedItem.height,
-      x: selectedItem.x,
-      y: selectedItem.y
-    })
-  }
-
-  const handleResizeMove = useCallback((e) => {
-    if (!isResizing || !selectedItem || !resizeHandle) return
-
-    e.preventDefault()
-
-    const deltaX = e.clientX - resizeStartPos.x
-    const deltaY = e.clientY - resizeStartPos.y
-    const scale = 0.6
-
-    // Scale deltas to canvas scale
-    const scaledDeltaX = deltaX / scale
-    const scaledDeltaY = deltaY / scale
-
-    let newWidth = resizeStartSize.width
-    let newHeight = resizeStartSize.height
-    let newX = resizeStartSize.x
-    let newY = resizeStartSize.y
-
-    // Calculate new dimensions based on resize handle
-    switch (resizeHandle) {
-      case 'nw': // Top-left
-        newWidth = Math.max(50, resizeStartSize.width - scaledDeltaX)
-        newHeight = Math.max(50, resizeStartSize.height - scaledDeltaY)
-        newX = resizeStartSize.x + (resizeStartSize.width - newWidth)
-        newY = resizeStartSize.y + (resizeStartSize.height - newHeight)
-        break
-      case 'ne': // Top-right
-        newWidth = Math.max(50, resizeStartSize.width + scaledDeltaX)
-        newHeight = Math.max(50, resizeStartSize.height - scaledDeltaY)
-        newY = resizeStartSize.y + (resizeStartSize.height - newHeight)
-        break
-      case 'sw': // Bottom-left
-        newWidth = Math.max(50, resizeStartSize.width - scaledDeltaX)
-        newHeight = Math.max(50, resizeStartSize.height + scaledDeltaY)
-        newX = resizeStartSize.x + (resizeStartSize.width - newWidth)
-        break
-      case 'se': // Bottom-right
-        newWidth = Math.max(50, resizeStartSize.width + scaledDeltaX)
-        newHeight = Math.max(50, resizeStartSize.height + scaledDeltaY)
-        break
-    }
-
-    // Apply bounds checking
-    newX = Math.max(0, Math.min(newX, canvasSize.width - newWidth))
-    newY = Math.max(0, Math.min(newY, canvasSize.height - newHeight))
-
-    // For slideshow widgets, maintain 16:9 aspect ratio
-    if (selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow') {
-      const aspectRatio = 16 / 9
-      // Prioritize width changes for better UX
-      if (Math.abs(scaledDeltaX) >= Math.abs(scaledDeltaY)) {
-        newHeight = newWidth / aspectRatio
-      } else {
-        newWidth = newHeight * aspectRatio
-      }
-      
-      // Recalculate position based on new dimensions
-      switch (resizeHandle) {
-        case 'nw':
-          newX = resizeStartSize.x + (resizeStartSize.width - newWidth)
-          newY = resizeStartSize.y + (resizeStartSize.height - newHeight)
-          break
-        case 'ne':
-          newY = resizeStartSize.y + (resizeStartSize.height - newHeight)
-          break
-        case 'sw':
-          newX = resizeStartSize.x + (resizeStartSize.width - newWidth)
-          break
-        case 'se':
-          // No position adjustment needed
-          break
-      }
-      
-      // Apply bounds checking again with new dimensions
-      newX = Math.max(0, Math.min(newX, canvasSize.width - newWidth))
-      newY = Math.max(0, Math.min(newY, canvasSize.height - newHeight))
-    }
-
-    // Update state directly without re-creating the array unnecessarily
-    setCanvasItems(items => {
-      const updatedItems = [...items]
-      const itemIndex = updatedItems.findIndex(item => item.id === selectedItem.id)
-      if (itemIndex !== -1) {
-        updatedItems[itemIndex] = {
-          ...updatedItems[itemIndex],
-          width: newWidth,
-          height: newHeight,
-          x: newX,
-          y: newY
-        }
-      }
-      return updatedItems
-    })
-  }, [isResizing, selectedItem, resizeHandle, resizeStartPos, resizeStartSize, canvasSize])
-
-  const handleResizeEnd = useCallback(() => {
-    setIsResizing(false)
-    setResizeHandle(null)
-  }, [])
-
-  // Add global mouse event listeners for resizing
-  useEffect(() => {
-    if (isResizing) {
-      // Prevent text selection during resize for better performance
-      document.body.style.userSelect = 'none'
-      
-      document.addEventListener('mousemove', handleResizeMove, { passive: false })
-      document.addEventListener('mouseup', handleResizeEnd)
-      
-      return () => {
-        document.body.style.userSelect = ''
-        document.removeEventListener('mousemove', handleResizeMove)
-        document.removeEventListener('mouseup', handleResizeEnd)
-      }
-    }
-  }, [isResizing, handleResizeMove, handleResizeEnd])
-
-  // Keyboard deletion
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedItem) {
-        e.preventDefault()
-        deleteSelectedItem()
-      }
-    }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [selectedItem])
-
-  // Handle file upload
-  const handleFileUpload = async (files, type) => {
-    setIsUploading(true)
-    try {
-      const newFiles = await Promise.all(
-        Array.from(files).map(async (file) => {
-          // Convert file to base64 data URL for persistence
-          const dataURL = await new Promise((resolve) => {
-            const reader = new FileReader()
-            reader.onload = (e) => resolve(e.target.result)
-            reader.readAsDataURL(file)
-          })
-          
-          return {
+  const handleFileUpload = (files, type) => {
+    const newFiles = Array.from(files).map((file) => ({
       id: `${type}_${Date.now()}_${Math.random()}`,
       name: file.name,
       type: type,
       file: file,
-            url: dataURL, // Use data URL instead of blob URL
+      url: URL.createObjectURL(file),
       size: file.size,
-          }
-        })
-      )
+    }))
+
     setUploadedFiles((prev) => [...prev, ...newFiles])
-    } finally {
-      setIsUploading(false)
-    }
   }
-
-  // Handle slideshow-specific file upload (independent)
-  const handleSlideshowFileUpload = async (files, type) => {
-    if (!selectedItem || selectedItem.widgetType !== 'slideshow') return
-    
-    setIsUploading(true)
-    try {
-      const newSlides = await Promise.all(
-        Array.from(files).map(async (file) => {
-          if ((type === 'image' && !file.type.startsWith('image/')) ||
-              (type === 'video' && !file.type.startsWith('video/'))) {
-            return null
-          }
-          
-          // Convert file to base64 data URL for persistence
-          const dataURL = await new Promise((resolve) => {
-            const reader = new FileReader()
-            reader.onload = (e) => resolve(e.target.result)
-            reader.readAsDataURL(file)
-          })
-          
-          return {
-            id: `slide_${Date.now()}_${Math.random()}`,
-            type: type,
-            name: file.name,
-            url: dataURL,
-            duration: 5,
-            order: (selectedItem.playlist?.length || 0) + 1
-          }
-        })
-      )
-      
-      // Filter out null values and add to slideshow
-      const validSlides = newSlides.filter(slide => slide !== null)
-      if (validSlides.length > 0) {
-        const currentPlaylist = selectedItem.playlist || []
-        const newPlaylist = [...currentPlaylist, ...validSlides]
-        addToSlideshow(selectedItem.id, newPlaylist)
-      }
-    } finally {
-      setIsUploading(false)
-    }
-  }
-
-  // Handle drag operations
   const handleDragOver = (e) => {
     e.preventDefault()
   }
 
-  const handleFileDrop = (e, type) => {
+  const handleDrop = (e, type) => {
     e.preventDefault()
     const files = e.dataTransfer.files
     handleFileUpload(files, type)
   }
 
-  // Add item to canvas
-  const addToCanvas = (item, position = null) => {
-    const newItem = {
-      id: `canvas_${Date.now()}_${Math.random()}`,
-      ...item,
-      x: position?.x || 100,
-      y: position?.y || 100,
-      width: item.width || 300,
-      height: item.height || 200,
-      rotation: 0,
-      zIndex: canvasItems.length
-    }
-    setCanvasItems([...canvasItems, newItem])
+  const removeFile = (fileId) => {
+    setUploadedFiles((prev) => prev.filter((file) => file.id !== fileId))
   }
 
-  // Canvas click events
-  const handleCanvasClick = (e) => {
-    if (e.target === canvasRef.current) {
-      setSelectedItem(null)
-    }
-  }
+  // Handle resize
+  const handleResize = (elementId, sizeUpdate) => {
+    setPlaylist((elements) =>
+      elements.map((el) =>
+        el.id === elementId
+          ? { ...el, size: { ...el.size, ...sizeUpdate } }
+          : el
+      )
+    );
+  };
 
-  // Handle clicks outside slideshow to deselect
-  const handlePageClick = (e) => {
-    // Only deselect if clicking outside the main canvas area and bottom panel
-    const isCanvasArea = canvasRef.current?.contains(e.target)
-    const isSlideshowPanel = e.target.closest('[data-slideshow-panel]')
-    const isSidebar = e.target.closest('.w-72')
-    
-    if (!isCanvasArea && !isSlideshowPanel && !isSidebar) {
-      setSelectedItem(null)
-    }
-  }
-
-  // Add page click listener
-  useEffect(() => {
-    document.addEventListener('click', handlePageClick)
-    return () => document.removeEventListener('click', handlePageClick)
-  }, [])
-
-  // Update selected item when canvas items change
-  useEffect(() => {
-    if (selectedItem) {
-      const updatedItem = canvasItems.find(item => item.id === selectedItem.id)
-      setSelectedItem(updatedItem)
-    }
-  }, [canvasItems, selectedItem])
-
-  // Delete selected item
-  const deleteSelectedItem = () => {
-    if (selectedItem) {
-      setCanvasItems(items => items.filter(item => item.id !== selectedItem.id))
-      setSelectedItem(null)
-    }
-  }
-
-  // Update item properties
-  const updateItemProperty = (property, value) => {
-    if (!selectedItem) return
-    
-    let updatedProperties = { [property]: value }
-    
-    // For slideshow widgets, maintain 16:9 aspect ratio
-    if (selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow') {
-      const aspectRatio = 16 / 9
-      if (property === 'width') {
-        updatedProperties.height = Math.round(value / aspectRatio)
-      } else if (property === 'height') {
-        updatedProperties.width = Math.round(value * aspectRatio)
+  // Save playlist
+  const savePlaylist = async () => {
+    try {
+      if (!playlist.length) {
+        alert("Add items to the playlist first.")
+        return
       }
-    }
-    
-    setCanvasItems(items =>
-      items.map(item =>
-        item.id === selectedItem.id
-          ? { ...item, ...updatedProperties }
-          : item
-      )
-    )
-  }
 
-  const removeUploadedFile = (fileId) => {
-    setUploadedFiles(prev => prev.filter(file => file.id !== fileId))
-  }
+      const form = new FormData()
+      const durationsOut = []
+      let appendedCount = 0
 
-  // Background management
-  const handleBackgroundUpload = async (files) => {
-    const file = files[0]
-    if (file && file.type.startsWith('image/')) {
-      // Convert to data URL for persistence
-      const dataURL = await new Promise((resolve) => {
-        const reader = new FileReader()
-        reader.onload = (e) => resolve(e.target.result)
-        reader.readAsDataURL(file)
-      })
-      setBackgroundImage(dataURL)
-    }
-  }
+      for (const slide of playlist) {
+        const durationValue = Number.isFinite(slide.duration) ? slide.duration : 5
 
-  const removeBackground = () => {
-    setBackgroundImage(null)
-    setBackgroundColor("#ffffff")
-  }
-
-  // Add preset widgets
-  const addWidget = (type) => {
-    const sizes = widgetSizes[type]
-    let widgetName = '';
-    if (type === 'time') widgetName = 'Time';
-    else if (type === 'weather') widgetName = 'Weather';
-    else if (type === 'slideshow') widgetName = 'Slideshow';
-    
-    const widget = {
-      type: 'widget',
-      widgetType: type,
-      name: `${widgetName} Widget`,
-      width: sizes.width,
-      height: sizes.height,
-      playlist: type === 'slideshow' ? [] : undefined
-    }
-    addToCanvas(widget)
-  }
-
-  // Handle adding items to slideshow
-  const addToSlideshow = (slideshowId, newPlaylist) => {
-    setCanvasItems(items =>
-      items.map(item =>
-        item.id === slideshowId
-          ? { ...item, playlist: newPlaylist }
-          : item
-      )
-    )
-    // Auto-save when playlist changes to ensure display page gets updates
-    setTimeout(() => {
-      saveBoard()
-    }, 100)
-  }
-
-  // Make uploaded files draggable
-  const makeFileDraggable = (e, file) => {
-    e.dataTransfer.setData("application/json", JSON.stringify(file))
-  }
-
-  // Handle slide reordering
-  const moveSlide = (slideshowId, slideId, direction) => {
-    setCanvasItems(items =>
-      items.map(item => {
-        if (item.id === slideshowId && item.playlist) {
-          const playlist = [...item.playlist]
-          const currentIndex = playlist.findIndex(slide => slide.id === slideId)
-          
-          if (currentIndex === -1) return item
-          
-          let newIndex
-          if (direction === 'up') {
-            newIndex = Math.max(0, currentIndex - 1)
-          } else {
-            newIndex = Math.min(playlist.length - 1, currentIndex + 1)
-          }
-          
-          if (newIndex !== currentIndex) {
-            // Swap the slides
-            const [movedSlide] = playlist.splice(currentIndex, 1)
-            playlist.splice(newIndex, 0, movedSlide)
-            
-            // Update order property to match new positions
-            playlist.forEach((slide, index) => {
-              slide.order = index + 1
-            })
-            
-            return { ...item, playlist }
-          }
+        // Prefer original uploaded file if present
+        const matchedUpload = uploadedFiles.find((f) => f.id === slide.assetId)
+        if (matchedUpload?.file) {
+          form.append("files", matchedUpload.file)
+          durationsOut.push(durationValue)
+          appendedCount++
+          continue
         }
-        return item
+
+        // Fallback: fetch by URL and upload as File
+        try {
+          if (!slide.url) continue
+          const res = await fetch(slide.url, { mode: "cors" })
+          if (!res.ok) {
+            console.warn("Skipping asset (fetch failed):", slide.url, res.status)
+            continue
+          }
+          const blob = await res.blob()
+          const urlPath = (slide.url || "").split("?")[0]
+          const ext = urlPath.includes(".") ? urlPath.substring(urlPath.lastIndexOf(".") + 1) : ""
+          const safeName = (slide.name || `slide_${Date.now()}`).replace(/[^a-zA-Z0-9._-]/g, "_")
+          const filename = ext && !safeName.endsWith(`.${ext}`) ? `${safeName}.${ext}` : safeName
+          const fileFromBlob = new File([blob], filename, { type: blob.type || undefined })
+          form.append("files", fileFromBlob)
+          durationsOut.push(durationValue)
+          appendedCount++
+        } catch (err) {
+          console.error("Skipping asset (fetch error):", slide.url, err)
+        }
+      }
+
+      if (appendedCount === 0) {
+        alert("No valid files to upload.")
+        return
+      }
+
+      form.append("durations", JSON.stringify(durationsOut))
+      form.append("loop", "true")
+
+      const response = await fetch(`${BACKEND_URL}/upload-playlist`, {
+        method: "POST",
+        body: form,
+        mode: "cors",
       })
-    )
-    
-    // Auto-save when playlist order changes
-    setTimeout(() => {
-      saveBoard()
-    }, 100)
+
+      if (!response.ok) {
+        const text = await response.text()
+        alert(`Failed to save playlist: ${text}`)
+        return
+      }
+
+      const data = await response.json()
+      console.log("Playlist saved:", data)
+      alert("Playlist saved and broadcasting to display!")
+    } catch (e) {
+      console.error(e)
+      alert("Unexpected error saving playlist.")
+    }
   }
+
+  // Get all available assets (existing + uploaded)
+  const getAllAssets = () => {
+    return {
+      images: [...mockAssets.images, ...uploadedFiles.filter((f) => f.type === "image")],
+      videos: [...mockAssets.videos, ...uploadedFiles.filter((f) => f.type === "video")],
+    }
+  }
+
+
+  // Add content to playlist
+  const addToPlaylist = (asset) => {
+    const originalWidth = asset.size?.width ?? 300;
+    const originalHeight = asset.size?.height ?? 300;
+    const newSlide = {
+      id: `slide_${Date.now()}`,
+      assetId: asset.id,
+      type: asset.type,
+      name: asset.name,
+      url: asset.url || asset.thumbnail,
+      duration: 5, // Default 5 seconds
+      order: playlist.length + 1,
+      size: { height: originalHeight, width: originalWidth },
+      originalHeight: originalHeight,
+      originalWidth: originalWidth,
+    }
+    setPlaylist([...playlist, newSlide])
+  }
+
+  // Remove slide from playlist
+  const removeSlide = (slideId) => {
+    setPlaylist((prev) => prev.filter((slide) => slide.id !== slideId))
+    setSelectedSlide(null)
+  }
+
+  // Move slide up/down in order
+  const moveSlide = (slideId, direction) => {
+    const slideIndex = playlist.findIndex((slide) => slide.id === slideId)
+    const newPlaylist = [...playlist]
+    const targetIndex = direction === "up" ? slideIndex - 1 : slideIndex + 1
+
+    if ((direction === "up" && slideIndex === 0) || (direction === "down" && slideIndex === playlist.length - 1)) {
+      return
+    }
+    // Swap slides
+    ;[newPlaylist[slideIndex], newPlaylist[targetIndex]] = [newPlaylist[targetIndex], newPlaylist[slideIndex]]
+
+    setPlaylist(newPlaylist)
+  }
+
+  // Update slide duration
+  const updateSlideDuration = (slideId, duration) => {
+    const newDuration = Number.parseInt(duration)
+
+    setPlaylist((prev) => prev.map((slide) => (slide.id === slideId ? { ...slide, duration: newDuration } : slide)))
+
+    // Also update selectedSlide if it's the one being modified
+    if (selectedSlide && selectedSlide.id === slideId) {
+      setSelectedSlide((prev) => ({ ...prev, duration: newDuration }))
+    }
+  }
+
+  const allAssets = getAllAssets()
+  const currentSlide = playlist[currentSlideIndex]
+  const totalDuration = playlist.reduce((sum, slide) => sum + slide.duration, 0)
 
   return (
-    <div className="min-h-screen bg-white">
-      <AppHeader title={`Edit Board: ${boardName}`} showBack backHref="/dashboard" />
+    <div className="min-h-screen bg-gray-50">
+      <AppHeader title="Organize Page" showBack backHref="/dashboard" />
 
       <div className="flex h-[calc(100vh-80px)]">
-        {/* Left Sidebar - Content Library */}
-        <div className={`bg-black border-r border-black p-3 overflow-y-auto transition-all duration-300 ${
-          selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' 
-            ? 'w-0 opacity-0 overflow-hidden' 
-            : 'w-72 opacity-100'
-        }`}>
-          <h3 className="text-lg font-semibold mb-4 text-white">Content Library</h3>
+        {/* Content Library Sidebar */}
+        <div className="w-80 bg-white border-r p-4 overflow-y-auto">
+          <h3 className="text-lg font-semibold mb-4">Content Library</h3>
 
-          {/* Upload Section */}
+          {/* Action Buttons */}
+          <div className="flex gap-2 mb-6 flex-wrap">
+            <Button size="sm" variant="bordered" startContent={<FileText className="w-4 h-4" />}>
+              Template
+            </Button>
+          </div>
+
+          {/* Tab Navigation */}
+          <div className="flex mb-4 border-b">
+            <button
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "existing"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              onClick={() => setActiveTab("existing")}
+            >
+              Library
+            </button>
+            <button
+              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${activeTab === "upload"
+                ? "border-blue-500 text-blue-600"
+                : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              onClick={() => setActiveTab("upload")}
+            >
+              Upload ({uploadedFiles.length})
+            </button>
+          </div>
+
+          {/* Existing Assets Tab */}
+          {activeTab === "existing" && (
+            <>
+              {/* Images Section */}
               <div className="mb-6">
-            <h4 className="font-medium mb-3 flex items-center gap-2 text-white">
-              <Upload className="w-4 h-4 text-white" />
-              Upload Files
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4" />
+                  Images ({allAssets.images.length})
                 </h4>
-            
+                <div className="grid grid-cols-2 gap-2">
+                  {allAssets.images.map((asset) => (
+                    <div
+                      key={asset.id}
+                      className="border rounded-lg p-2 cursor-pointer hover:bg-gray-50 transition-colors"
+                      onClick={() => addToPlaylist(asset)}
+                    >
+                      <img
+                        src={asset.url || "/placeholder.svg"}
+                        alt={asset.name}
+                        className="w-full h-16 object-cover rounded mb-1"
+                      />
+                      <p className="text-xs text-gray-600 truncate">{asset.name}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Videos Section */}
+              <div className="mb-6">
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <Video className="w-4 h-4" />
+                  Videos ({allAssets.videos.length})
+                </h4>
+                <div className="grid grid-cols-2 gap-2">
+                  {allAssets.videos.map((asset) => (
+                    <div
+                      key={asset.id}
+                      className="border rounded-lg p-2 cursor-pointer hover:bg-gray-50 transition-colors"
+                      onClick={() => addToPlaylist(asset)}
+                    >
+                      <div className="relative">
+                        <img
+                          src={asset.thumbnail || asset.url || "/placeholder.svg"}
+                          alt={asset.name}
+                          className="w-full h-16 object-cover rounded mb-1"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="bg-black bg-opacity-50 rounded-full p-1">
+                            <Video className="w-4 h-4 text-white" />
+                          </div>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-600 truncate">{asset.name}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Upload Tab */}
+          {activeTab === "upload" && (
+            <div className="space-y-6">
               {/* Image Upload */}
-            <Card className="mb-3 bg-white border-black">
-              <CardBody className="p-3">
-                <div
-                  className={`border-2 border-dashed border-black rounded-lg p-3 text-center transition-colors ${
-                    isUploading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-gray-100'
-                  }`}
+              <div>
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4" />
+                  Upload Images
+                </h4>
+                <Card>
+                  <CardBody className="p-4">
+                    <div
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors cursor-pointer"
                       onDragOver={handleDragOver}
-                  onDrop={(e) => !isUploading && handleFileDrop(e, "image")}
-                  onClick={() => !isUploading && imageInputRef.current?.click()}
-                >
-                  {isUploading ? (
-                    <div className="w-6 h-6 mx-auto mb-1 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <ImageIcon className="w-6 h-6 mx-auto mb-1 text-black" />
-                  )}
-                  <p className="text-xs text-black">
-                    {isUploading ? "Processing..." : "Drop images or click"}
-                  </p>
+                      onDrop={(e) => handleDrop(e, "image")}
+                      onClick={() => imageInputRef.current?.click()}
+                    >
+                      <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                      <p className="text-sm text-gray-600 mb-1">Drop images here</p>
+                      <p className="text-xs text-gray-500">or click to browse</p>
                     </div>
                     <input
                       ref={imageInputRef}
@@ -976,26 +345,25 @@ function OrganizePageContent() {
                     />
                   </CardBody>
                 </Card>
+              </div>
 
               {/* Video Upload */}
-            <Card className="mb-3 bg-white border-black">
-              <CardBody className="p-3">
-                <div
-                  className={`border-2 border-dashed border-black rounded-lg p-3 text-center transition-colors ${
-                    isUploading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-gray-100'
-                  }`}
+              <div>
+                <h4 className="font-medium mb-3 flex items-center gap-2">
+                  <Video className="w-4 h-4" />
+                  Upload Videos
+                </h4>
+                <Card>
+                  <CardBody className="p-4">
+                    <div
+                      className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-gray-400 transition-colors cursor-pointer"
                       onDragOver={handleDragOver}
-                  onDrop={(e) => !isUploading && handleFileDrop(e, "video")}
-                  onClick={() => !isUploading && videoInputRef.current?.click()}
-                >
-                  {isUploading ? (
-                    <div className="w-6 h-6 mx-auto mb-1 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <Video className="w-6 h-6 mx-auto mb-1 text-black" />
-                  )}
-                  <p className="text-xs text-black">
-                    {isUploading ? "Processing..." : "Drop videos or click"}
-                  </p>
+                      onDrop={(e) => handleDrop(e, "video")}
+                      onClick={() => videoInputRef.current?.click()}
+                    >
+                      <Upload className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                      <p className="text-sm text-gray-600 mb-1">Drop videos here</p>
+                      <p className="text-xs text-gray-500">or click to browse</p>
                     </div>
                     <input
                       ref={videoInputRef}
@@ -1007,47 +375,64 @@ function OrganizePageContent() {
                     />
                   </CardBody>
                 </Card>
+              </div>
 
-            {/* Uploaded Files */}
+              {/* Uploaded Files Display */}
               {uploadedFiles.length > 0 && (
-              <div className="space-y-2 max-h-40 overflow-y-auto">
+                <div>
+                  <h4 className="font-medium mb-3">Uploaded Files ({uploadedFiles.length})</h4>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
                     {uploadedFiles.map((file) => (
-                  <div 
-                    key={file.id} 
-                    className="flex items-center gap-2 p-2 border border-white rounded-lg bg-white cursor-move"
-                    draggable
-                    onDragStart={(e) => makeFileDraggable(e, file)}
-                  >
-                    <div className="w-8 h-8 flex-shrink-0">
+                      <div key={file.id} className="flex items-center gap-3 p-2 border rounded-lg">
+                        <div className="w-12 h-12 flex-shrink-0">
                           {file.type === "video" ? (
-                        <div className="w-full h-full bg-black rounded flex items-center justify-center">
-                          <Video className="w-4 h-4 text-white" />
+                            <>
+                              <div className="w-full h-full bg-gray-200 rounded flex items-center justify-center">
+                                <Video className="w-6 h-6 text-gray-500" />
                               </div>
+                              <video
+                                src={file.url}
+                                style={{ display: "none" }}
+                                onLoadedMetadata={e => {
+                                  const video = e.target;
+                                  const width = video.videoWidth;
+                                  const height = video.videoHeight;
+                                  setUploadedFiles(prev =>
+                                    prev.map(f =>
+                                      f.id === file.id
+                                        ? { ...f, size: { width, height } }
+                                        : f
+                                    )
+                                  );
+                                }}
+                              />
+                            </>
                           ) : (
                             <img
-                          src={file.url}
+                              src={file.url || "/placeholder.svg"}
                               alt={file.name}
                               className="w-full h-full object-cover rounded"
-                          onLoad={(e) => {
-                            const img = e.target
-                            const aspectRatio = img.naturalWidth / img.naturalHeight
+                              onLoad={e => {
+                                const img = e.target;
+                                const width = img.naturalWidth;
+                                const height = img.naturalHeight;
                                 setUploadedFiles(prev =>
                                   prev.map(f =>
                                     f.id === file.id
-                                  ? { ...f, width: 300, height: Math.round(300 / aspectRatio) }
+                                      ? { ...f, size: { width, height } }
                                       : f
                                   )
-                            )
+                                );
                               }}
                             />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate text-black">{file.name}</p>
-                      <p className="text-xs text-gray-500">Drag to slideshow or click Add</p>
+                          <p className="text-sm font-medium truncate">{file.name}</p>
+                          <p className="text-xs text-gray-500">{file.type}</p>
                         </div>
                         <div className="flex gap-1">
-                      <Button size="sm" variant="bordered" className="border-black text-black hover:bg-black hover:text-white" onPress={() => addToCanvas(file)}>
+                          <Button size="sm" variant="bordered" onPress={() => addToPlaylist(file)}>
                             Add
                           </Button>
                           <Button
@@ -1055,780 +440,301 @@ function OrganizePageContent() {
                             color="danger"
                             variant="light"
                             isIconOnly
-                        onPress={() => removeUploadedFile(file.id)}
+                            onPress={() => removeFile(file.id)}
                           >
-                        <Trash2 className="w-3 h-3" />
+                            <Trash2 className="w-4 h-4" />
                           </Button>
                         </div>
                       </div>
                     ))}
                   </div>
-            )}
-          </div>
-
-          {/* Widgets Section */}
-          <div className="mb-6">
-            <h4 className="font-medium mb-3 flex items-center gap-2 text-white">
-              <Settings className="w-4 h-4 text-white" />
-              Widgets
-            </h4>
-            
-            {/* Time Widget */}
-            <div className="mb-3">
-                  <Button
-                    size="sm"
-                    variant="bordered"
-                    className="w-full border-white text-white hover:bg-white hover:text-black text-xs"
-                startContent={<Clock className="w-3 h-3" />}
-                onPress={() => addWidget('time')}
-                  >
-                Time Widget ({widgetSizes.time.width}×{widgetSizes.time.height})
-                  </Button>
-              </div>
-
-            {/* Weather Widget */}
-            <div className="mb-3">
-              <Button
-                size="sm"
-                variant="bordered"
-                className="w-full border-white text-white hover:bg-white hover:text-black text-xs"
-                startContent={<CloudSun className="w-3 h-3" />}
-                onPress={() => addWidget('weather')}
-              >
-                Weather Widget ({widgetSizes.weather.width}×{widgetSizes.weather.height})
-              </Button>
-            </div>
-
-            {/* Slideshow Widget */}
-            <div className="mb-3">
-                  <Button
-                    size="sm"
-                    variant="bordered"
-                    className="w-full border-white text-white hover:bg-white hover:text-black text-xs"
-                startContent={<Play className="w-3 h-3" />}
-                onPress={() => addWidget('slideshow')}
-                  >
-                Slideshow Widget (16:9 - {widgetSizes.slideshow.width}×{widgetSizes.slideshow.height})
-                  </Button>
-            </div>
-          </div>
-
-          {/* Background Section */}
-          <div className="mb-6">
-            <h4 className="font-medium mb-3 flex items-center gap-2 text-white">
-              <ImageIcon className="w-4 h-4 text-white" />
-              Background
-            </h4>
-            
-            {/* Background Preview */}
-            <div className="mb-3">
-              <div 
-                className="w-full h-20 rounded-lg border-2 border-white"
-                style={{
-                  backgroundColor: backgroundColor,
-                  backgroundImage: backgroundImage ? `url(${backgroundImage})` : 'none',
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center'
-                }}
-              >
-                {!backgroundImage && (
-                  <div className="w-full h-full flex items-center justify-center text-black">
-                    <span className="text-xs font-medium">White Background</span>
                 </div>
               )}
-              </div>
             </div>
+          )}
 
-            {/* Background Controls */}
+          {/* Selected Element Properties */}
+          {currentSlide && (
+            <div className="border-t pt-4">
+              <h4 className="font-medium mb-3">Properties</h4>
               <div className="space-y-2">
-              <Button
-                size="sm"
-                variant="bordered"
-                className="w-full border-white text-white hover:bg-white hover:text-black"
-                onPress={() => backgroundInputRef.current?.click()}
-              >
-                Upload Background
-              </Button>
-              
-              <div className="flex gap-2">
-                <Input
-                  type="color"
-                  size="sm"
-                  value={backgroundColor}
-                  onChange={(e) => setBackgroundColor(e.target.value)}
-                  className="flex-1"
-                />
+                <div>
+                  <label className="text-sm text-gray-600">Width</label>
+                  <input
+                    type="number"
+                    value={currentSlide.size.width ?? 0}
+                    onChange={(e) => {
+                      const newWidth = Number.parseInt(e.target.value) || 0;
+                      handleResize(currentSlide.id, { width: newWidth });
+                      setSelectedSlide({
+                        ...currentSlide,
+                        size: {
+                          ...currentSlide.size,
+                          width: newWidth,
+                        },
+                      });
+                    }}
+                    className="w-full px-2 py-1 border rounded text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-600">Height</label>
+                  <input
+                    type="number"
+                    value={currentSlide.size.height ?? 0}
+                    onChange={(e) => {
+                      const newHeight = Number.parseInt(e.target.value) || 0;
+                      handleResize(currentSlide.id, { height: newHeight });
+                      setSelectedSlide({
+                        ...currentSlide,
+                        size: {
+                          ...currentSlide.size,
+                          height: newHeight,
+                        },
+                      });
+                    }}
+                    className="w-full px-2 py-1 border rounded text-sm"
+                  />
+                </div>
                 <Button
                   size="sm"
-                  color="danger"
-                  variant="light"
-                  onPress={removeBackground}
-                  isIconOnly
+                  variant="bordered"
+                  onPress={() => {
+                    handleResize(selectedSlide.id, {
+                      width: selectedSlide.originalWidth,
+                      height: selectedSlide.originalHeight,
+                    });
+                    setSelectedSlide({
+                      ...selectedSlide,
+                      size: {
+                        ...selectedSlide.size,
+                        width: selectedSlide.originalWidth,
+                        height: selectedSlide.originalHeight,
+                      },
+                    });
+                  }}
+                  className="w-full mt-2"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  Reset Size
                 </Button>
-              </div>
-
-              <input
-                ref={backgroundInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => handleBackgroundUpload(e.target.files)}
-              />
-            </div>
-          </div>
-
-          {/* Selected Item Properties */}
-          {selectedItem && (
-            <div className="border-t border-white pt-3">
-              <h4 className="font-medium mb-2 text-white">Properties</h4>
-              <div className="space-y-2">
-                <div>
-                  <label className="text-sm text-white font-medium block mb-1">
-                    Width
-                    {selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' && (
-                      <span className="text-xs text-gray-400 ml-1">(16:9 ratio)</span>
-                    )}
-                  </label>
-                  <Input
-                    type="number"
-                    size="sm"
-                    value={selectedItem.width}
-                    onChange={(e) => updateItemProperty('width', parseInt(e.target.value) || 0)}
-                    className="bg-white text-black"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-white font-medium block mb-1">
-                    Height
-                    {selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' && (
-                      <span className="text-xs text-gray-400 ml-1">(auto-adjusted)</span>
-                    )}
-                  </label>
-                  <Input
-                    type="number"
-                    size="sm"
-                    value={selectedItem.height}
-                    onChange={(e) => updateItemProperty('height', parseInt(e.target.value) || 0)}
-                    className="bg-white text-black"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-white font-medium block mb-1">X Position</label>
-                  <Input
-                    type="number"
-                    size="sm"
-                    value={Math.round(selectedItem.x)}
-                    onChange={(e) => updateItemProperty('x', parseInt(e.target.value) || 0)}
-                    className="bg-white text-black"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-white font-medium block mb-1">Y Position</label>
-                  <Input
-                    type="number"
-                    size="sm"
-                    value={Math.round(selectedItem.y)}
-                    onChange={(e) => updateItemProperty('y', parseInt(e.target.value) || 0)}
-                    className="bg-white text-black"
-                  />
-                </div>
-
-                {/* Slideshow-specific properties */}
-                {selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' && (
-                  <div className="border-t border-gray-600 pt-3 mt-3">
-                    <h5 className="text-sm text-white font-medium mb-2">Slideshow</h5>
-                    <div className="space-y-2">
-                      <div>
-                        <label className="text-xs text-white block mb-1">
-                          Slides: {selectedItem.playlist?.length || 0}
-                        </label>
-                        {selectedItem.playlist && selectedItem.playlist.length > 0 && (
-                          <label className="text-xs text-gray-300 block mb-1">
-                            Total Duration: {selectedItem.playlist.reduce((total, slide) => total + (slide.duration || 5), 0)}s
-                          </label>
-                        )}
-                        <p className="text-xs text-gray-300">
-                          Drag files from above to add slides. Timeline controls at bottom.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
                 <Button
                   size="sm"
                   color="danger"
                   variant="bordered"
                   startContent={<Trash2 className="w-4 h-4" />}
-                  onPress={deleteSelectedItem}
+                  onPress={() => removeSlide(selectedSlide.id)}
                   className="w-full"
                 >
-                  Delete Item
+                  Delete
                 </Button>
               </div>
             </div>
           )}
         </div>
 
-        {/* Main Canvas Area */}
-        <div className={`flex flex-col transition-all duration-300 ${
-          selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' 
-            ? 'w-full' 
-            : 'flex-1'
-        }`}>
-          {/* Canvas Header */}
-          <div className="bg-black border-b border-black p-4 flex justify-between items-center">
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col">
+          {/* Preview Area */}
+          <div className="flex-1 p-6 bg-white">
+            <div className="mb-4 flex justify-between items-center">
               <div>
-              <h3 className="text-lg font-semibold text-white">
-                Canvas ({canvasItems.length} items)
-                {selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' && (
-                  <span className="ml-2 text-sm text-blue-400">• Slideshow Mode</span>
-                )}
-              </h3>
-              <p className="text-sm text-white">Size: {canvasSize.width}x{canvasSize.height}px</p>
+                <h3 className="text-lg font-semibold">Preview</h3>
+                <p className="text-sm text-gray-600">
+                  Slide {currentSlideIndex + 1} of {playlist.length} | Total Duration: {totalDuration}s
+                </p>
               </div>
               <div className="flex gap-2">
-              <Button
-                color="primary"
-                startContent={<Save className="w-4 h-4" />}
-                onPress={saveBoard}
-                className="bg-white text-black hover:bg-gray-200"
-              >
-                Save Board
+                <Button color="primary" startContent={<Check className="w-4 h-4" />} onPress={savePlaylist}>
+                  Save Playlist
                 </Button>
               </div>
             </div>
 
-          {/* Canvas Container */}
-          <div className="flex-1 p-2 bg-black overflow-auto">
-            <div className="h-full flex items-center justify-center">
-              <div
-                ref={canvasRef}
-                className="relative border border-black rounded-lg shadow-lg"
+            {/* Preview Display */}
+            <div className="bg-gray-100 rounded-lg flex items-center justify-center" style={{ height: "400px" }}>
+              {currentSlide ? (
+                <div className="w-full h-full flex items-center justify-center">
+                  {currentSlide.type === "image" && (
+                    <img
+                      src={currentSlide.url || "/placeholder.svg"}
+                      alt={currentSlide.name}
+                      className="max-w-full max-h-full object-contain rounded"
                       style={{
-                  width: canvasSize.width * 0.6, 
-                  height: canvasSize.height * 0.6,
-                  maxWidth: selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' 
-                    ? 'calc(100vw - 40px)' 
-                    : 'calc(100vw - 320px)',
-                  maxHeight: 'calc(100vh - 140px)',
-                  transformOrigin: 'center center',
-                  backgroundColor: backgroundColor,
-                  backgroundImage: backgroundImage ? `url(${backgroundImage})` : 'none',
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center'
-                }}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={handleCanvasDrop}
-                onClick={handleCanvasClick}
-              >
-                {/* Canvas Items */}
-                {canvasItems.map((item) => {
-                  if (item.type === 'widget') {
-                    if (item.widgetType === 'time') {
-                      return (
-                        <TimeWidget
-                          key={item.id}
-                          x={item.x * 0.6}
-                          y={item.y * 0.6}
-                          width={item.width * 0.6}
-                          height={item.height * 0.6}
-                          isSelected={selectedItem?.id === item.id}
-                          item={item}
-                          onDragStart={handleDragStart}
-                          setSelectedItem={setSelectedItem}
-                          onResizeStart={handleResizeStart}
-                        />
-                      )
-                    } else if (item.widgetType === 'weather') {
-                      return (
-                        <WeatherWidget
-                          key={item.id}
-                          x={item.x * 0.6}
-                          y={item.y * 0.6}
-                          width={item.width * 0.6}
-                          height={item.height * 0.6}
-                          isSelected={selectedItem?.id === item.id}
-                          item={item}
-                          onDragStart={handleDragStart}
-                          setSelectedItem={setSelectedItem}
-                          onResizeStart={handleResizeStart}
-                        />
-                      )
-                    } else if (item.widgetType === 'slideshow') {
-                      return (
-                        <SlideshowWidget
-                          key={item.id}
-                          x={item.x * 0.6}
-                          y={item.y * 0.6}
-                          width={item.width * 0.6}
-                          height={item.height * 0.6}
-                          isSelected={selectedItem?.id === item.id}
-                          item={item}
-                          onDragStart={handleDragStart}
-                          setSelectedItem={setSelectedItem}
-                          onResizeStart={handleResizeStart}
-                          onAddToSlideshow={addToSlideshow}
-                          uploadedFiles={uploadedFiles}
-                        />
-                      )
-                    }
-                  }
-                  
-                  return (
-                    <div
-                      key={item.id}
-                      draggable
-                      className={`absolute border-2 rounded-lg overflow-hidden ${
-                        selectedItem?.id === item.id 
-                          ? 'cursor-move border-blue-500 shadow-lg' 
-                          : 'cursor-move border-transparent hover:border-gray-300 hover:shadow-md transition-all duration-150'
-                      }`}
-                      style={{
-                        left: item.x * 0.6,
-                        top: item.y * 0.6,
-                        width: item.width * 0.6,
-                        height: item.height * 0.6,
-                        zIndex: item.zIndex,
-                        transform: `rotate(${item.rotation || 0}deg)`
+                        width: currentSlide.size.width,
+                        height: currentSlide.size.height,
                       }}
-                      onDragStart={(e) => handleDragStart(e, item)}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setSelectedItem(item)
-                      }}
-                    >
-                      {item.type === 'image' && (
-                        <img
-                          src={item.url}
-                          alt={item.name}
-                          className="w-full h-full object-cover pointer-events-none"
-                          draggable={false}
+                    />
+                  )}
+                  {currentSlide.type === "video" && (
+                    <div className="w-full h-full bg-gray-800 rounded flex items-center justify-center">
+                      <div className="text-center text-white">
+                        <video
+                          src={currentSlide.url}
+                          className="max-w-full max-h-full object-contain rounded"
+                          style={{
+                            width: currentSlide.size.width,
+                            height: currentSlide.size.height,
+                          }}
+                          controls
+                          muted
+                          onError={(e) => {
+                            // Fallback to placeholder if video fails to load
+                          }}
                         />
-                      )}
-                      {item.type === 'video' && (
-                        <div className="w-full h-full bg-gray-800 flex items-center justify-center pointer-events-none">
-                          <Video className="w-8 h-8 text-white" />
-                          <span className="text-white text-xs ml-2">{item.name}</span>
                       </div>
-                    )}
-                      
-                      {/* Selection handles */}
-                      {selectedItem?.id === item.id && (
-                        <>
-                          <div 
-                            className="absolute -top-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-nw-resize hover:bg-blue-600"
-                            onMouseDown={(e) => handleResizeStart(e, 'nw')}
-                          ></div>
-                          <div 
-                            className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-ne-resize hover:bg-blue-600"
-                            onMouseDown={(e) => handleResizeStart(e, 'ne')}
-                          ></div>
-                          <div 
-                            className="absolute -bottom-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-sw-resize hover:bg-blue-600"
-                            onMouseDown={(e) => handleResizeStart(e, 'sw')}
-                          ></div>
-                          <div 
-                            className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-se-resize hover:bg-blue-600"
-                            onMouseDown={(e) => handleResizeStart(e, 'se')}
-                          ></div>
-                        </>
-                    )}
-                  </div>
-                  )
-                })}
-
-                {/* Canvas Guide */}
-                {canvasItems.length === 0 && (
-                  <div className="absolute inset-0 flex items-center justify-center text-black">
-                  <div className="text-center">
-                      <Plus className="w-16 h-16 mx-auto mb-4 opacity-60" />
-                      <p className="text-lg font-medium">Drop files here or use the sidebar</p>
-                      <p className="text-sm">to add content to your board</p>
-                  </div>
                     </div>
                   )}
-              </div>
+                  {currentSlide.type === "text" && (
+                    <div
+                      className="w-full h-full flex items-center justify-center rounded"
+                      style={{
+                        backgroundColor: currentSlide.style?.backgroundColor || "#ffffff",
+                        color: currentSlide.style?.color || "#000000",
+                        fontSize: currentSlide.style?.fontSize || "24px",
+                        textAlign: currentSlide.style?.textAlign || "center",
+                      }}
+                    >
+                      <div className="p-8">
+                        <p>{currentSlide.content}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="text-center text-gray-500">
+                  <Plus className="w-16 h-16 mx-auto mb-4 opacity-50" />
+                  <p className="text-lg">No content in playlist</p>
+                  <p className="text-sm">Add images, videos, or text from the library</p>
+                </div>
+              )}
             </div>
           </div>
-        </div>
 
-        {/* Slideshow Timeline Panel - Bottom */}
-        {selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' && (
-          <div className="border-t border-gray-300 bg-white p-4" data-slideshow-panel>
+          {/* Timeline/Playlist Area */}
+          <div className="bg-white border-t p-4">
             <div className="flex justify-between items-center mb-4">
-              <h4 className="font-medium text-gray-900">
-                Slideshow Timeline ({selectedItem.playlist?.length || 0} slides)
-              </h4>
-              {selectedItem.playlist && selectedItem.playlist.length > 0 && (
-                <span className="text-sm text-gray-600">
-                  Total Duration: {selectedItem.playlist.reduce((total, slide) => total + (slide.duration || 5), 0)}s
-                </span>
+              <h4 className="font-medium">Playlist Timeline ({playlist.length} slides)</h4>
+              {selectedSlide && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600">Duration:</span>
+                  <select
+                    className="px-2 py-1 border border-gray-300 rounded text-sm w-20"
+                    value={selectedSlide.duration}
+                    onChange={(e) => updateSlideDuration(selectedSlide.id, e.target.value)}
+                  >
+                    <option value="3">3s</option>
+                    <option value="5">5s</option>
+                    <option value="10">10s</option>
+                    <option value="15">15s</option>
+                    <option value="30">30s</option>
+                    <option value="60">60s</option>
+                  </select>
+                </div>
               )}
-      </div>
-            
-            {/* Upload Area for Slideshow */}
-            <div className="mb-4">
-              <div className="grid grid-cols-2 gap-3">
-                {/* Image Upload Area */}
-                <div
-                  className={`border-2 border-dashed border-blue-300 rounded-lg p-4 text-center transition-colors ${
-                    isUploading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-blue-400 hover:bg-blue-50'
-                  }`}
-                  onDragOver={handleDragOver}
-                  onDrop={(e) => {
-                    e.preventDefault()
-                    if (isUploading) return
-                    
-                    // Handle direct file drop (independent from sidebar)
-                    const files = e.dataTransfer.files
-                    if (files.length > 0) {
-                      setIsUploading(true)
-                      Array.from(files).forEach(async (file) => {
-                        if (file.type.startsWith('image/')) {
-                          try {
-                            const dataURL = await new Promise((resolve) => {
-                              const reader = new FileReader()
-                              reader.onload = (e) => resolve(e.target.result)
-                              reader.readAsDataURL(file)
-                            })
-                            
-                            const newSlide = {
-                              id: `slide_${Date.now()}_${Math.random()}`,
-                              type: 'image',
-                              name: file.name,
-                              url: dataURL,
-                              duration: 5,
-                              order: (selectedItem.playlist?.length || 0) + 1
-                            }
-                            const currentPlaylist = selectedItem.playlist || []
-                            const newPlaylist = [...currentPlaylist, newSlide]
-                            addToSlideshow(selectedItem.id, newPlaylist)
-                          } catch (error) {
-                            console.error('Failed to process image:', error)
-                          }
-                        }
-                      })
-                      setIsUploading(false)
-                    } else {
-                      // Handle drag from sidebar
-                      const draggedData = e.dataTransfer.getData("application/json")
-                      if (draggedData) {
-                        try {
-                          const draggedItem = JSON.parse(draggedData)
-                          if (draggedItem.type === 'image') {
-                            const newSlide = {
-                              id: `slide_${Date.now()}_${Math.random()}`,
-                              assetId: draggedItem.id,
-                              type: draggedItem.type,
-                              name: draggedItem.name,
-                              url: draggedItem.url,
-                              duration: 5,
-                              order: (selectedItem.playlist?.length || 0) + 1
-                            }
-                            const currentPlaylist = selectedItem.playlist || []
-                            const newPlaylist = [...currentPlaylist, newSlide]
-                            addToSlideshow(selectedItem.id, newPlaylist)
-                          }
-                        } catch (error) {
-                          console.error('Failed to parse dropped item:', error)
-                        }
-                      }
-                    }
-                  }}
-                  onClick={() => !isUploading && slideshowImageInputRef.current?.click()}
-                >
-                  <ImageIcon className="w-8 h-8 mx-auto mb-2 text-blue-500" />
-                  <p className="text-sm font-medium text-gray-700">Add Images</p>
-                  <p className="text-xs text-gray-500">Drag & drop or click to upload</p>
-    </div>
+            </div>
 
-                {/* Video Upload Area */}
+            {/* Timeline Slides */}
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {playlist.map((slide, index) => (
                 <div
-                  className={`border-2 border-dashed border-purple-300 rounded-lg p-4 text-center transition-colors ${
-                    isUploading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-purple-400 hover:bg-purple-50'
-                  }`}
-                  onDragOver={handleDragOver}
-                  onDrop={(e) => {
-                    e.preventDefault()
-                    if (isUploading) return
-                    
-                    // Handle direct file drop (independent from sidebar)
-                    const files = e.dataTransfer.files
-                    if (files.length > 0) {
-                      setIsUploading(true)
-                      Array.from(files).forEach(async (file) => {
-                        if (file.type.startsWith('video/')) {
-                          try {
-                            const dataURL = await new Promise((resolve) => {
-                              const reader = new FileReader()
-                              reader.onload = (e) => resolve(e.target.result)
-                              reader.readAsDataURL(file)
-                            })
-                            
-                            const newSlide = {
-                              id: `slide_${Date.now()}_${Math.random()}`,
-                              type: 'video',
-                              name: file.name,
-                              url: dataURL,
-                              duration: 5,
-                              order: (selectedItem.playlist?.length || 0) + 1
-                            }
-                            const currentPlaylist = selectedItem.playlist || []
-                            const newPlaylist = [...currentPlaylist, newSlide]
-                            addToSlideshow(selectedItem.id, newPlaylist)
-                          } catch (error) {
-                            console.error('Failed to process video:', error)
-                          }
-                        }
-                      })
-                      setIsUploading(false)
-                    } else {
-                      // Handle drag from sidebar
-                      const draggedData = e.dataTransfer.getData("application/json")
-                      if (draggedData) {
-                        try {
-                          const draggedItem = JSON.parse(draggedData)
-                          if (draggedItem.type === 'video') {
-                            const newSlide = {
-                              id: `slide_${Date.now()}_${Math.random()}`,
-                              assetId: draggedItem.id,
-                              type: draggedItem.type,
-                              name: draggedItem.name,
-                              url: draggedItem.url,
-                              duration: 5,
-                              order: (selectedItem.playlist?.length || 0) + 1
-                            }
-                            const currentPlaylist = selectedItem.playlist || []
-                            const newPlaylist = [...currentPlaylist, newSlide]
-                            addToSlideshow(selectedItem.id, newPlaylist)
-                          }
-                        } catch (error) {
-                          console.error('Failed to parse dropped item:', error)
-                        }
-                      }
-                    }
+                  key={slide.id}
+                  className={`flex-shrink-0 border-2 rounded-lg p-2 cursor-pointer transition-colors ${selectedSlide?.id === slide.id
+                    ? "border-blue-500 bg-blue-50"
+                    : currentSlideIndex === index
+                      ? "border-green-500 bg-green-50"
+                      : "border-gray-200 hover:border-gray-300"
+                    }`}
+                  style={{ width: "120px" }}
+                  onClick={() => {
+                    setSelectedSlide(slide)
+                    setCurrentSlideIndex(index)
                   }}
-                  onClick={() => !isUploading && slideshowVideoInputRef.current?.click()}
                 >
-                  <Video className="w-8 h-8 mx-auto mb-2 text-purple-500" />
-                  <p className="text-sm font-medium text-gray-700">Add Videos</p>
-                  <p className="text-xs text-gray-500">Drag & drop or click to upload</p>
+                  {/* Slide Preview */}
+                  <div className="w-full h-16 bg-gray-100 rounded mb-2 flex items-center justify-center overflow-hidden">
+                    {slide.type === "image" && (
+                      <img
+                        src={slide.url || "/placeholder.svg"}
+                        alt={slide.name}
+                        className="w-full h-full object-cover"
+                      />
+                    )}
+                    {slide.type === "video" && (
+                      <div className="w-full h-16 bg-gray-800 flex items-center justify-center">
+                        <Video className="w-6 h-6 text-white" />
+                      </div>
+                    )}
+                    {slide.type === "text" && (
+                      <div className="w-full h-16 flex items-center justify-center text-xs p-1">
+                        <span className="truncate">{slide.content}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Slide Info */}
+                  <div className="text-center">
+                    <p className="text-xs font-medium truncate">{index + 1}</p>
+                    <p className="text-xs text-gray-500">{slide.duration}s</p>
+                  </div>
+
+                  {/* Controls */}
+                  {selectedSlide?.id === slide.id && (
+                    <div className="flex justify-center gap-1 mt-2">
+                      <Button
+                        size="sm"
+                        variant="light"
+                        isIconOnly
+                        onPress={() => moveSlide(slide.id, "up")}
+                        isDisabled={index === 0}
+                      >
+                        <ChevronUp className="w-3 h-3" />
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="light"
+                        isIconOnly
+                        onPress={() => moveSlide(slide.id, "down")}
+                        isDisabled={index === playlist.length - 1}
+                      >
+                        <ChevronDown className="w-3 h-3" />
+                      </Button>
+                      <Button size="sm" color="danger" variant="light" isIconOnly onPress={() => removeSlide(slide.id)}>
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {/* Add New Slide Button */}
+              <div
+                className="flex-shrink-0 border-2 border-dashed border-gray-300 rounded-lg p-2 cursor-pointer hover:border-gray-400 transition-colors flex items-center justify-center"
+                style={{ width: "120px", height: "120px" }}
+                onClick={() => setActiveTab("existing")}
+              >
+                <div className="text-center text-gray-500">
+                  <Plus className="w-8 h-8 mx-auto mb-1" />
+                  <p className="text-xs">Add Slide</p>
                 </div>
               </div>
             </div>
-            
-            {selectedItem.playlist && selectedItem.playlist.length > 0 ? (
-              <div className="space-y-3">
-                {/* Slide Timeline */}
-                <div className="flex gap-3 overflow-x-auto pb-2">
-                  {selectedItem.playlist.map((slide, index) => (
-                    <div
-                      key={slide.id}
-                      className="flex-shrink-0 border-2 border-gray-200 rounded-lg p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
-                      style={{ width: "200px" }}
-                    >
-                      {/* Slide Preview */}
-                      <div className="w-full h-24 bg-gray-200 rounded mb-2 flex items-center justify-center overflow-hidden">
-                        {slide.type === 'image' && (
-                          <img
-                            src={slide.url}
-                            alt={slide.name}
-                            className="w-full h-full object-contain rounded"
-                          />
-                        )}
-                        {slide.type === 'video' && (
-                          <video
-                            key={slide.id}
-                            src={slide.url}
-                            className="w-full h-full object-contain rounded"
-                            muted
-                            playsInline
-                            onError={(e) => {
-                              console.error('Video thumbnail failed to load:', slide.url)
-                            }}
-                          />
-                        )}
-                      </div>
-                      
-                      {/* Slide Info */}
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-1">
-                          <span className="text-sm font-medium text-gray-900">#{index + 1}</span>
-                          <span className="text-xs text-gray-600 truncate flex-1">{slide.name}</span>
-                          
-                          {/* Reorder buttons */}
-                          <div className="flex gap-1">
-                            <Button
-                              size="sm"
-                              variant="light"
-                              isIconOnly
-                              isDisabled={index === 0}
-                              onPress={() => moveSlide(selectedItem.id, slide.id, 'up')}
-                              className="min-w-6 h-6"
-                            >
-                              <ChevronUp className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="light"
-                              isIconOnly
-                              isDisabled={index === selectedItem.playlist.length - 1}
-                              onPress={() => moveSlide(selectedItem.id, slide.id, 'down')}
-                              className="min-w-6 h-6"
-                            >
-                              <ChevronDown className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="light"
-                              isIconOnly
-                              color="danger"
-                              onPress={() => {
-                                const newPlaylist = selectedItem.playlist.filter(s => s.id !== slide.id)
-                                addToSlideshow(selectedItem.id, newPlaylist)
-                              }}
-                              className="min-w-6 h-6"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
-                        
-                        {/* Duration Control */}
-                        <div className="flex items-center gap-2">
-                          <label className="text-xs text-gray-600">Duration:</label>
-                          <Input
-                            type="number"
-                            size="sm"
-                            value={slide.duration || 5}
-                            onChange={(e) => {
-                              const newDuration = parseInt(e.target.value) || 5
-                              const updatedPlaylist = selectedItem.playlist.map(s =>
-                                s.id === slide.id ? { ...s, duration: newDuration } : s
-                              )
-                              addToSlideshow(selectedItem.id, updatedPlaylist)
-                            }}
-                            className="w-16"
-                            min="1"
-                            max="60"
-                          />
-                          <span className="text-xs text-gray-500">sec</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Add Slide Placeholder */}
-                  <div
-                    className="flex-shrink-0 border-2 border-dashed border-gray-300 rounded-lg p-3 flex items-center justify-center hover:border-gray-400 transition-colors cursor-pointer"
-                    style={{ width: "200px", height: "140px" }}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => {
-                      e.preventDefault()
-                      const draggedData = e.dataTransfer.getData("application/json")
-                      if (draggedData) {
-                        try {
-                          const draggedItem = JSON.parse(draggedData)
-                          if (draggedItem.type === 'image' || draggedItem.type === 'video') {
-                            const newSlide = {
-                              id: `slide_${Date.now()}_${Math.random()}`,
-                              assetId: draggedItem.id,
-                              type: draggedItem.type,
-                              name: draggedItem.name,
-                              url: draggedItem.url,
-                              duration: 5,
-                              order: selectedItem.playlist?.length || 0 + 1
-                            }
-                            const currentPlaylist = selectedItem.playlist || []
-                            const newPlaylist = [...currentPlaylist, newSlide]
-                            addToSlideshow(selectedItem.id, newPlaylist)
-                          }
-                        } catch (error) {
-                          console.error('Failed to parse dropped item:', error)
-                        }
-                      }
-                    }}
-                  >
-                    <div className="text-center text-gray-500">
-                      <Plus className="w-8 h-8 mx-auto mb-2" />
-                      <p className="text-xs">Drag files here</p>
-                      <p className="text-xs">to add slides</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div 
-                className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  const draggedData = e.dataTransfer.getData("application/json")
-                  if (draggedData) {
-                    try {
-                      const draggedItem = JSON.parse(draggedData)
-                      if (draggedItem.type === 'image' || draggedItem.type === 'video') {
-                        const newSlide = {
-                          id: `slide_${Date.now()}_${Math.random()}`,
-                          assetId: draggedItem.id,
-                          type: draggedItem.type,
-                          name: draggedItem.name,
-                          url: draggedItem.url,
-                          duration: 5,
-                          order: 1
-                        }
-                        addToSlideshow(selectedItem.id, [newSlide])
-                      }
-                    } catch (error) {
-                      console.error('Failed to parse dropped item:', error)
-                    }
-                  }
-                }}
-              >
-                <Plus className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p className="text-sm font-medium">No slides in slideshow</p>
-                <p className="text-xs">Drag images or videos from the sidebar to add slides</p>
+
+            {/* Text Editor for Selected Text Slide */}
+            {selectedSlide?.type === "text" && (
+              <div className="mt-4 p-4 border rounded-lg bg-gray-50">
+                <h5 className="font-medium mb-2">Edit Text Content</h5>
+                <Input
+                  value={selectedSlide.content}
+                  onChange={(e) => updateTextContent(selectedSlide.id, e.target.value)}
+                  placeholder="Enter your text content"
+                  className="mb-2"
+                />
               </div>
             )}
-            
-            {/* Hidden input elements for independent slideshow uploads */}
-            <input
-              ref={slideshowImageInputRef}
-              type="file"
-              multiple
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => handleSlideshowFileUpload(e.target.files, "image")}
-            />
-            <input
-              ref={slideshowVideoInputRef}
-              type="file"
-              multiple
-              accept="video/*"
-              className="hidden"
-              onChange={(e) => handleSlideshowFileUpload(e.target.files, "video")}
-            />
           </div>
-        )}
+        </div>
       </div>
     </div>
   )
 }
 
-export default function OrganizePage() {
-  return (
-    <Suspense fallback={
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-black mx-auto mb-4"></div>
-          <p className="text-xl font-semibold text-black">Loading board editor...</p>
-        </div>
-      </div>
-    }>
-      <OrganizePageContent />
-    </Suspense>
-  )
-}
