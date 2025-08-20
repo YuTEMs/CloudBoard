@@ -60,39 +60,114 @@ const WeatherWidget = ({ x, y, width, height }) => {
   )
 }
 
+const AnnouncementWidget = ({ x, y, width, height, announcement = {} }) => {
+  const [currentTime, setCurrentTime] = useState(new Date())
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  // Check if announcement should be displayed based on current date and time
+  const shouldShow = () => {
+    if (!announcement.isActive) return false
+    
+    const now = currentTime
+    // Get current date in YYYY-MM-DD format, accounting for timezone
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const currentDateStr = `${year}-${month}-${day}`
+    const currentTimeStr = now.toTimeString().slice(0, 5) // HH:MM format
+    
+    // Check if current date is within the announcement date range
+    const isWithinDateRange = currentDateStr >= announcement.startDate && currentDateStr <= announcement.endDate
+    const isWithinTimeRange = currentTimeStr >= announcement.startTime && currentTimeStr <= announcement.endTime
+    
+    return isWithinDateRange && isWithinTimeRange
+  }
+
+  // Don't render if announcement shouldn't show or has no text
+  if (!shouldShow() || !announcement.text) {
+    return null
+  }
+
+  return (
+    <div
+      className="absolute bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg p-4 overflow-hidden shadow-lg animate-pulse"
+      style={{ left: x, top: y, width, height }}
+    >
+      <div className="flex flex-col h-full">
+        {/* Status indicator */}
+        <div className="flex justify-between items-center mb-2">
+          <div className="px-2 py-1 rounded-full text-xs font-medium bg-green-600">
+            LIVE
+          </div>
+        </div>
+        
+        {/* Announcement text */}
+        <div className="flex-1 flex items-center justify-center">
+          <div 
+            className="text-center font-bold break-words"
+            style={{ 
+              fontSize: Math.min(width * 0.06, height * 0.15, 24),
+              lineHeight: 1.2
+            }}
+          >
+            {announcement.text}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const SlideshowWidget = ({ x, y, width, height, playlist = [] }) => {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
-
-  // Auto-advance slides with proper looping - always run when there are slides
+  const [lastPlaylistLength, setLastPlaylistLength] = useState(0)
+  
+  // Only reset slide index when playlist actually changes (not just props update)
   useEffect(() => {
-    if (playlist.length > 0) { // Auto-advance when there are any slides
-      const currentSlide = playlist[currentSlideIndex]
-      const duration = (currentSlide?.duration || 5) * 1000
-      
-      const timer = setTimeout(() => {
-        setCurrentSlideIndex((prev) => {
-          const nextIndex = prev + 1
-          const newIndex = nextIndex >= playlist.length ? 0 : nextIndex
-          return newIndex
-        })
-      }, duration)
-      
-      return () => clearTimeout(timer)
+    // If playlist length changed significantly, reset to beginning
+    if (playlist.length !== lastPlaylistLength) {
+      if (playlist.length === 0 || currentSlideIndex >= playlist.length) {
+        setCurrentSlideIndex(0)
+      }
+      setLastPlaylistLength(playlist.length)
     }
-  }, [currentSlideIndex, playlist])
+  }, [playlist.length, currentSlideIndex, lastPlaylistLength])
 
-  // Reset to first slide when playlist changes or becomes empty
+  // Auto-advance slides - more resilient to frequent props updates
   useEffect(() => {
-    if (playlist.length === 0) {
+    if (playlist.length === 0) return
+
+    const currentSlide = playlist[currentSlideIndex]
+    if (!currentSlide) {
+      // If current slide doesn't exist, reset to first slide
       setCurrentSlideIndex(0)
-    } else if (currentSlideIndex >= playlist.length) {
-      setCurrentSlideIndex(0)
+      return
     }
-  }, [playlist, currentSlideIndex])
 
-  const currentSlide = playlist[currentSlideIndex]
+    const duration = Math.max(1000, (currentSlide.duration || 5) * 1000) // Ensure minimum 1 second
+    
+    const timer = setTimeout(() => {
+      setCurrentSlideIndex((prevIndex) => {
+        // For single slide, stay on same slide
+        if (playlist.length === 1) return 0
+        
+        // For multiple slides, advance with proper looping
+        const nextIndex = prevIndex + 1
+        return nextIndex >= playlist.length ? 0 : nextIndex
+      })
+    }, duration)
+    
+    return () => clearTimeout(timer)
+  }, [currentSlideIndex, playlist.length]) // Only depend on currentSlideIndex and playlist.length, not full playlist
 
-  if (!currentSlide) {
+  // Get current slide with fallback to ensure we always have a valid slide when playlist exists
+  const currentSlide = playlist.length > 0 ? playlist[Math.min(currentSlideIndex, playlist.length - 1)] : null
+
+  if (!currentSlide || playlist.length === 0) {
     return (
       <div
         className="absolute bg-gray-900 text-white rounded-lg flex items-center justify-center"
@@ -261,20 +336,37 @@ function DisplayContent() {
           const currentBoard = boards.find(board => board.id === boardId)
           if (currentBoard) {
             const newItems = currentBoard.configuration?.items || []
-            // Force update if items have changed (including playlist updates)
-            setCanvasItems(newItems)
-            setCanvasSize(currentBoard.configuration?.canvasSize || { width: 1920, height: 1080 })
-            setBackgroundImage(currentBoard.configuration?.backgroundImage || null)
-            setBackgroundColor(currentBoard.configuration?.backgroundColor || "#ffffff")
+            const newCanvasSize = currentBoard.configuration?.canvasSize || { width: 1920, height: 1080 }
+            const newBackgroundImage = currentBoard.configuration?.backgroundImage || null
+            const newBackgroundColor = currentBoard.configuration?.backgroundColor || "#ffffff"
+            
+            // Only update if something actually changed to avoid disrupting slideshow timing
+            const itemsChanged = JSON.stringify(newItems) !== JSON.stringify(canvasItems)
+            const sizeChanged = JSON.stringify(newCanvasSize) !== JSON.stringify(canvasSize)
+            const backgroundImageChanged = newBackgroundImage !== backgroundImage
+            const backgroundColorChanged = newBackgroundColor !== backgroundColor
+            
+            if (itemsChanged) {
+              setCanvasItems(newItems)
+            }
+            if (sizeChanged) {
+              setCanvasSize(newCanvasSize)
+            }
+            if (backgroundImageChanged) {
+              setBackgroundImage(newBackgroundImage)
+            }
+            if (backgroundColorChanged) {
+              setBackgroundColor(newBackgroundColor)
+            }
           }
         }
       } catch (error) {
         console.error('Failed to poll for updates:', error)
       }
-    }, 1000) // Poll every 1 second for faster updates
+    }, 2000) // Poll every 2 seconds (reduced frequency to minimize disruption)
 
     return () => clearInterval(pollForUpdates)
-  }, [boardId])
+  }, [boardId, canvasItems, canvasSize, backgroundImage, backgroundColor])
 
   // Render loading state
   if (isLoading) {
@@ -377,12 +469,23 @@ function DisplayContent() {
             } else if (item.widgetType === 'slideshow') {
               return (
                 <SlideshowWidget
-                  key={item.id}
+                  key={`${item.id}-${(item.playlist || []).length}`}
                   x={scaledX}
                   y={scaledY}
                   width={scaledWidth}
                   height={scaledHeight}
                   playlist={item.playlist || []}
+                />
+              )
+            } else if (item.widgetType === 'announcement') {
+              return (
+                <AnnouncementWidget
+                  key={item.id}
+                  x={scaledX}
+                  y={scaledY}
+                  width={scaledWidth}
+                  height={scaledHeight}
+                  announcement={item.announcement || {}}
                 />
               )
             }

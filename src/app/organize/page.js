@@ -17,7 +17,8 @@ import {
   Play,
   ChevronUp,
   ChevronDown,
-  Pause
+  Pause,
+  Megaphone
 } from "lucide-react"
 import { useState, useRef, useEffect, useCallback, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
@@ -152,44 +153,49 @@ const WeatherWidget = ({ x, y, width, height, isSelected, item, onDragStart, set
 const SlideshowWidget = ({ x, y, width, height, isSelected, item, onDragStart, setSelectedItem, onResizeStart, onAddToSlideshow, uploadedFiles = [] }) => {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(true) // Auto-play by default
-  const [playlist, setPlaylist] = useState(item.playlist || [])
+  
+  // Use the playlist directly from props instead of local state to avoid sync issues
+  const playlist = item.playlist || []
 
   const timelineHeight = Math.min(height * 0.3, 60)
   const previewHeight = height - timelineHeight
 
-  // Auto-advance slides when playing with proper looping
+  // Reset slide index if current index is out of bounds when playlist changes
   useEffect(() => {
-    if (isPlaying && playlist.length > 1) { // Only auto-advance if there are multiple slides
-      const currentSlide = playlist[currentSlideIndex]
-      const duration = (currentSlide?.duration || 5) * 1000
-      
-      const timer = setTimeout(() => {
-        setCurrentSlideIndex((prev) => {
-          const nextIndex = prev + 1
-          // Loop back to 0 when reaching the end
-          return nextIndex >= playlist.length ? 0 : nextIndex
-        })
-      }, duration)
-      
-      return () => clearTimeout(timer)
-    }
-  }, [isPlaying, currentSlideIndex, playlist])
-
-  // Sync with updated playlist from parent component
-  useEffect(() => {
-    setPlaylist(item.playlist || [])
-    // Reset slide index if current index is out of bounds
-    if (currentSlideIndex >= (item.playlist || []).length && (item.playlist || []).length > 0) {
+    if (playlist.length > 0 && currentSlideIndex >= playlist.length) {
       setCurrentSlideIndex(0)
     }
-  }, [item.playlist, currentSlideIndex])
+  }, [playlist.length, currentSlideIndex])
 
-  // Auto-start playing when widget is selected and has multiple slides
+  // Auto-advance slides when playing - simplified and more reliable
   useEffect(() => {
-    if (isSelected && playlist.length > 1) {
+    if (!isPlaying || playlist.length === 0) return
+
+    const currentSlide = playlist[currentSlideIndex]
+    if (!currentSlide) return
+
+    const duration = Math.max(1, currentSlide.duration || 5) * 1000 // Ensure minimum 1 second
+    
+    const timer = setTimeout(() => {
+      setCurrentSlideIndex((prevIndex) => {
+        // For single slide, just stay on the same slide (no advancement)
+        if (playlist.length === 1) return 0
+        
+        // For multiple slides, loop to the beginning when at the end
+        const nextIndex = prevIndex + 1
+        return nextIndex >= playlist.length ? 0 : nextIndex
+      })
+    }, duration)
+    
+    return () => clearTimeout(timer)
+  }, [isPlaying, currentSlideIndex, playlist])
+
+  // Auto-start playing when there are slides (no need to check for multiple slides)
+  useEffect(() => {
+    if (playlist.length > 0) {
       setIsPlaying(true)
     }
-  }, [isSelected, playlist.length])
+  }, [playlist.length])
 
   const handleDrop = useCallback((e) => {
     e.preventDefault()
@@ -210,7 +216,6 @@ const SlideshowWidget = ({ x, y, width, height, isSelected, item, onDragStart, s
             order: playlist.length + 1
           }
           const newPlaylist = [...playlist, newSlide]
-          setPlaylist(newPlaylist)
           if (onAddToSlideshow) {
             onAddToSlideshow(item.id, newPlaylist)
           }
@@ -223,9 +228,11 @@ const SlideshowWidget = ({ x, y, width, height, isSelected, item, onDragStart, s
 
   const removeSlide = (slideId) => {
     const newPlaylist = playlist.filter(slide => slide.id !== slideId)
-    setPlaylist(newPlaylist)
+    // Adjust current slide index if needed
     if (currentSlideIndex >= newPlaylist.length && newPlaylist.length > 0) {
       setCurrentSlideIndex(newPlaylist.length - 1)
+    } else if (newPlaylist.length === 0) {
+      setCurrentSlideIndex(0)
     }
     if (onAddToSlideshow) {
       onAddToSlideshow(item.id, newPlaylist)
@@ -234,9 +241,8 @@ const SlideshowWidget = ({ x, y, width, height, isSelected, item, onDragStart, s
 
   const updateSlideDuration = (slideId, newDuration) => {
     const updatedPlaylist = playlist.map(slide =>
-      slide.id === slideId ? { ...slide, duration: parseInt(newDuration) || 5 } : slide
+      slide.id === slideId ? { ...slide, duration: Math.max(1, parseInt(newDuration) || 5) } : slide
     )
-    setPlaylist(updatedPlaylist)
     if (onAddToSlideshow) {
       onAddToSlideshow(item.id, updatedPlaylist)
     }
@@ -398,6 +404,122 @@ const SlideshowWidget = ({ x, y, width, height, isSelected, item, onDragStart, s
   )
 }
 
+const AnnouncementWidget = ({ x, y, width, height, isSelected, item, onDragStart, setSelectedItem, onResizeStart }) => {
+  const [currentTime, setCurrentTime] = useState(new Date())
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 1000)
+    return () => clearInterval(timer)
+  }, [])
+
+  // Get current date in YYYY-MM-DD format, accounting for timezone
+  const getCurrentDate = () => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  const announcement = item.announcement || {
+    text: "",
+    startDate: getCurrentDate(),
+    endDate: getCurrentDate(),
+    startTime: "09:00",
+    endTime: "17:00",
+    isActive: true
+  }
+
+  // Check if announcement should be displayed based on current date and time
+  const shouldShow = () => {
+    if (!announcement.isActive) return false
+    
+    const now = currentTime
+    // Get current date in YYYY-MM-DD format, accounting for timezone
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    const currentDateStr = `${year}-${month}-${day}`
+    const currentTimeStr = now.toTimeString().slice(0, 5) // HH:MM format
+    
+    // Check if current date is within the announcement date range
+    const isWithinDateRange = currentDateStr >= announcement.startDate && currentDateStr <= announcement.endDate
+    const isWithinTimeRange = currentTimeStr >= announcement.startTime && currentTimeStr <= announcement.endTime
+    
+    return isWithinDateRange && isWithinTimeRange
+  }
+
+  const isShowing = shouldShow()
+
+  return (
+    <div
+      draggable
+      className={`absolute bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg p-4 border-2 overflow-hidden ${
+        isSelected ? 'cursor-move border-blue-500 shadow-lg' : 'cursor-move border-transparent hover:border-gray-300 hover:shadow-md transition-all duration-150'
+      }`}
+      style={{ 
+        left: x, 
+        top: y, 
+        width, 
+        height,
+        opacity: isShowing ? 1 : 0.5
+      }}
+      onDragStart={(e) => onDragStart(e, item)}
+      onClick={(e) => {
+        e.stopPropagation()
+        setSelectedItem(item)
+      }}
+    >
+      <div className="flex flex-col h-full">
+        {/* Status indicator */}
+        <div className="flex justify-between items-center mb-2">
+          <div className={`px-2 py-1 rounded-full text-xs font-medium ${
+            isShowing ? 'bg-green-600' : 'bg-gray-600'
+          }`}>
+            {isShowing ? 'LIVE' : 'SCHEDULED'}
+          </div>
+        </div>
+        
+        {/* Announcement text */}
+        <div className="flex-1 flex items-center justify-center">
+          <div 
+            className="text-center font-bold break-words"
+            style={{ 
+              fontSize: Math.min(width * 0.06, height * 0.15, 24),
+              lineHeight: 1.2
+            }}
+          >
+            {announcement.text || "Enter announcement text in edit panel"}
+          </div>
+        </div>
+
+      </div>
+      
+      {/* Selection handles */}
+      {isSelected && (
+        <>
+          <div 
+            className="absolute -top-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-nw-resize hover:bg-blue-600"
+            onMouseDown={(e) => onResizeStart && onResizeStart(e, 'nw')}
+          ></div>
+          <div 
+            className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-ne-resize hover:bg-blue-600"
+            onMouseDown={(e) => onResizeStart && onResizeStart(e, 'ne')}
+          ></div>
+          <div 
+            className="absolute -bottom-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-sw-resize hover:bg-blue-600"
+            onMouseDown={(e) => onResizeStart && onResizeStart(e, 'sw')}
+          ></div>
+          <div 
+            className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-se-resize hover:bg-blue-600"
+            onMouseDown={(e) => onResizeStart && onResizeStart(e, 'se')}
+          ></div>
+        </>
+      )}
+    </div>
+  )
+}
+
 function OrganizePageContent() {
   const searchParams = useSearchParams()
   const boardId = searchParams.get('board')
@@ -470,7 +592,8 @@ function OrganizePageContent() {
   const widgetSizes = {
     time: { width: 200, height: 100 },
     weather: { width: 250, height: 150 },
-    slideshow: { width: 480, height: 270 } // 16:9 aspect ratio
+    slideshow: { width: 480, height: 270 }, // 16:9 aspect ratio
+    announcement: { width: 400, height: 150 }
   }
 
   // HTML5 Drag and Drop handlers (like proto.js)
@@ -650,7 +773,14 @@ function OrganizePageContent() {
   // Keyboard deletion
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedItem) {
+      // Don't delete if user is typing in input fields
+      const isTypingInInput = e.target.tagName === 'INPUT' || 
+                             e.target.tagName === 'TEXTAREA' || 
+                             e.target.contentEditable === 'true' ||
+                             e.target.closest('[data-announcement-panel]') ||
+                             e.target.closest('[data-slideshow-panel]')
+      
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedItem && !isTypingInInput) {
         e.preventDefault()
         deleteSelectedItem()
       }
@@ -770,9 +900,10 @@ function OrganizePageContent() {
     // Only deselect if clicking outside the main canvas area and bottom panel
     const isCanvasArea = canvasRef.current?.contains(e.target)
     const isSlideshowPanel = e.target.closest('[data-slideshow-panel]')
+    const isAnnouncementPanel = e.target.closest('[data-announcement-panel]')
     const isSidebar = e.target.closest('.w-72')
     
-    if (!isCanvasArea && !isSlideshowPanel && !isSidebar) {
+    if (!isCanvasArea && !isSlideshowPanel && !isAnnouncementPanel && !isSidebar) {
       setSelectedItem(null)
     }
   }
@@ -847,6 +978,15 @@ function OrganizePageContent() {
     setBackgroundColor("#ffffff")
   }
 
+  // Get current date in YYYY-MM-DD format, accounting for timezone
+  const getCurrentDate = () => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = String(now.getMonth() + 1).padStart(2, '0')
+    const day = String(now.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
   // Add preset widgets
   const addWidget = (type) => {
     const sizes = widgetSizes[type]
@@ -854,6 +994,7 @@ function OrganizePageContent() {
     if (type === 'time') widgetName = 'Time';
     else if (type === 'weather') widgetName = 'Weather';
     else if (type === 'slideshow') widgetName = 'Slideshow';
+    else if (type === 'announcement') widgetName = 'Announcement';
     
     const widget = {
       type: 'widget',
@@ -861,7 +1002,15 @@ function OrganizePageContent() {
       name: `${widgetName} Widget`,
       width: sizes.width,
       height: sizes.height,
-      playlist: type === 'slideshow' ? [] : undefined
+      playlist: type === 'slideshow' ? [] : undefined,
+      announcement: type === 'announcement' ? {
+        text: "",
+        startDate: getCurrentDate(),
+        endDate: getCurrentDate(),
+        startTime: "09:00",
+        endTime: "17:00",
+        isActive: true
+      } : undefined
     }
     addToCanvas(widget)
   }
@@ -876,6 +1025,21 @@ function OrganizePageContent() {
       )
     )
     // Auto-save when playlist changes to ensure display page gets updates
+    setTimeout(() => {
+      saveBoard()
+    }, 100)
+  }
+
+  // Handle updating announcement properties
+  const updateAnnouncement = (announcementId, updatedAnnouncement) => {
+    setCanvasItems(items =>
+      items.map(item =>
+        item.id === announcementId
+          ? { ...item, announcement: updatedAnnouncement }
+          : item
+      )
+    )
+    // Auto-save when announcement changes
     setTimeout(() => {
       saveBoard()
     }, 100)
@@ -933,7 +1097,7 @@ function OrganizePageContent() {
       <div className="flex h-[calc(100vh-80px)]">
         {/* Left Sidebar - Content Library */}
         <div className={`bg-black border-r border-black p-3 overflow-y-auto transition-all duration-300 ${
-          selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' 
+          selectedItem && selectedItem.type === 'widget' && (selectedItem.widgetType === 'slideshow' || selectedItem.widgetType === 'announcement')
             ? 'w-0 opacity-0 overflow-hidden' 
             : 'w-72 opacity-100'
         }`}>
@@ -1082,7 +1246,7 @@ function OrganizePageContent() {
                 startContent={<Clock className="w-3 h-3" />}
                 onPress={() => addWidget('time')}
                   >
-                Time Widget ({widgetSizes.time.width}×{widgetSizes.time.height})
+                Time Widget
                   </Button>
               </div>
 
@@ -1095,7 +1259,7 @@ function OrganizePageContent() {
                 startContent={<CloudSun className="w-3 h-3" />}
                 onPress={() => addWidget('weather')}
               >
-                Weather Widget ({widgetSizes.weather.width}×{widgetSizes.weather.height})
+                Weather Widget
               </Button>
             </div>
 
@@ -1108,7 +1272,20 @@ function OrganizePageContent() {
                 startContent={<Play className="w-3 h-3" />}
                 onPress={() => addWidget('slideshow')}
                   >
-                Slideshow Widget (16:9 - {widgetSizes.slideshow.width}×{widgetSizes.slideshow.height})
+                Slideshow Widget
+                  </Button>
+            </div>
+
+            {/* Announcement Widget */}
+            <div className="mb-3">
+                  <Button
+                    size="sm"
+                    variant="bordered"
+                    className="w-full border-white text-white hover:bg-white hover:text-black text-xs"
+                startContent={<Megaphone className="w-3 h-3" />}
+                onPress={() => addWidget('announcement')}
+                  >
+                Announcement Widget
                   </Button>
             </div>
           </div>
@@ -1274,7 +1451,7 @@ function OrganizePageContent() {
 
         {/* Main Canvas Area */}
         <div className={`flex flex-col transition-all duration-300 ${
-          selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' 
+          selectedItem && selectedItem.type === 'widget' && (selectedItem.widgetType === 'slideshow' || selectedItem.widgetType === 'announcement')
             ? 'w-full' 
             : 'flex-1'
         }`}>
@@ -1285,6 +1462,9 @@ function OrganizePageContent() {
                 Canvas ({canvasItems.length} items)
                 {selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' && (
                   <span className="ml-2 text-sm text-blue-400">• Slideshow Mode</span>
+                )}
+                {selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'announcement' && (
+                  <span className="ml-2 text-sm text-orange-400">• Announcement Mode</span>
                 )}
               </h3>
               <p className="text-sm text-white">Size: {canvasSize.width}x{canvasSize.height}px</p>
@@ -1310,7 +1490,7 @@ function OrganizePageContent() {
                       style={{
                   width: canvasSize.width * 0.6, 
                   height: canvasSize.height * 0.6,
-                  maxWidth: selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' 
+                  maxWidth: selectedItem && selectedItem.type === 'widget' && (selectedItem.widgetType === 'slideshow' || selectedItem.widgetType === 'announcement')
                     ? 'calc(100vw - 40px)' 
                     : 'calc(100vw - 320px)',
                   maxHeight: 'calc(100vh - 140px)',
@@ -1372,6 +1552,21 @@ function OrganizePageContent() {
                           onResizeStart={handleResizeStart}
                           onAddToSlideshow={addToSlideshow}
                           uploadedFiles={uploadedFiles}
+                        />
+                      )
+                    } else if (item.widgetType === 'announcement') {
+                      return (
+                        <AnnouncementWidget
+                          key={item.id}
+                          x={item.x * 0.6}
+                          y={item.y * 0.6}
+                          width={item.width * 0.6}
+                          height={item.height * 0.6}
+                          isSelected={selectedItem?.id === item.id}
+                          item={item}
+                          onDragStart={handleDragStart}
+                          setSelectedItem={setSelectedItem}
+                          onResizeStart={handleResizeStart}
                         />
                       )
                     }
@@ -1811,6 +2006,198 @@ function OrganizePageContent() {
               className="hidden"
               onChange={(e) => handleSlideshowFileUpload(e.target.files, "video")}
             />
+          </div>
+        )}
+
+        {/* Announcement Editing Panel - Bottom */}
+        {selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'announcement' && (
+          <div className="border-t border-gray-300 bg-white p-4" data-announcement-panel>
+            <div className="flex justify-between items-center mb-4">
+              <h4 className="font-medium text-gray-900">
+                Announcement Settings
+              </h4>
+              <div className="flex items-center gap-2">
+                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
+                  selectedItem.announcement?.isActive 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-gray-100 text-gray-800'
+                }`}>
+                  {selectedItem.announcement?.isActive ? 'Active' : 'Inactive'}
+                </span>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left Column - Text */}
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Announcement Text
+                  </label>
+                  <textarea
+                    value={selectedItem.announcement?.text || ""}
+                    onChange={(e) => {
+                      e.stopPropagation()
+                      updateAnnouncement(selectedItem.id, {
+                        ...selectedItem.announcement,
+                        text: e.target.value
+                      })
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    onFocus={(e) => e.stopPropagation()}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    className="w-full h-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-black bg-white"
+                    placeholder="Enter your announcement text..."
+                  />
+                </div>
+              </div>
+
+              {/* Right Column - Timing and Status */}
+              <div className="space-y-4">
+                {/* Date Controls */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      value={selectedItem.announcement?.startDate || (() => {
+                        const now = new Date()
+                        const year = now.getFullYear()
+                        const month = String(now.getMonth() + 1).padStart(2, '0')
+                        const day = String(now.getDate()).padStart(2, '0')
+                        return `${year}-${month}-${day}`
+                      })()}
+                      onChange={(e) => {
+                        e.stopPropagation()
+                        updateAnnouncement(selectedItem.id, {
+                          ...selectedItem.announcement,
+                          startDate: e.target.value
+                        })
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      onFocus={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-black bg-white"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      value={selectedItem.announcement?.endDate || (() => {
+                        const now = new Date()
+                        const year = now.getFullYear()
+                        const month = String(now.getMonth() + 1).padStart(2, '0')
+                        const day = String(now.getDate()).padStart(2, '0')
+                        return `${year}-${month}-${day}`
+                      })()}
+                      onChange={(e) => {
+                        e.stopPropagation()
+                        updateAnnouncement(selectedItem.id, {
+                          ...selectedItem.announcement,
+                          endDate: e.target.value
+                        })
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      onFocus={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-black bg-white"
+                    />
+                  </div>
+                </div>
+
+                {/* Time Controls */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Start Time
+                    </label>
+                    <input
+                      type="time"
+                      value={selectedItem.announcement?.startTime || "09:00"}
+                      onChange={(e) => {
+                        e.stopPropagation()
+                        updateAnnouncement(selectedItem.id, {
+                          ...selectedItem.announcement,
+                          startTime: e.target.value
+                        })
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      onFocus={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-black bg-white"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      End Time
+                    </label>
+                    <input
+                      type="time"
+                      value={selectedItem.announcement?.endTime || "17:00"}
+                      onChange={(e) => {
+                        e.stopPropagation()
+                        updateAnnouncement(selectedItem.id, {
+                          ...selectedItem.announcement,
+                          endTime: e.target.value
+                        })
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      onFocus={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-black bg-white"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedItem.announcement?.isActive || false}
+                      onChange={(e) => updateAnnouncement(selectedItem.id, {
+                        ...selectedItem.announcement,
+                        isActive: e.target.checked
+                      })}
+                      className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500"
+                    />
+                    <span className="text-sm font-medium text-gray-700">
+                      Enable Announcement
+                    </span>
+                  </label>
+                </div>
+                
+                <div className="bg-gray-50 rounded-lg p-3">
+                  <h5 className="text-sm font-medium text-gray-700 mb-2">Preview</h5>
+                  <div className="text-xs text-gray-600 space-y-1">
+                    <p>
+                      <strong>Text:</strong> {selectedItem.announcement?.text?.substring(0, 50) || "No text"}
+                      {selectedItem.announcement?.text?.length > 50 && "..."}
+                    </p>
+                    <p><strong>Active Period:</strong> {selectedItem.announcement?.startDate || (() => {
+                        const now = new Date()
+                        const year = now.getFullYear()
+                        const month = String(now.getMonth() + 1).padStart(2, '0')
+                        const day = String(now.getDate()).padStart(2, '0')
+                        return `${year}-${month}-${day}`
+                      })()} {selectedItem.announcement?.startTime || "09:00"} - {selectedItem.announcement?.endDate || (() => {
+                        const now = new Date()
+                        const year = now.getFullYear()
+                        const month = String(now.getMonth() + 1).padStart(2, '0')
+                        const day = String(now.getDate()).padStart(2, '0')
+                        return `${year}-${month}-${day}`
+                      })()} {selectedItem.announcement?.endTime || "17:00"}</p>
+                    <p><strong>Status:</strong> {selectedItem.announcement?.isActive ? "Active" : "Inactive"}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
