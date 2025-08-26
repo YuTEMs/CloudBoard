@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { useDisplayBoard } from '../../hooks/useDisplayBoard'
+import { useRealtimeBoard } from '../../hooks/useRealtimeBoard'
 
 // Widget Components for Display
 const TimeWidget = ({ x, y, width, height }) => {
@@ -148,56 +148,61 @@ const SlideshowWidget = ({ x, y, width, height, playlist = [] }) => {
       return
     }
 
-    const duration = (currentSlide.duration || 5) * 1000
+    const duration = Math.max(1000, (currentSlide.duration || 5) * 1000) // Ensure minimum 1 second
+    
     const timer = setTimeout(() => {
-      setCurrentSlideIndex((prevIndex) => 
-        (prevIndex + 1) % playlist.length
-      )
+      setCurrentSlideIndex((prevIndex) => {
+        // For single slide, stay on same slide
+        if (playlist.length === 1) return 0
+        
+        // For multiple slides, advance with proper looping
+        const nextIndex = prevIndex + 1
+        return nextIndex >= playlist.length ? 0 : nextIndex
+      })
     }, duration)
-
+    
     return () => clearTimeout(timer)
-  }, [currentSlideIndex, playlist])
+  }, [currentSlideIndex, playlist.length]) // Only depend on currentSlideIndex and playlist.length, not full playlist
 
-  if (playlist.length === 0) {
+  // Get current slide with fallback to ensure we always have a valid slide when playlist exists
+  const currentSlide = playlist.length > 0 ? playlist[Math.min(currentSlideIndex, playlist.length - 1)] : null
+
+  if (!currentSlide || playlist.length === 0) {
     return (
       <div
-        className="absolute bg-gray-800 rounded-lg flex items-center justify-center"
+        className="absolute bg-gray-900 text-white rounded-lg flex items-center justify-center"
         style={{ left: x, top: y, width, height }}
       >
-        <div className="text-white text-center opacity-75">
-          <div className="text-4xl mb-2">🖼️</div>
-          <p style={{ fontSize: Math.min(width * 0.04, height * 0.1, 16) }}>
-            No slides
-          </p>
+        <div className="text-center opacity-50">
+          <div style={{ fontSize: Math.min(width * 0.08, 24) }}>📺</div>
+          <div style={{ fontSize: Math.min(width * 0.04, 12) }}>Empty Slideshow</div>
         </div>
       </div>
     )
   }
 
-  const currentSlide = playlist[currentSlideIndex]
-  if (!currentSlide) return null
-
   return (
     <div
-      className="absolute rounded-lg overflow-hidden bg-black"
+      className="absolute bg-black rounded-lg overflow-hidden"
       style={{ left: x, top: y, width, height }}
     >
-      {currentSlide.type === 'image' ? (
+      {currentSlide.type === 'image' && (
         <img
           src={currentSlide.url}
           alt={currentSlide.name}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain"
           onError={(e) => {
             console.error('Slideshow image failed to load:', currentSlide.url)
           }}
         />
-      ) : (
+      )}
+      {currentSlide.type === 'video' && (
         <video
+          key={currentSlide.id} // Force re-render when slide changes
           src={currentSlide.url}
-          className="w-full h-full object-cover"
+          className="w-full h-full object-contain"
           autoPlay
           muted
-          loop={false}
           playsInline
           onError={(e) => {
             console.error('Slideshow video failed to load:', currentSlide.url)
@@ -205,34 +210,12 @@ const SlideshowWidget = ({ x, y, width, height, playlist = [] }) => {
         />
       )}
       
-      {/* Slide indicators */}
-      <div className="absolute bottom-2 left-2 right-2 flex justify-center space-x-1">
-        {playlist.map((_, index) => (
-          <div
-            key={index}
-            className={`w-2 h-2 rounded-full ${
-              index === currentSlideIndex ? 'bg-white' : 'bg-white bg-opacity-50'
-            }`}
-          />
-        ))}
-      </div>
-      
-      {/* Progress bar */}
-      <div className="absolute bottom-0 left-0 right-0 h-1 bg-black bg-opacity-25">
-        <div
-          className="h-full bg-white animate-pulse"
-          style={{
-            animation: `slideProgress ${(currentSlide.duration || 5)}s linear`
-          }}
-        />
-      </div>
-
-      <style jsx>{`
-        @keyframes slideProgress {
-          from { width: 0%; }
-          to { width: 100%; }
-        }
-      `}</style>
+      {/* Slide indicator */}
+      {playlist.length > 1 && (
+        <div className="absolute bottom-2 right-2 bg-black bg-opacity-75 text-white px-2 py-1 rounded text-xs">
+          {currentSlideIndex + 1}/{playlist.length}
+        </div>
+      )}
     </div>
   )
 }
@@ -241,11 +224,12 @@ function DisplayContent() {
   const searchParams = useSearchParams()
   const boardId = searchParams.get('board')
   
-  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
-  // Use display board hook with save-based updates
-  const { board, loading, error, lastUpdated, connectionStatus } = useDisplayBoard(boardId)
+  // Use real-time board hook
+  const { board, loading, error } = useRealtimeBoard(boardId)
+  
   const [viewportSize, setViewportSize] = useState({ width: 1920, height: 1080 })
   const [scaleFactors, setScaleFactors] = useState({ x: 1, y: 1 })
+  
   const displayRef = useRef(null)
 
   // Extract board data from real-time hook
@@ -256,59 +240,14 @@ function DisplayContent() {
   const backgroundColor = board?.configuration?.backgroundColor || "#ffffff"
   const isLoading = loading
   
-  // Create safe canvas size object to avoid mutation
-  const safeCanvasSize = {
-    width: canvasSize?.width || 1920,
-    height: canvasSize?.height || 1080
-  }
-
-  // Calculate viewport size and scale factors - Hook must be called every render
-  const updateViewportSize = useCallback(() => {
-    const vw = window.innerWidth
-    const vh = window.innerHeight
-    setViewportSize({ width: vw, height: vh })
-    
-    const scaleX = vw / safeCanvasSize.width
-    const scaleY = vh / safeCanvasSize.height
-    setScaleFactors({ x: scaleX, y: scaleY })
-  }, [safeCanvasSize.width, safeCanvasSize.height])
-
-  // Set initial viewport size and add resize listener
-  useEffect(() => {
-    updateViewportSize()
-    
-    const handleResize = () => {
-      updateViewportSize()
-    }
-    
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [updateViewportSize])
-
-  // Update scale factors when canvas size changes
-  useEffect(() => {
-    updateViewportSize()
-  }, [safeCanvasSize.width, safeCanvasSize.height, updateViewportSize])
-
-  // NOW WE CAN HAVE CONDITIONAL RETURNS AFTER ALL HOOKS
   // Handle loading and error states
   if (!boardId) {
+    const error = 'No board ID provided. Please check the URL.'
     return (
       <div className="fixed inset-0 bg-black flex items-center justify-center text-white">
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Display Error</h1>
-          <p className="text-lg">No board ID provided. Please check the URL.</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (isLoading) {
-    return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center text-white">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="text-xl">Loading display...</p>
+          <p className="text-lg">{error}</p>
         </div>
       </div>
     )
@@ -326,6 +265,17 @@ function DisplayContent() {
     )
   }
 
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-black flex items-center justify-center text-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-xl">Loading display...</p>
+        </div>
+      </div>
+    )
+  }
+
   if (!board) {
     return (
       <div className="fixed inset-0 bg-black flex items-center justify-center text-white">
@@ -337,6 +287,118 @@ function DisplayContent() {
       </div>
     )
   }
+
+  // Calculate viewport size and scale factors
+  const updateViewportSize = useCallback(() => {
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    setViewportSize({ width: vw, height: vh })
+    
+    // Calculate scale factors to fill entire screen
+    const scaleX = vw / canvasSize.width
+    const scaleY = vh / canvasSize.height
+    setScaleFactors({ x: scaleX, y: scaleY })
+  }, [canvasSize.width, canvasSize.height])
+
+  // Set initial viewport size and add resize listener
+  useEffect(() => {
+    updateViewportSize()
+    
+    const handleResize = () => {
+      updateViewportSize()
+    }
+    
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [updateViewportSize])
+
+  // Update scale factors when canvas size changes
+  useEffect(() => {
+    updateViewportSize()
+  }, [canvasSize, updateViewportSize])
+          // Calculate viewport size and scale factors
+  const updateViewportSize = useCallback(() => {
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    setViewportSize({ width: vw, height: vh })
+    
+    const scaleX = vw / canvasSize.width
+    const scaleY = vh / canvasSize.height
+    setScaleFactors({ x: scaleX, y: scaleY })
+  }, [canvasSize.width, canvasSize.height])
+
+  // Set initial viewport size and add resize listener
+  useEffect(() => {
+    updateViewportSize()
+    
+    const handleResize = () => {
+      updateViewportSize()
+    }
+    
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [updateViewportSize])
+
+  // Update scale factors when canvas size changes
+  useEffect(() => {
+    updateViewportSize()
+  }, [canvasSize, updateViewportSize])
+
+  // Render no content state
+  if (canvasItems.length === 0) {
+    return (
+      <div 
+        className="fixed inset-0 flex items-center justify-center" 
+        style={{ 
+          backgroundColor,
+          backgroundImage: backgroundImage ? `url(${backgroundImage})` : 'none',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        }}
+      >
+        <div className="text-center" style={{ color: backgroundColor === '#ffffff' ? '#333' : '#fff' }}>
+          <div className="text-6xl mb-4" style={{ opacity: 0.5 }}>📺</div>
+          <h1 className="text-2xl font-bold mb-2">Empty Board</h1>
+          <p className="mb-4" style={{ opacity: 0.75 }}>Board "{boardName}" has no content yet</p>
+          <p className="text-sm" style={{ opacity: 0.5 }}>Add content in the editor to see it here</p>
+        </div>
+      </div>
+        }
+      } catch (error) {
+        console.error('Failed to poll for updates:', error)
+      }
+    }, 2000) // Poll every 2 seconds (reduced frequency to minimize disruption)
+
+    return () => clearInterval(pollForUpdates)
+  }, [boardId, canvasItems, canvasSize, backgroundImage, backgroundColor])
+
+  // Render loading state
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-black flex items-center justify-center">
+        <div className="text-white text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-xl">Loading board...</p>
+          <p className="text-sm text-gray-400 mt-2">Board: {boardId}</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Render error state
+  if (error) {
+    return (
+      <div className="fixed inset-0 bg-black flex items-center justify-center">
+        <div className="text-white text-center max-w-md">
+          <div className="text-red-400 text-6xl mb-4">⚠</div>
+          <h1 className="text-2xl font-bold mb-2">Display Error</h1>
+          <p className="text-gray-300 mb-4">{error}</p>
+          <p className="text-sm text-gray-400">Board: {boardId}</p>
+        </div>
+      </div>
+    )
+  }
+
   // Render no content state
   if (canvasItems.length === 0) {
     return (
@@ -470,55 +532,19 @@ function DisplayContent() {
                   }}
                 />
               )}
-              {item.type === 'text' && (
-                <div
-                  className="w-full h-full flex items-center justify-center p-2"
-                  style={{
-                    color: item.color || '#000000',
-                    fontSize: `${item.fontSize || 24}px`,
-                    fontFamily: item.fontFamily || 'Arial',
-                    fontWeight: item.fontWeight || 'normal',
-                    textAlign: item.textAlign || 'center',
-                    backgroundColor: item.backgroundColor || 'transparent'
-                  }}
-                >
-                  {item.content}
-                </div>
-              )}
             </div>
           )
         })}
-
-        {/* Debug info - only visible in dev mode */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="absolute top-4 left-4 bg-black bg-opacity-75 text-white p-2 rounded text-xs font-mono z-50 space-y-1">
-            <div>{boardName} • {canvasItems.length} items • {viewportSize.width}x{viewportSize.height} • Scale: {scaleFactors.x.toFixed(2)}x{scaleFactors.y.toFixed(2)}</div>
-            <div className="flex items-center gap-2">
-              Connection: 
-              <span className={`px-1 rounded text-xs ${
-                connectionStatus === 'connected' ? 'bg-green-600 text-white' : 
-                connectionStatus === 'updated' ? 'bg-blue-600 text-white animate-pulse' :
-                connectionStatus === 'error' ? 'bg-red-600 text-white' :
-                'bg-gray-600 text-white'
-              }`}>
-                {connectionStatus}
-              </span>
-              {lastUpdated && (
-                <span className="text-gray-300">
-                  Updated: {lastUpdated.toLocaleTimeString()}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Connection status indicator for production */}
-        {connectionStatus === 'updated' && (
-          <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm animate-pulse z-50">
-            ✅ Updated
-          </div>
-        )}
       </div>
+
+      {/* Board info (only visible in development) */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="fixed top-4 right-4 z-50">
+          <div className="bg-black bg-opacity-75 text-white px-3 py-1 rounded-full text-xs">
+            {boardName} • {canvasItems.length} items • {viewportSize.width}x{viewportSize.height} • Scale: {scaleFactors.x.toFixed(2)}x{scaleFactors.y.toFixed(2)}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

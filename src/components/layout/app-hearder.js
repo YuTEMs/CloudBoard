@@ -1,6 +1,7 @@
 import { Button } from "@heroui/react"
-import { ArrowLeft, Menu, User } from "lucide-react"
+import { ArrowLeft, Menu } from "lucide-react"
 import Link from "next/link"
+import UserProfileDropdown from "../auth/UserProfileDropdown"
 
 export function AppHeader({ title, showBack = false, backHref = "/" }) {
   return (
@@ -19,9 +20,7 @@ export function AppHeader({ title, showBack = false, backHref = "/" }) {
         )}
         <h1 className="text-xl font-semibold text-black">{title}</h1>
       </div>
-      <Button isIconOnly variant="light" className="hover:bg-black hover:text-white">
-        <User className="w-5 h-5 text-black" />
-      </Button>
+      <UserProfileDropdown />
     </header>
   )
 }

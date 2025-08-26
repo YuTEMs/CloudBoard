@@ -23,6 +23,8 @@ import {
 import { useState, useRef, useEffect, useCallback, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
 import { AppHeader } from "../../components/layout/app-hearder"
+import { useRealtimeBoards } from "../../hooks/useRealtimeBoards"
+import { useBoardSave } from "../../hooks/useBoardSave"
 
 // Widget Components
 const TimeWidget = ({ x, y, width, height, isSelected, item, onDragStart, setSelectedItem, onResizeStart }) => {
@@ -524,6 +526,10 @@ function OrganizePageContent() {
   const searchParams = useSearchParams()
   const boardId = searchParams.get('board')
   
+  // Use real-time boards hook
+  const { boards, updateBoard } = useRealtimeBoards()
+  const currentBoard = boards.find(board => board.id === boardId)
+  
   // Canvas and board state
   const [canvasItems, setCanvasItems] = useState([])
   const [selectedItem, setSelectedItem] = useState(null)
@@ -550,43 +556,37 @@ function OrganizePageContent() {
   const slideshowImageInputRef = useRef(null)
   const slideshowVideoInputRef = useRef(null)
 
-  // Load board data from localStorage
-  useEffect(() => {
-    if (boardId) {
-      const savedBoards = localStorage.getItem('smartBoards')
-      if (savedBoards) {
-        const boards = JSON.parse(savedBoards)
-        const currentBoard = boards.find(board => board.id === boardId)
-        if (currentBoard) {
-          setBoardName(currentBoard.name)
-          setCanvasItems(currentBoard.configuration?.items || [])
-          setBackgroundImage(currentBoard.configuration?.backgroundImage || null)
-          setBackgroundColor(currentBoard.configuration?.backgroundColor || "#ffffff")
-        }
-      }
-    }
-  }, [boardId])
+  // Use save-based board management
+  const { saveBoard: saveBoardToDb, saving, lastSaved, error: saveError } = useBoardSave()
 
-  // Save board configuration
-  const saveBoard = useCallback(() => {
+  // Load board data from real-time hook
+  useEffect(() => {
+    if (currentBoard) {
+      setBoardName(currentBoard.name)
+      setCanvasItems(currentBoard.configuration?.items || [])
+      setBackgroundImage(currentBoard.configuration?.backgroundImage || null)
+      setBackgroundColor(currentBoard.configuration?.backgroundColor || "#ffffff")
+    }
+  }, [currentBoard])
+
+  // Manual save function - only saves when user clicks Save button
+  const handleSaveBoard = useCallback(async () => {
     if (!boardId) return
 
-    const savedBoards = localStorage.getItem('smartBoards')
-    if (savedBoards) {
-      const boards = JSON.parse(savedBoards)
-      const boardIndex = boards.findIndex(board => board.id === boardId)
-      if (boardIndex !== -1) {
-        boards[boardIndex].configuration = {
-          items: canvasItems,
-          canvasSize,
-          backgroundImage,
-          backgroundColor
-        }
-        boards[boardIndex].updatedAt = new Date().toISOString()
-        localStorage.setItem('smartBoards', JSON.stringify(boards))
+    try {
+      const configuration = {
+        items: canvasItems,
+        canvasSize,
+        backgroundImage,
+        backgroundColor
       }
+
+      await saveBoardToDb(boardId, configuration)
+      console.log('✅ Board configuration saved successfully!')
+    } catch (error) {
+      console.error('❌ Error saving board configuration:', error)
     }
-  }, [boardId, canvasItems, canvasSize, backgroundImage, backgroundColor])
+  }, [boardId, canvasItems, canvasSize, backgroundImage, backgroundColor, saveBoardToDb])
 
   // Widget size configurations
   const widgetSizes = {
@@ -1024,10 +1024,7 @@ function OrganizePageContent() {
           : item
       )
     )
-    // Auto-save when playlist changes to ensure display page gets updates
-    setTimeout(() => {
-      saveBoard()
-    }, 100)
+    // Note: Changes are now saved manually when user clicks Save button
   }
 
   // Handle updating announcement properties
@@ -1039,10 +1036,7 @@ function OrganizePageContent() {
           : item
       )
     )
-    // Auto-save when announcement changes
-    setTimeout(() => {
-      saveBoard()
-    }, 100)
+    // Note: Changes are now saved manually when user clicks Save button
   }
 
   // Make uploaded files draggable
@@ -1084,10 +1078,7 @@ function OrganizePageContent() {
       })
     )
     
-    // Auto-save when playlist order changes
-    setTimeout(() => {
-      saveBoard()
-    }, 100)
+    // Note: Changes are now saved manually when user clicks Save button
   }
 
   return (
@@ -1473,11 +1464,22 @@ function OrganizePageContent() {
               <Button
                 color="primary"
                 startContent={<Save className="w-4 h-4" />}
-                onPress={saveBoard}
+                onPress={handleSaveBoard}
+                isLoading={saving}
                 className="bg-white text-black hover:bg-gray-200"
               >
-                Save Board
-                </Button>
+                {saving ? 'Saving...' : 'Save Board'}
+              </Button>
+              {lastSaved && (
+                <div className="text-xs text-green-400 ml-2">
+                  Last saved: {lastSaved.toLocaleTimeString()}
+                </div>
+              )}
+              {saveError && (
+                <div className="text-xs text-red-400 ml-2">
+                  Error: {saveError}
+                </div>
+              )}
               </div>
             </div>
 

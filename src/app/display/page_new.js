@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { useDisplayBoard } from '../../hooks/useDisplayBoard'
+import { useRealtimeBoard } from '../../hooks/useRealtimeBoard'
 
 // Widget Components for Display
 const TimeWidget = ({ x, y, width, height }) => {
@@ -241,11 +241,12 @@ function DisplayContent() {
   const searchParams = useSearchParams()
   const boardId = searchParams.get('board')
   
-  // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
-  // Use display board hook with save-based updates
-  const { board, loading, error, lastUpdated, connectionStatus } = useDisplayBoard(boardId)
+  // Use real-time board hook
+  const { board, loading, error } = useRealtimeBoard(boardId)
+  
   const [viewportSize, setViewportSize] = useState({ width: 1920, height: 1080 })
   const [scaleFactors, setScaleFactors] = useState({ x: 1, y: 1 })
+  
   const displayRef = useRef(null)
 
   // Extract board data from real-time hook
@@ -256,41 +257,6 @@ function DisplayContent() {
   const backgroundColor = board?.configuration?.backgroundColor || "#ffffff"
   const isLoading = loading
   
-  // Create safe canvas size object to avoid mutation
-  const safeCanvasSize = {
-    width: canvasSize?.width || 1920,
-    height: canvasSize?.height || 1080
-  }
-
-  // Calculate viewport size and scale factors - Hook must be called every render
-  const updateViewportSize = useCallback(() => {
-    const vw = window.innerWidth
-    const vh = window.innerHeight
-    setViewportSize({ width: vw, height: vh })
-    
-    const scaleX = vw / safeCanvasSize.width
-    const scaleY = vh / safeCanvasSize.height
-    setScaleFactors({ x: scaleX, y: scaleY })
-  }, [safeCanvasSize.width, safeCanvasSize.height])
-
-  // Set initial viewport size and add resize listener
-  useEffect(() => {
-    updateViewportSize()
-    
-    const handleResize = () => {
-      updateViewportSize()
-    }
-    
-    window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
-  }, [updateViewportSize])
-
-  // Update scale factors when canvas size changes
-  useEffect(() => {
-    updateViewportSize()
-  }, [safeCanvasSize.width, safeCanvasSize.height, updateViewportSize])
-
-  // NOW WE CAN HAVE CONDITIONAL RETURNS AFTER ALL HOOKS
   // Handle loading and error states
   if (!boardId) {
     return (
@@ -298,17 +264,6 @@ function DisplayContent() {
         <div className="text-center">
           <h1 className="text-2xl font-bold mb-4">Display Error</h1>
           <p className="text-lg">No board ID provided. Please check the URL.</p>
-        </div>
-      </div>
-    )
-  }
-
-  if (isLoading) {
-    return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center text-white">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="text-xl">Loading display...</p>
         </div>
       </div>
     )
@@ -326,6 +281,17 @@ function DisplayContent() {
     )
   }
 
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-black flex items-center justify-center text-white">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"></div>
+          <p className="text-xl">Loading display...</p>
+        </div>
+      </div>
+    )
+  }
+
   if (!board) {
     return (
       <div className="fixed inset-0 bg-black flex items-center justify-center text-white">
@@ -337,6 +303,35 @@ function DisplayContent() {
       </div>
     )
   }
+
+  // Calculate viewport size and scale factors
+  const updateViewportSize = useCallback(() => {
+    const vw = window.innerWidth
+    const vh = window.innerHeight
+    setViewportSize({ width: vw, height: vh })
+    
+    const scaleX = vw / canvasSize.width
+    const scaleY = vh / canvasSize.height
+    setScaleFactors({ x: scaleX, y: scaleY })
+  }, [canvasSize.width, canvasSize.height])
+
+  // Set initial viewport size and add resize listener
+  useEffect(() => {
+    updateViewportSize()
+    
+    const handleResize = () => {
+      updateViewportSize()
+    }
+    
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [updateViewportSize])
+
+  // Update scale factors when canvas size changes
+  useEffect(() => {
+    updateViewportSize()
+  }, [canvasSize, updateViewportSize])
+
   // Render no content state
   if (canvasItems.length === 0) {
     return (
@@ -491,31 +486,8 @@ function DisplayContent() {
 
         {/* Debug info - only visible in dev mode */}
         {process.env.NODE_ENV === 'development' && (
-          <div className="absolute top-4 left-4 bg-black bg-opacity-75 text-white p-2 rounded text-xs font-mono z-50 space-y-1">
-            <div>{boardName} • {canvasItems.length} items • {viewportSize.width}x{viewportSize.height} • Scale: {scaleFactors.x.toFixed(2)}x{scaleFactors.y.toFixed(2)}</div>
-            <div className="flex items-center gap-2">
-              Connection: 
-              <span className={`px-1 rounded text-xs ${
-                connectionStatus === 'connected' ? 'bg-green-600 text-white' : 
-                connectionStatus === 'updated' ? 'bg-blue-600 text-white animate-pulse' :
-                connectionStatus === 'error' ? 'bg-red-600 text-white' :
-                'bg-gray-600 text-white'
-              }`}>
-                {connectionStatus}
-              </span>
-              {lastUpdated && (
-                <span className="text-gray-300">
-                  Updated: {lastUpdated.toLocaleTimeString()}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Connection status indicator for production */}
-        {connectionStatus === 'updated' && (
-          <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm animate-pulse z-50">
-            ✅ Updated
+          <div className="absolute top-4 left-4 bg-black bg-opacity-75 text-white p-2 rounded text-xs font-mono z-50">
+            {boardName} • {canvasItems.length} items • {viewportSize.width}x{viewportSize.height} • Scale: {scaleFactors.x.toFixed(2)}x{scaleFactors.y.toFixed(2)}
           </div>
         )}
       </div>

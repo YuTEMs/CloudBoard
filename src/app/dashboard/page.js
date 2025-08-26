@@ -6,56 +6,55 @@ import Link from "next/link"
 import { useState, useEffect } from "react"
 import { AppHeader } from "../../components/layout/app-hearder"
 import { generateRoomId } from "../../lib/utils"
+import ProtectedRoute from "../../components/auth/ProtectedRoute"
+import { useRealtimeBoards } from "../../hooks/useRealtimeBoards"
 
-export default function DashboardPage() {
-  const [boards, setBoards] = useState([])
+function DashboardContent() {
   const [copiedItem, setCopiedItem] = useState(null)
   const [searchQuery, setSearchQuery] = useState("")
   const [newBoardName, setNewBoardName] = useState("")
   const [newBoardDescription, setNewBoardDescription] = useState("")
   const { isOpen, onOpen, onOpenChange } = useDisclosure()
 
-  // Load boards from localStorage on component mount
-  useEffect(() => {
-    const savedBoards = localStorage.getItem('smartBoards')
-    if (savedBoards) {
-      setBoards(JSON.parse(savedBoards))
-    }
-  }, [])
+  // Use real-time boards hook
+  const { boards, loading, error, createBoard, deleteBoard: deleteBoardFromDb } = useRealtimeBoards()
 
-  // Save boards to localStorage whenever boards change
-  useEffect(() => {
-    if (boards.length > 0 || localStorage.getItem('smartBoards')) {
-      localStorage.setItem('smartBoards', JSON.stringify(boards))
-    }
-  }, [boards])
-
-  const createBoard = () => {
+  const createNewBoard = async () => {
     if (!newBoardName.trim()) return
 
-    const newBoard = {
-      id: generateRoomId() || `board_${Date.now()}`,
-      name: newBoardName.trim(),
-      description: newBoardDescription.trim(),
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      configuration: {
-        items: [],
-        widgets: [],
-        canvasSize: { width: 1920, height: 1080 },
-        backgroundImage: null,
-        backgroundColor: "#ffffff"
+    try {
+      const newBoard = {
+        id: generateRoomId() || `board_${Date.now()}`,
+        name: newBoardName.trim(),
+        description: newBoardDescription.trim(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        configuration: {
+          items: [],
+          widgets: [],
+          canvasSize: { width: 1920, height: 1080 },
+          backgroundImage: null,
+          backgroundColor: "#ffffff"
+        }
       }
-    }
 
-    setBoards([...boards, newBoard])
-    setNewBoardName("")
-    setNewBoardDescription("")
-    onOpenChange(false)
+      await createBoard(newBoard)
+      setNewBoardName("")
+      setNewBoardDescription("")
+      onOpenChange(false)
+    } catch (err) {
+      console.error('Error creating board:', err)
+      // You could add a toast notification here
+    }
   }
 
-  const deleteBoard = (boardId) => {
-    setBoards(boards.filter(board => board.id !== boardId))
+  const handleDeleteBoard = async (boardId) => {
+    try {
+      await deleteBoardFromDb(boardId)
+    } catch (err) {
+      console.error('Error deleting board:', err)
+      // You could add a toast notification here
+    }
   }
 
   const copyBoardUrl = async (board) => {
@@ -71,8 +70,41 @@ export default function DashboardPage() {
 
   const filteredBoards = boards.filter(board =>
     board.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    board.description.toLowerCase().includes(searchQuery.toLowerCase())
+    (board.description || '').toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white">
+        <AppHeader title="Dashboard" />
+        <div className="flex items-center justify-center p-8">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto mb-4"></div>
+            <p>Loading your boards...</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-white">
+        <AppHeader title="Dashboard" />
+        <div className="flex items-center justify-center p-8">
+          <div className="text-center text-red-600">
+            <p>Error loading boards: {error}</p>
+            <Button 
+              className="mt-4 bg-black text-white"
+              onClick={() => window.location.reload()}
+            >
+              Retry
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-white">
@@ -177,7 +209,7 @@ export default function DashboardPage() {
                     color="danger"
                     variant="light"
                     startContent={<Trash2 className="w-4 h-4" />}
-                    onPress={() => deleteBoard(board.id)}
+                                              onClick={() => handleDeleteBoard(board.id)}
                     className="w-full"
                   >
                     Delete
@@ -226,7 +258,7 @@ export default function DashboardPage() {
                 </Button>
                 <Button
                   className="bg-black text-white hover:bg-gray-800"
-                  onPress={createBoard}
+                  onPress={createNewBoard}
                   isDisabled={!newBoardName.trim()}
                 >
                   Create Board
@@ -237,5 +269,13 @@ export default function DashboardPage() {
         </ModalContent>
       </Modal>
     </div>
+  )
+}
+
+export default function DashboardPage() {
+  return (
+    <ProtectedRoute>
+      <DashboardContent />
+    </ProtectedRoute>
   )
 }

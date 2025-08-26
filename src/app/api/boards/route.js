@@ -1,0 +1,146 @@
+import { NextResponse } from 'next/server'
+import { boardService } from '@/lib/supabase'
+import { adminBoardService } from '@/lib/supabase-admin'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth-options'
+
+// GET /api/boards - Get all boards for the authenticated user
+export async function GET(request) {
+  try {
+    const session = await getServerSession(authOptions)
+    
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const userId = `google_${session.user.id}` || `email_${session.user.email.replace('@', '_').replace('.', '_')}`
+    
+    const boards = await adminBoardService.getUserBoards(userId)
+    
+    return NextResponse.json({
+      boards,
+      total: boards.length
+    })
+  } catch (error) {
+    console.error('Error fetching boards:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
+// POST /api/boards - Create a new board
+export async function POST(request) {
+  try {
+    const session = await getServerSession(authOptions)
+    
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const userId = `google_${session.user.id}` || `email_${session.user.email.replace('@', '_').replace('.', '_')}`
+    const boardData = await request.json()
+
+    // Validate required fields
+    if (!boardData.name || !boardData.id) {
+      return NextResponse.json(
+        { error: 'Board name and ID are required' },
+        { status: 400 }
+      )
+    }
+
+    const newBoard = await adminBoardService.createBoard(boardData, userId)
+    
+    return NextResponse.json(newBoard, { status: 201 })
+  } catch (error) {
+    console.error('Error creating board:', error)
+    
+    if (error.code === '23505') { // Unique constraint violation
+      return NextResponse.json(
+        { error: 'Board with this ID already exists' },
+        { status: 409 }
+      )
+    }
+    
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
+// PUT /api/boards - Update board configuration
+export async function PUT(request) {
+  try {
+    const session = await getServerSession(authOptions)
+    
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const userId = `google_${session.user.id}` || `email_${session.user.email.replace('@', '_').replace('.', '_')}`
+    const { boardId, ...updates } = await request.json()
+
+    if (!boardId) {
+      return NextResponse.json(
+        { error: 'Board ID is required' },
+        { status: 400 }
+      )
+    }
+
+    const updatedBoard = await adminBoardService.updateBoard(boardId, updates, userId)
+    
+    return NextResponse.json(updatedBoard)
+  } catch (error) {
+    console.error('Error updating board:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
+// DELETE /api/boards - Delete a board
+export async function DELETE(request) {
+  try {
+    const session = await getServerSession(authOptions)
+    
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+
+    const userId = `google_${session.user.id}` || `email_${session.user.email.replace('@', '_').replace('.', '_')}`
+    const { searchParams } = new URL(request.url)
+    const boardId = searchParams.get('boardId')
+
+    if (!boardId) {
+      return NextResponse.json(
+        { error: 'Board ID is required' },
+        { status: 400 }
+      )
+    }
+
+    await adminBoardService.deleteBoard(boardId, userId)
+    
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error('Error deleting board:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
