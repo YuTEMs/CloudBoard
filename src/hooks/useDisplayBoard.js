@@ -96,16 +96,34 @@ export function useDisplayBoard(boardId) {
           case 'board_updated':
             console.log(`🔄 Board ${boardId} was updated, refreshing...`)
             
-            // Update the board data
-            setBoard(prevBoard => ({
-              ...prevBoard,
-              ...data.data
-            }))
-            setLastUpdated(new Date(data.timestamp))
-            
-            // Show a brief update indicator
-            setConnectionStatus('updated')
-            setTimeout(() => setConnectionStatus('connected'), 2000)
+            // Force a complete reload of the board data
+            if (data.data) {
+              console.log('📊 Updating board with new data:', data.data)
+              
+              // Parse configuration if it's a string
+              let updatedBoard = { ...data.data }
+              if (typeof updatedBoard.configuration === 'string') {
+                try {
+                  updatedBoard.configuration = JSON.parse(updatedBoard.configuration)
+                } catch (e) {
+                  console.error('Error parsing board configuration:', e)
+                  updatedBoard.configuration = {}
+                }
+              }
+              
+              setBoard(updatedBoard) // Set the complete new board data
+              setLastUpdated(new Date(data.timestamp))
+              
+              console.log('✅ Board updated successfully:', updatedBoard)
+              
+              // Show a brief update indicator
+              setConnectionStatus('updated')
+              setTimeout(() => setConnectionStatus('connected'), 2000)
+            } else {
+              // If no data provided, reload from database
+              console.log('🔄 No data in webhook, reloading from database...')
+              loadBoard()
+            }
             break
             
           default:

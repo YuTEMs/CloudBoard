@@ -27,7 +27,7 @@ export async function POST(request) {
     
     return NextResponse.json({ 
       success: true,
-      message: `Board update sent to ${sentCount} displays`
+      message: `Board update sent to ${clientsNotified} displays`
     })
     
   } catch (error) {
