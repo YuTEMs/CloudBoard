@@ -16,11 +16,9 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 })
 
 // Database operations for boards using admin client
-export const adminBoardService = {
+export const      adminBoardService = {
   // Create a new board
   async createBoard(boardData, userId) {
-    console.log('📝 Creating board with admin client:', boardData)
-    
     const { data, error } = await supabaseAdmin
       .from('boards')
       .insert({
@@ -41,11 +39,9 @@ export const adminBoardService = {
       .select()
 
     if (error) {
-      console.error('❌ Error creating board:', error)
       throw error
     }
     
-    console.log('✅ Board created successfully:', data)
     return data[0]
   },
 
@@ -58,7 +54,6 @@ export const adminBoardService = {
       .order('updated_at', { ascending: false })
 
     if (error) {
-      console.error('Error fetching user boards:', error)
       throw error
     }
 
@@ -74,7 +69,6 @@ export const adminBoardService = {
       .single()
 
     if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
-      console.error('Error fetching board:', error)
       throw error
     }
 
@@ -83,8 +77,6 @@ export const adminBoardService = {
 
   // Update a board
   async updateBoard(boardId, updates, userId) {
-    console.log('📝 Updating board:', boardId, updates)
-    
     const { data, error } = await supabaseAdmin
       .from('boards')
       .update({
@@ -96,7 +88,6 @@ export const adminBoardService = {
       .select()
 
     if (error) {
-      console.error('❌ Error updating board:', error)
       throw error
     }
 
@@ -104,7 +95,6 @@ export const adminBoardService = {
       throw new Error('Board not found or access denied')
     }
     
-    console.log('✅ Board updated successfully:', data)
     return data[0]
   },
 
@@ -117,7 +107,6 @@ export const adminBoardService = {
       .eq('user_id', userId) // Ensure user can only delete their own boards
 
     if (error) {
-      console.error('Error deleting board:', error)
       throw error
     }
 

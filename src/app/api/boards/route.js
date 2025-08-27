@@ -100,9 +100,33 @@ export async function PUT(request) {
 
     const updatedBoard = await adminBoardService.updateBoard(boardId, updates, userId)
     
+    // ALWAYS broadcast update immediately - don't rely on webhooks
+    try {
+      const { broadcastToBoard } = await import('@/lib/stream-manager')
+      
+      console.log('🔍 DEBUG: About to broadcast update for board:', boardId)
+      const clientsNotified = broadcastToBoard(boardId, {
+        type: 'board_updated',
+        boardId: boardId,
+        userId: userId,
+        data: updatedBoard,
+        timestamp: new Date().toISOString()
+      })
+      
+      console.log('🔍 DEBUG: Broadcast result - clients notified:', clientsNotified)
+      
+      if (clientsNotified === 0) {
+        console.log('⚠️ WARNING: No display clients connected to receive update!')
+      } else {
+        console.log('✅ SUCCESS: Update sent to', clientsNotified, 'display(s)')
+      }
+      
+    } catch (broadcastError) {
+      console.error('❌ ERROR: Broadcast failed:', broadcastError)
+    }
+    
     return NextResponse.json(updatedBoard)
   } catch (error) {
-    console.error('Error updating board:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

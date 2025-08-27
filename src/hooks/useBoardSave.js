@@ -25,15 +25,27 @@ export function useBoardSave() {
     setError(null)
 
     try {
-      console.log(`💾 Saving board ${boardId}...`)
-      
-      const updatedBoard = await boardService.updateBoard(boardId, {
-        configuration,
-        updated_at: new Date().toISOString()
-      }, userId)
+      // Use the API endpoint instead of direct Supabase calls
+      // This ensures the update broadcast is triggered
+      const response = await fetch('/api/boards', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          boardId,
+          configuration,
+          updated_at: new Date().toISOString()
+        })
+      })
 
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to save board')
+      }
+
+      const updatedBoard = await response.json()
       setLastSaved(new Date())
-      console.log(`✅ Board ${boardId} saved successfully`)
       
       // Also save to localStorage as backup
       try {
@@ -45,12 +57,11 @@ export function useBoardSave() {
           localStorage.setItem('smartBoards', JSON.stringify(localBoards))
         }
       } catch (localError) {
-        console.warn('Failed to update localStorage backup:', localError)
+        // Silent fail
       }
 
       return updatedBoard
     } catch (err) {
-      console.error(`❌ Failed to save board ${boardId}:`, err)
       setError(err.message)
       
       // Fallback: save to localStorage only
@@ -61,10 +72,9 @@ export function useBoardSave() {
           localBoards[boardIndex].configuration = configuration
           localBoards[boardIndex].updatedAt = new Date().toISOString()
           localStorage.setItem('smartBoards', JSON.stringify(localBoards))
-          console.log('📦 Saved to localStorage as fallback')
         }
       } catch (localError) {
-        console.error('Failed to save to localStorage:', localError)
+        // Silent fail
       }
       
       throw err

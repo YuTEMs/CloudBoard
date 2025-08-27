@@ -10,7 +10,7 @@ export function useDisplayBoard(boardId) {
   const [lastUpdated, setLastUpdated] = useState(null)
   const [connectionStatus, setConnectionStatus] = useState('disconnected')
 
-  // Load board data initially
+  // Load board data initially and when polling
   const loadBoard = useCallback(async () => {
     if (!boardId) {
       setBoard(null)
@@ -26,8 +26,14 @@ export function useDisplayBoard(boardId) {
       const boardData = await boardService.getBoardById(boardId)
       
       if (boardData) {
-        setBoard(boardData)
-        setLastUpdated(new Date(boardData.updated_at))
+        setBoard(prevBoard => {
+          // Only update if data actually changed
+          if (!prevBoard || prevBoard.updated_at !== boardData.updated_at) {
+            setLastUpdated(new Date(boardData.updated_at))
+            return boardData
+          }
+          return prevBoard
+        })
       } else {
         // Fallback to localStorage for backwards compatibility
         const localBoards = localStorage.getItem('smartBoards')
@@ -45,7 +51,6 @@ export function useDisplayBoard(boardId) {
         }
       }
     } catch (err) {
-      console.error('Error loading board:', err)
       setError(err.message)
       
       // Fallback to localStorage
@@ -60,7 +65,7 @@ export function useDisplayBoard(boardId) {
           }
         }
       } catch (localError) {
-        console.error('Error loading from localStorage:', localError)
+        // Silent fail
       }
     } finally {
       setLoading(false)
@@ -71,88 +76,105 @@ export function useDisplayBoard(boardId) {
   useEffect(() => {
     if (!boardId) return
 
-    console.log(`📺 Setting up update listener for board: ${boardId}`)
+    let eventSource = null
+    let pollingInterval = null
     
-    const eventSource = new EventSource(`/api/stream?boardId=${boardId}`)
-    
-    eventSource.onopen = () => {
-      console.log(`✅ Connected to updates for board: ${boardId}`)
-      setConnectionStatus('connected')
-    }
-    
-    eventSource.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data)
-        
-        switch (data.type) {
-          case 'connected':
-            console.log(`🔗 Display connection confirmed for board: ${boardId}`)
-            break
-            
-          case 'ping':
-            // Keep-alive ping, do nothing
-            break
-            
-          case 'board_updated':
-            console.log(`🔄 Board ${boardId} was updated, refreshing...`)
-            
-            // Force a complete reload of the board data
-            if (data.data) {
-              console.log('📊 Updating board with new data:', data.data)
-              
-              // Parse configuration if it's a string
-              let updatedBoard = { ...data.data }
-              if (typeof updatedBoard.configuration === 'string') {
-                try {
-                  updatedBoard.configuration = JSON.parse(updatedBoard.configuration)
-                } catch (e) {
-                  console.error('Error parsing board configuration:', e)
-                  updatedBoard.configuration = {}
-                }
-              }
-              
-              setBoard(updatedBoard) // Set the complete new board data
-              setLastUpdated(new Date(data.timestamp))
-              
-              console.log('✅ Board updated successfully:', updatedBoard)
-              
-              // Show a brief update indicator
-              setConnectionStatus('updated')
-              setTimeout(() => setConnectionStatus('connected'), 2000)
-            } else {
-              // If no data provided, reload from database
-              console.log('🔄 No data in webhook, reloading from database...')
-              loadBoard()
-            }
-            break
-            
-          default:
-            console.log('Unknown message type:', data.type)
-        }
-      } catch (err) {
-        console.error('Error parsing SSE message:', err)
-      }
-    }
-    
-    eventSource.onerror = (error) => {
-      console.error('SSE connection error:', error)
-      setConnectionStatus('error')
+    try {
+      console.log('🔍 DEBUG: Setting up SSE connection for board:', boardId)
+      eventSource = new EventSource(`/api/stream?boardId=${boardId}`)
       
-      // Try to reconnect after a delay
-      setTimeout(() => {
-        if (eventSource.readyState === EventSource.CLOSED) {
-          console.log('🔄 Attempting to reconnect...')
-          // The useEffect will handle creating a new connection
+      eventSource.onopen = () => {
+        console.log('🔍 DEBUG: SSE connection opened for board:', boardId)
+        setConnectionStatus('connected')
+        // Clear polling since SSE is working
+        if (pollingInterval) {
+          clearInterval(pollingInterval)
+          pollingInterval = null
         }
-      }, 5000)
+      }
+      
+      eventSource.onmessage = (event) => {
+        console.log('🔍 DEBUG: SSE message received:', event.data)
+        try {
+          const data = JSON.parse(event.data)
+          
+          switch (data.type) {
+            case 'connected':
+              console.log('🔍 DEBUG: SSE connection confirmed for board:', boardId)
+              break
+              
+            case 'ping':
+              console.log('🔍 DEBUG: SSE ping received')
+              break
+              
+            case 'board_updated':
+              console.log('🔍 DEBUG: Board update received via SSE:', data)
+              // Update board data reactively without page refresh
+              if (data.data) {
+                // Parse configuration if it's a string
+                let updatedBoard = { ...data.data }
+                if (typeof updatedBoard.configuration === 'string') {
+                  try {
+                    updatedBoard.configuration = JSON.parse(updatedBoard.configuration)
+                  } catch (e) {
+                    updatedBoard.configuration = {}
+                  }
+                }
+                
+                setBoard(updatedBoard)
+                setLastUpdated(new Date(data.timestamp))
+                
+                // Show a brief update indicator
+                setConnectionStatus('updated')
+                setTimeout(() => setConnectionStatus('connected'), 2000)
+              } else {
+                // If no data provided, reload from database
+                setConnectionStatus('updated')
+                loadBoard()
+              }
+              break
+              
+            default:
+              console.log('🔍 DEBUG: Unknown SSE message type:', data.type)
+              break
+          }
+        } catch (err) {
+          console.error('🔍 DEBUG: Error parsing SSE message:', err)
+        }
+      }
+      
+      eventSource.onerror = (error) => {
+        console.error('🔍 DEBUG: SSE connection error:', error)
+        setConnectionStatus('error')
+        
+        // Start polling as fallback if SSE fails
+        if (!pollingInterval) {
+          console.log('🔍 DEBUG: Starting polling fallback for board:', boardId)
+          pollingInterval = setInterval(() => {
+            loadBoard()
+          }, 3000) // Poll every 3 seconds
+        }
+      }
+    } catch (error) {
+      console.error('🔍 DEBUG: Failed to create SSE connection:', error)
+      // If SSE fails completely, use polling
+      setConnectionStatus('polling')
+      pollingInterval = setInterval(() => {
+        loadBoard()
+      }, 3000)
     }
     
     return () => {
-      console.log(`📺 Disconnecting from updates for board: ${boardId}`)
-      eventSource.close()
+      console.log('🔍 DEBUG: Cleaning up SSE connection for board:', boardId)
+      if (eventSource) {
+        eventSource.close()
+      }
+      if (pollingInterval) {
+        clearInterval(pollingInterval)
+      }
       setConnectionStatus('disconnected')
     }
-  }, [boardId])
+  }, [boardId, loadBoard])
 
   // Load board data when boardId changes
   useEffect(() => {

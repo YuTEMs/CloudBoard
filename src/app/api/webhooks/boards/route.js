@@ -1,7 +1,16 @@
 import { NextResponse } from 'next/server'
 import { broadcastToBoard } from '@/lib/stream-manager'
 
-// Simple webhook handler for board updates
+// Test endpoint to verify webhook is reachable
+export async function GET(request) {
+  return NextResponse.json({ 
+    status: 'webhook endpoint is reachable',
+    timestamp: new Date().toISOString(),
+    url: request.url 
+  })
+}
+
+// Webhook handler for board updates
 export async function POST(request) {
   try {
     const payload = await request.json()
@@ -11,11 +20,15 @@ export async function POST(request) {
     
     // Only handle boards table updates
     if (table !== 'boards' || type !== 'UPDATE') {
-      return NextResponse.json({ received: true })
+      return NextResponse.json({ 
+        received: true, 
+        ignored: true, 
+        reason: `Not a boards UPDATE event`,
+        table,
+        type 
+      })
     }
 
-    console.log(`📝 Board "${record.name}" was updated - triggering display refresh`)
-    
     // Broadcast to all connected display clients
     const clientsNotified = broadcastToBoard(record?.id, {
       type: 'board_updated',
@@ -27,13 +40,14 @@ export async function POST(request) {
     
     return NextResponse.json({ 
       success: true,
-      message: `Board update sent to ${clientsNotified} displays`
+      message: `Board update sent to ${clientsNotified} displays`,
+      boardId: record?.id,
+      clientsNotified
     })
     
   } catch (error) {
-    console.error('Webhook processing error:', error)
     return NextResponse.json(
-      { error: 'Webhook processing failed' },
+      { error: 'Webhook processing failed', details: error.message },
       { status: 500 }
     )
   }

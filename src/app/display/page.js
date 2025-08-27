@@ -124,26 +124,25 @@ const AnnouncementWidget = ({ x, y, width, height, announcement = {} }) => {
 
 const SlideshowWidget = ({ x, y, width, height, playlist = [] }) => {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
-  const [lastPlaylistLength, setLastPlaylistLength] = useState(0)
+  const [lastPlaylistState, setLastPlaylistState] = useState('')
   
-  // Only reset slide index when playlist actually changes (not just props update)
+  // Reset slide index when playlist changes significantly
   useEffect(() => {
-    // If playlist length changed significantly, reset to beginning
-    if (playlist.length !== lastPlaylistLength) {
-      if (playlist.length === 0 || currentSlideIndex >= playlist.length) {
-        setCurrentSlideIndex(0)
-      }
-      setLastPlaylistLength(playlist.length)
+    const currentPlaylistState = JSON.stringify(playlist)
+    
+    // If playlist content changed, reset to beginning
+    if (currentPlaylistState !== lastPlaylistState) {
+      setCurrentSlideIndex(0)
+      setLastPlaylistState(currentPlaylistState)
     }
-  }, [playlist.length, currentSlideIndex, lastPlaylistLength])
+  }, [playlist, lastPlaylistState])
 
-  // Auto-advance slides - more resilient to frequent props updates
+  // Auto-advance slides
   useEffect(() => {
     if (playlist.length === 0) return
 
     const currentSlide = playlist[currentSlideIndex]
     if (!currentSlide) {
-      // If current slide doesn't exist, reset to first slide
       setCurrentSlideIndex(0)
       return
     }
@@ -188,7 +187,7 @@ const SlideshowWidget = ({ x, y, width, height, playlist = [] }) => {
           alt={currentSlide.name}
           className="w-full h-full object-cover"
           onError={(e) => {
-            console.error('Slideshow image failed to load:', currentSlide.url)
+            // Silent fail
           }}
         />
       ) : (
@@ -200,7 +199,7 @@ const SlideshowWidget = ({ x, y, width, height, playlist = [] }) => {
           loop={false}
           playsInline
           onError={(e) => {
-            console.error('Slideshow video failed to load:', currentSlide.url)
+            // Silent fail
           }}
         />
       )}
@@ -290,6 +289,14 @@ function DisplayContent() {
     updateViewportSize()
   }, [safeCanvasSize.width, safeCanvasSize.height, updateViewportSize])
 
+  // Handle real-time board updates
+  useEffect(() => {
+    if (lastUpdated && connectionStatus === 'updated') {
+      // Force re-render by updating a state that doesn't affect rendering but triggers effects
+      // This ensures all components respond to the latest data changes
+    }
+  }, [lastUpdated, connectionStatus])
+
   // NOW WE CAN HAVE CONDITIONAL RETURNS AFTER ALL HOOKS
   // Handle loading and error states
   if (!boardId) {
@@ -372,6 +379,7 @@ function DisplayContent() {
       {/* Canvas Container - Now fills entire viewport */}
       <div
         ref={displayRef}
+        key={`canvas-${lastUpdated?.getTime() || 'initial'}`}
         className="relative w-full h-full"
         style={{ 
           width: viewportSize.width,
@@ -386,12 +394,15 @@ function DisplayContent() {
           const scaledWidth = item.width * scaleFactors.x
           const scaledHeight = item.height * scaleFactors.y
           
+          // Create a unique key that includes lastUpdated to force re-render on updates
+          const itemKey = `${item.id}-${lastUpdated?.getTime() || 'initial'}`
+          
           // Render widgets
           if (item.type === 'widget') {
             if (item.widgetType === 'time') {
               return (
                 <TimeWidget
-                  key={item.id}
+                  key={itemKey}
                   x={scaledX}
                   y={scaledY}
                   width={scaledWidth}
@@ -401,7 +412,7 @@ function DisplayContent() {
             } else if (item.widgetType === 'weather') {
               return (
                 <WeatherWidget
-                  key={item.id}
+                  key={itemKey}
                   x={scaledX}
                   y={scaledY}
                   width={scaledWidth}
@@ -411,7 +422,7 @@ function DisplayContent() {
             } else if (item.widgetType === 'slideshow') {
               return (
                 <SlideshowWidget
-                  key={`${item.id}-${(item.playlist || []).length}`}
+                  key={`${itemKey}-playlist-${(item.playlist || []).length}-${JSON.stringify(item.playlist || []).slice(0, 50)}`}
                   x={scaledX}
                   y={scaledY}
                   width={scaledWidth}
@@ -422,7 +433,7 @@ function DisplayContent() {
             } else if (item.widgetType === 'announcement') {
               return (
                 <AnnouncementWidget
-                  key={item.id}
+                  key={`${itemKey}-${JSON.stringify(item.announcement || {}).slice(0, 50)}`}
                   x={scaledX}
                   y={scaledY}
                   width={scaledWidth}
@@ -436,7 +447,7 @@ function DisplayContent() {
           // Render media items
           return (
             <div
-              key={item.id}
+              key={itemKey}
               className="absolute rounded-lg overflow-hidden"
               style={{
                 left: scaledX,
@@ -453,7 +464,7 @@ function DisplayContent() {
                   alt={item.name}
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    console.error('Image failed to load:', item.url)
+                    // Silent fail
                   }}
                 />
               )}
@@ -466,7 +477,7 @@ function DisplayContent() {
                   loop
                   playsInline
                   onError={(e) => {
-                    console.error('Video failed to load:', item.url)
+                    // Silent fail
                   }}
                 />
               )}
@@ -489,28 +500,7 @@ function DisplayContent() {
           )
         })}
 
-        {/* Debug info - only visible in dev mode */}
-        {process.env.NODE_ENV === 'development' && (
-          <div className="absolute top-4 left-4 bg-black bg-opacity-75 text-white p-2 rounded text-xs font-mono z-50 space-y-1">
-            <div>{boardName} • {canvasItems.length} items • {viewportSize.width}x{viewportSize.height} • Scale: {scaleFactors.x.toFixed(2)}x{scaleFactors.y.toFixed(2)}</div>
-            <div className="flex items-center gap-2">
-              Connection: 
-              <span className={`px-1 rounded text-xs ${
-                connectionStatus === 'connected' ? 'bg-green-600 text-white' : 
-                connectionStatus === 'updated' ? 'bg-blue-600 text-white animate-pulse' :
-                connectionStatus === 'error' ? 'bg-red-600 text-white' :
-                'bg-gray-600 text-white'
-              }`}>
-                {connectionStatus}
-              </span>
-              {lastUpdated && (
-                <span className="text-gray-300">
-                  Updated: {lastUpdated.toLocaleTimeString()}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
+
 
         {/* Connection status indicator for production */}
         {connectionStatus === 'updated' && (

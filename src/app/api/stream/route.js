@@ -9,8 +9,6 @@ export async function GET(request) {
     return new NextResponse('Board ID required', { status: 400 })
   }
 
-  console.log(`📺 Display page connected for board: ${boardId}`)
-
   // Create Server-Sent Events stream
   const stream = new ReadableStream({
     start(controller) {
@@ -34,11 +32,10 @@ export async function GET(request) {
           })
           controller.enqueue(`data: ${pingMessage}\n\n`)
         } catch (error) {
-          console.log('Ping failed, cleaning up connection')
           clearInterval(pingInterval)
           removeConnection(boardId, controller)
         }
-      }, 30000) // Ping every 30 seconds
+      }, 15000) // Ping every 15 seconds
 
       // Clean up on close
       request.signal?.addEventListener('abort', () => {
@@ -48,7 +45,7 @@ export async function GET(request) {
     },
 
     cancel() {
-      console.log(`📺 Display page disconnected for board: ${boardId}`)
+      // Silent cleanup
     }
   })
 
