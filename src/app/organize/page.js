@@ -20,14 +20,14 @@ import {
   Pause,
   Megaphone
 } from "lucide-react"
-import { useState, useRef, useEffect, useCallback, Suspense } from "react"
+import { useState, useRef, useEffect, useCallback, Suspense, memo, useMemo } from "react"
 import { useSearchParams } from "next/navigation"
 import { AppHeader } from "../../components/layout/app-hearder"
 import { useRealtimeBoards } from "../../hooks/useRealtimeBoards"
 import { useBoardSave } from "../../hooks/useBoardSave"
 
 // Widget Components
-const TimeWidget = ({ x, y, width, height, isSelected, item, onDragStart, setSelectedItem, onResizeStart }) => {
+const TimeWidget = memo(function TimeWidget({ x, y, width, height, isSelected, item, onDragStart, setSelectedItem, onResizeStart }) {
   const [time, setTime] = useState(new Date())
 
   useEffect(() => {
@@ -91,9 +91,9 @@ const TimeWidget = ({ x, y, width, height, isSelected, item, onDragStart, setSel
       )}
     </div>
   )
-}
+})
 
-const WeatherWidget = ({ x, y, width, height, isSelected, item, onDragStart, setSelectedItem, onResizeStart }) => {
+const WeatherWidget = memo(function WeatherWidget({ x, y, width, height, isSelected, item, onDragStart, setSelectedItem, onResizeStart }) {
   const [weather] = useState({
     temp: 22,
     condition: 'Sunny',
@@ -164,9 +164,9 @@ const WeatherWidget = ({ x, y, width, height, isSelected, item, onDragStart, set
       )}
     </div>
   )
-}
+})
 
-const SlideshowWidget = ({ x, y, width, height, isSelected, item, onDragStart, setSelectedItem, onResizeStart, onAddToSlideshow, uploadedFiles = [] }) => {
+const SlideshowWidget = memo(function SlideshowWidget({ x, y, width, height, isSelected, item, onDragStart, setSelectedItem, onResizeStart, onAddToSlideshow, uploadedFiles = [] }) {
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
   const [isPlaying, setIsPlaying] = useState(true) // Auto-play by default
   
@@ -304,6 +304,7 @@ const SlideshowWidget = ({ x, y, width, height, isSelected, item, onDragStart, s
                 className="w-full h-full object-contain"
                 muted
                 playsInline
+                preload="metadata"
                 onError={(e) => {
                   console.error('Video failed to load:', currentSlide.url)
                 }}
@@ -376,6 +377,7 @@ const SlideshowWidget = ({ x, y, width, height, isSelected, item, onDragStart, s
                     className="w-full h-full object-contain"
                     muted
                     playsInline
+                    preload="metadata"
                     onError={() => {
                       // Fallback to icon if video fails to load
                     }}
@@ -418,7 +420,7 @@ const SlideshowWidget = ({ x, y, width, height, isSelected, item, onDragStart, s
       )}
     </div>
   )
-}
+})
 
 const AnnouncementWidget = ({ x, y, width, height, isSelected, item, onDragStart, setSelectedItem, onResizeStart }) => {
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -559,6 +561,17 @@ function OrganizePageContent() {
   const [resizeStartPos, setResizeStartPos] = useState({ x: 0, y: 0 })
   const [resizeStartSize, setResizeStartSize] = useState({ width: 0, height: 0 })
 
+  // Refs for high-frequency resize updates (avoid re-subscribing listeners)
+  const isResizingRef = useRef(false)
+  const selectedItemRef = useRef(null)
+  const selectedItemIdRef = useRef(null)
+  const resizeHandleRef = useRef(null)
+  const resizeStartPosRef = useRef({ x: 0, y: 0 })
+  const resizeStartSizeRef = useRef({ width: 0, height: 0, x: 0, y: 0 })
+  const canvasSizeRef = useRef(canvasSize)
+  const isSlideshowRef = useRef(false)
+  const rafIdRef = useRef(null)
+
   
   // File upload refs
   const imageInputRef = useRef(null)
@@ -582,6 +595,18 @@ function OrganizePageContent() {
       setBackgroundColor(currentBoard.configuration?.backgroundColor || "#ffffff")
     }
   }, [currentBoard])
+
+  // Keep refs in sync with state that is read during resize
+  useEffect(() => {
+    selectedItemRef.current = selectedItem
+    selectedItemIdRef.current = selectedItem?.id || null
+    // Compute once when selection changes
+    isSlideshowRef.current = !!(selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow')
+  }, [selectedItem])
+
+  useEffect(() => {
+    canvasSizeRef.current = canvasSize
+  }, [canvasSize])
 
   // Manual save function - only saves when user clicks Save button
   const handleSaveBoard = useCallback(async () => {
@@ -611,7 +636,7 @@ function OrganizePageContent() {
   }
 
   // HTML5 Drag and Drop handlers (like proto.js)
-  const handleDragStart = (e, item) => {
+  const handleDragStart = useCallback((e, item) => {
     // Prevent drag when resizing
     if (isResizing) {
       e.preventDefault()
@@ -624,7 +649,7 @@ function OrganizePageContent() {
     const offsetX = (e.clientX - rect.left) / scale
     const offsetY = (e.clientY - rect.top) / scale
     e.dataTransfer.setData("text/plain", JSON.stringify({ offsetX, offsetY }))
-  }
+  }, [isResizing])
 
   const handleCanvasDrop = (e) => {
     e.preventDefault()
@@ -652,130 +677,157 @@ function OrganizePageContent() {
   }
 
   // Resize handlers
-  const handleResizeStart = (e, handle) => {
+  const handleResizeStart = useCallback((e, handle) => {
     e.preventDefault()
     e.stopPropagation()
     
+    // Update UI state
     setIsResizing(true)
     setResizeHandle(handle)
     setResizeStartPos({ x: e.clientX, y: e.clientY })
     setResizeStartSize({ 
-      width: selectedItem.width, 
-      height: selectedItem.height,
-      x: selectedItem.x,
-      y: selectedItem.y
+      width: selectedItem?.width || 0, 
+      height: selectedItem?.height || 0,
+      x: selectedItem?.x || 0,
+      y: selectedItem?.y || 0
     })
-  }
 
+    // Sync refs (used by the stable move handler)
+    isResizingRef.current = true
+    resizeHandleRef.current = handle
+    resizeStartPosRef.current = { x: e.clientX, y: e.clientY }
+    resizeStartSizeRef.current = { 
+      width: selectedItem?.width || 0, 
+      height: selectedItem?.height || 0,
+      x: selectedItem?.x || 0,
+      y: selectedItem?.y || 0
+    }
+    selectedItemIdRef.current = selectedItem?.id || null
+    isSlideshowRef.current = !!(selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow')
+  }, [selectedItem])
+
+  // Stable mousemove handler using refs + rAF throttling
   const handleResizeMove = useCallback((e) => {
-    if (!isResizing || !selectedItem || !resizeHandle) return
-
+    if (!isResizingRef.current || !selectedItemIdRef.current || !resizeHandleRef.current) return
     e.preventDefault()
 
-    const deltaX = e.clientX - resizeStartPos.x
-    const deltaY = e.clientY - resizeStartPos.y
-    const scale = 0.6
+    const applyResize = () => {
+      rafIdRef.current = null
 
-    // Scale deltas to canvas scale
-    const scaledDeltaX = deltaX / scale
-    const scaledDeltaY = deltaY / scale
+      const startPos = resizeStartPosRef.current
+      const startSize = resizeStartSizeRef.current
+      const handle = resizeHandleRef.current
+      const id = selectedItemIdRef.current
+      const canvas = canvasSizeRef.current
+      const isSlideshow = isSlideshowRef.current
 
-    let newWidth = resizeStartSize.width
-    let newHeight = resizeStartSize.height
-    let newX = resizeStartSize.x
-    let newY = resizeStartSize.y
+      const deltaX = e.clientX - startPos.x
+      const deltaY = e.clientY - startPos.y
+      const scale = 0.6
 
-    // Calculate new dimensions based on resize handle
-    switch (resizeHandle) {
-      case 'nw': // Top-left
-        newWidth = Math.max(50, resizeStartSize.width - scaledDeltaX)
-        newHeight = Math.max(50, resizeStartSize.height - scaledDeltaY)
-        newX = resizeStartSize.x + (resizeStartSize.width - newWidth)
-        newY = resizeStartSize.y + (resizeStartSize.height - newHeight)
-        break
-      case 'ne': // Top-right
-        newWidth = Math.max(50, resizeStartSize.width + scaledDeltaX)
-        newHeight = Math.max(50, resizeStartSize.height - scaledDeltaY)
-        newY = resizeStartSize.y + (resizeStartSize.height - newHeight)
-        break
-      case 'sw': // Bottom-left
-        newWidth = Math.max(50, resizeStartSize.width - scaledDeltaX)
-        newHeight = Math.max(50, resizeStartSize.height + scaledDeltaY)
-        newX = resizeStartSize.x + (resizeStartSize.width - newWidth)
-        break
-      case 'se': // Bottom-right
-        newWidth = Math.max(50, resizeStartSize.width + scaledDeltaX)
-        newHeight = Math.max(50, resizeStartSize.height + scaledDeltaY)
-        break
-    }
+      // Scale deltas to canvas scale
+      const scaledDeltaX = deltaX / scale
+      const scaledDeltaY = deltaY / scale
 
-    // Apply bounds checking
-    newX = Math.max(0, Math.min(newX, canvasSize.width - newWidth))
-    newY = Math.max(0, Math.min(newY, canvasSize.height - newHeight))
+      let newWidth = startSize.width
+      let newHeight = startSize.height
+      let newX = startSize.x
+      let newY = startSize.y
 
-    // For slideshow widgets, maintain 16:9 aspect ratio
-    if (selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow') {
-      const aspectRatio = 16 / 9
-      // Prioritize width changes for better UX
-      if (Math.abs(scaledDeltaX) >= Math.abs(scaledDeltaY)) {
-        newHeight = newWidth / aspectRatio
-      } else {
-        newWidth = newHeight * aspectRatio
-      }
-      
-      // Recalculate position based on new dimensions
-      switch (resizeHandle) {
+      // Calculate new dimensions based on resize handle
+      switch (handle) {
         case 'nw':
-          newX = resizeStartSize.x + (resizeStartSize.width - newWidth)
-          newY = resizeStartSize.y + (resizeStartSize.height - newHeight)
+          newWidth = Math.max(50, startSize.width - scaledDeltaX)
+          newHeight = Math.max(50, startSize.height - scaledDeltaY)
+          newX = startSize.x + (startSize.width - newWidth)
+          newY = startSize.y + (startSize.height - newHeight)
           break
         case 'ne':
-          newY = resizeStartSize.y + (resizeStartSize.height - newHeight)
+          newWidth = Math.max(50, startSize.width + scaledDeltaX)
+          newHeight = Math.max(50, startSize.height - scaledDeltaY)
+          newY = startSize.y + (startSize.height - newHeight)
           break
         case 'sw':
-          newX = resizeStartSize.x + (resizeStartSize.width - newWidth)
+          newWidth = Math.max(50, startSize.width - scaledDeltaX)
+          newHeight = Math.max(50, startSize.height + scaledDeltaY)
+          newX = startSize.x + (startSize.width - newWidth)
           break
         case 'se':
-          // No position adjustment needed
+          newWidth = Math.max(50, startSize.width + scaledDeltaX)
+          newHeight = Math.max(50, startSize.height + scaledDeltaY)
           break
       }
-      
-      // Apply bounds checking again with new dimensions
-      newX = Math.max(0, Math.min(newX, canvasSize.width - newWidth))
-      newY = Math.max(0, Math.min(newY, canvasSize.height - newHeight))
+
+      // Apply bounds checking
+      newX = Math.max(0, Math.min(newX, canvas.width - newWidth))
+      newY = Math.max(0, Math.min(newY, canvas.height - newHeight))
+
+      // Maintain 16:9 for slideshow widgets
+      if (isSlideshow) {
+        const aspectRatio = 16 / 9
+        if (Math.abs(scaledDeltaX) >= Math.abs(scaledDeltaY)) {
+          newHeight = newWidth / aspectRatio
+        } else {
+          newWidth = newHeight * aspectRatio
+        }
+
+        // Recalculate position based on new dimensions
+        switch (handle) {
+          case 'nw':
+            newX = startSize.x + (startSize.width - newWidth)
+            newY = startSize.y + (startSize.height - newHeight)
+            break
+          case 'ne':
+            newY = startSize.y + (startSize.height - newHeight)
+            break
+          case 'sw':
+            newX = startSize.x + (startSize.width - newWidth)
+            break
+          case 'se':
+            break
+        }
+
+        newX = Math.max(0, Math.min(newX, canvas.width - newWidth))
+        newY = Math.max(0, Math.min(newY, canvas.height - newHeight))
+      }
+
+      setCanvasItems(items => {
+        const updatedItems = [...items]
+        const idx = updatedItems.findIndex(it => it.id === id)
+        if (idx !== -1) {
+          updatedItems[idx] = {
+            ...updatedItems[idx],
+            width: newWidth,
+            height: newHeight,
+            x: newX,
+            y: newY
+          }
+        }
+        return updatedItems
+      })
     }
 
-    // Update state directly without re-creating the array unnecessarily
-    setCanvasItems(items => {
-      const updatedItems = [...items]
-      const itemIndex = updatedItems.findIndex(item => item.id === selectedItem.id)
-      if (itemIndex !== -1) {
-        updatedItems[itemIndex] = {
-          ...updatedItems[itemIndex],
-          width: newWidth,
-          height: newHeight,
-          x: newX,
-          y: newY
-        }
-      }
-      return updatedItems
-    })
-  }, [isResizing, selectedItem, resizeHandle, resizeStartPos, resizeStartSize, canvasSize])
+    if (!rafIdRef.current) {
+      rafIdRef.current = requestAnimationFrame(applyResize)
+    }
+  }, [])
 
   const handleResizeEnd = useCallback(() => {
     setIsResizing(false)
     setResizeHandle(null)
+    isResizingRef.current = false
+    if (rafIdRef.current) {
+      cancelAnimationFrame(rafIdRef.current)
+      rafIdRef.current = null
+    }
   }, [])
 
   // Add global mouse event listeners for resizing
   useEffect(() => {
     if (isResizing) {
-      // Prevent text selection during resize for better performance
       document.body.style.userSelect = 'none'
-      
       document.addEventListener('mousemove', handleResizeMove, { passive: false })
       document.addEventListener('mouseup', handleResizeEnd)
-      
       return () => {
         document.body.style.userSelect = ''
         document.removeEventListener('mousemove', handleResizeMove)
@@ -932,7 +984,10 @@ function OrganizePageContent() {
   useEffect(() => {
     if (selectedItem) {
       const updatedItem = canvasItems.find(item => item.id === selectedItem.id)
-      setSelectedItem(updatedItem)
+      // Avoid resetting selection during active resize to prevent thrash
+      if (!isResizingRef.current) {
+        setSelectedItem(updatedItem)
+      }
     }
   }, [canvasItems, selectedItem])
 
@@ -1030,7 +1085,7 @@ function OrganizePageContent() {
   }
 
   // Handle adding items to slideshow
-  const addToSlideshow = (slideshowId, newPlaylist) => {
+  const addToSlideshow = useCallback((slideshowId, newPlaylist) => {
     setCanvasItems(items =>
       items.map(item =>
         item.id === slideshowId
@@ -1039,10 +1094,10 @@ function OrganizePageContent() {
       )
     )
     // Note: Changes are now saved manually when user clicks Save button
-  }
+  }, [])
 
   // Handle updating announcement properties
-  const updateAnnouncement = (announcementId, updatedAnnouncement) => {
+  const updateAnnouncement = useCallback((announcementId, updatedAnnouncement) => {
     setCanvasItems(items =>
       items.map(item =>
         item.id === announcementId
@@ -1051,7 +1106,7 @@ function OrganizePageContent() {
       )
     )
     // Note: Changes are now saved manually when user clicks Save button
-  }
+  }, [])
 
   // Make uploaded files draggable
   const makeFileDraggable = (e, file) => {
@@ -1059,7 +1114,7 @@ function OrganizePageContent() {
   }
 
   // Handle slide reordering
-  const moveSlide = (slideshowId, slideId, direction) => {
+  const moveSlide = useCallback((slideshowId, slideId, direction) => {
     setCanvasItems(items =>
       items.map(item => {
         if (item.id === slideshowId && item.playlist) {
@@ -1093,7 +1148,7 @@ function OrganizePageContent() {
     )
     
     // Note: Changes are now saved manually when user clicks Save button
-  }
+  }, [])
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
@@ -1946,6 +2001,7 @@ function OrganizePageContent() {
                             className="w-full h-full object-contain rounded"
                             muted
                             playsInline
+                            preload="metadata"
                             onError={(e) => {
                               console.error('Video thumbnail failed to load:', slide.url)
                             }}
