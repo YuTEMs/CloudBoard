@@ -6,6 +6,24 @@ const nextConfig: NextConfig = {
     optimizePackageImports: ['@heroui/react', 'lucide-react']
   },
   
+  // Configure images to allow Google profile pictures
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'lh3.googleusercontent.com',
+        port: '',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'avatars.githubusercontent.com',
+        port: '',
+        pathname: '/**',
+      }
+    ],
+  },
+  
   // Configure headers for better performance
   async headers() {
     return [

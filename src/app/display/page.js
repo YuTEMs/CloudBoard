@@ -15,14 +15,20 @@ const TimeWidget = ({ x, y, width, height }) => {
 
   return (
     <div
-      className="absolute bg-black text-white rounded-lg flex items-center justify-center font-bold text-center"
+      className="absolute bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-xl flex items-center justify-center font-bold text-center shadow-xl"
       style={{ left: x, top: y, width, height }}
     >
-      <div>
-        <div style={{ fontSize: Math.min(width * 0.08, height * 0.3) }}>
+      <div className="text-center">
+        <div 
+          className="font-black tracking-tight"
+          style={{ fontSize: Math.min(width * 0.08, height * 0.3) }}
+        >
           {time.toLocaleTimeString()}
         </div>
-        <div style={{ fontSize: Math.min(width * 0.05, height * 0.2), opacity: 0.75 }}>
+        <div 
+          className="opacity-75 font-medium"
+          style={{ fontSize: Math.min(width * 0.05, height * 0.2) }}
+        >
           {time.toLocaleDateString()}
         </div>
       </div>
@@ -39,22 +45,24 @@ const WeatherWidget = ({ x, y, width, height }) => {
 
   return (
     <div
-      className="absolute bg-gradient-to-br from-blue-400 to-blue-600 text-white rounded-lg p-4"
+      className="absolute bg-gradient-to-br from-blue-500 to-blue-700 text-white rounded-xl p-4 shadow-xl"
       style={{ left: x, top: y, width, height }}
     >
       <div className="flex items-center justify-between h-full">
-        <div>
-          <div style={{ fontSize: Math.min(width * 0.12, height * 0.3) }} className="font-bold">
+        <div className="flex-1">
+          <div style={{ fontSize: Math.min(width * 0.12, height * 0.3) }} className="font-black mb-1">
             {weather.temp}°C
           </div>
-          <div style={{ fontSize: Math.min(width * 0.06, height * 0.15) }}>
+          <div style={{ fontSize: Math.min(width * 0.06, height * 0.15) }} className="font-medium opacity-90">
             {weather.condition}
           </div>
-          <div style={{ fontSize: Math.min(width * 0.04, height * 0.12), opacity: 0.75 }}>
+          <div style={{ fontSize: Math.min(width * 0.04, height * 0.12) }} className="opacity-75 mt-1">
             Humidity: {weather.humidity}%
           </div>
         </div>
-        <div style={{ fontSize: Math.min(width * 0.15, height * 0.4) }}>☀️</div>
+        <div className="flex-shrink-0 ml-4">
+          <div style={{ fontSize: Math.min(width * 0.15, height * 0.4) }}>☀️</div>
+        </div>
       </div>
     </div>
   )
@@ -94,24 +102,29 @@ const AnnouncementWidget = ({ x, y, width, height, announcement = {} }) => {
 
   return (
     <div
-      className="absolute bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg p-4 overflow-hidden shadow-lg animate-pulse"
+      className="absolute bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 text-white rounded-xl p-4 overflow-hidden shadow-xl border border-white/20"
       style={{ left: x, top: y, width, height }}
     >
-      <div className="flex flex-col h-full">
+      <div className="flex flex-col h-full relative">
+        {/* Animated background effect */}
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-pulse"></div>
+        
         {/* Status indicator */}
-        <div className="flex justify-between items-center mb-2">
-          <div className="px-2 py-1 rounded-full text-xs font-medium bg-green-600">
-            LIVE
+        <div className="flex justify-between items-center mb-3 relative z-10">
+          <div className="px-3 py-1 rounded-full text-xs font-bold bg-white/20 backdrop-blur-sm border border-white/30 flex items-center gap-2">
+            <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
+            LIVE ANNOUNCEMENT
           </div>
         </div>
         
         {/* Announcement text */}
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 flex items-center justify-center relative z-10">
           <div 
-            className="text-center font-bold break-words"
+            className="text-center font-black break-words drop-shadow-lg"
             style={{ 
               fontSize: Math.min(width * 0.06, height * 0.15, 24),
-              lineHeight: 1.2
+              lineHeight: 1.3,
+              textShadow: '0 2px 4px rgba(0,0,0,0.3)'
             }}
           >
             {announcement.text}
@@ -160,13 +173,16 @@ const SlideshowWidget = ({ x, y, width, height, playlist = [] }) => {
   if (playlist.length === 0) {
     return (
       <div
-        className="absolute bg-gray-800 rounded-lg flex items-center justify-center"
+        className="absolute bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl flex items-center justify-center shadow-xl border border-gray-700"
         style={{ left: x, top: y, width, height }}
       >
         <div className="text-white text-center opacity-75">
-          <div className="text-4xl mb-2">🖼️</div>
-          <p style={{ fontSize: Math.min(width * 0.04, height * 0.1, 16) }}>
-            No slides
+          <div className="text-6xl mb-4">🖼️</div>
+          <p 
+            className="font-medium"
+            style={{ fontSize: Math.min(width * 0.04, height * 0.1, 16) }}
+          >
+            No slides available
           </p>
         </div>
       </div>
@@ -178,7 +194,7 @@ const SlideshowWidget = ({ x, y, width, height, playlist = [] }) => {
 
   return (
     <div
-      className="absolute rounded-lg overflow-hidden bg-black"
+      className="absolute rounded-xl overflow-hidden bg-black shadow-xl border border-gray-700"
       style={{ left: x, top: y, width, height }}
     >
       {currentSlide.type === 'image' ? (
@@ -301,10 +317,15 @@ function DisplayContent() {
   // Handle loading and error states
   if (!boardId) {
     return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center text-white">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Display Error</h1>
-          <p className="text-lg">No board ID provided. Please check the URL.</p>
+      <div className="fixed inset-0 bg-gradient-to-br from-red-900 to-red-800 flex items-center justify-center text-white">
+        <div className="text-center p-8 bg-black/20 backdrop-blur-sm rounded-2xl border border-white/10">
+          <div className="w-16 h-16 mx-auto mb-4 bg-red-500/20 rounded-2xl flex items-center justify-center">
+            <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
+              <span className="text-white font-bold text-sm">!</span>
+            </div>
+          </div>
+          <h1 className="text-3xl font-bold mb-4">Display Error</h1>
+          <p className="text-xl opacity-90">No board ID provided. Please check the URL.</p>
         </div>
       </div>
     )
@@ -312,10 +333,14 @@ function DisplayContent() {
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center text-white">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-white mx-auto mb-4"></div>
-          <p className="text-xl">Loading display...</p>
+      <div className="fixed inset-0 bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center text-white">
+        <div className="text-center p-8 bg-black/20 backdrop-blur-sm rounded-2xl border border-white/10">
+          <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center">
+            <span className="text-3xl">📋</span>
+          </div>
+          <div className="spinner mx-auto mb-6"></div>
+          <p className="text-2xl font-semibold">Loading Display</p>
+          <p className="text-lg opacity-75 mt-2">Preparing your bulletin board...</p>
         </div>
       </div>
     )
@@ -323,11 +348,14 @@ function DisplayContent() {
 
   if (error) {
     return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center text-white">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Display Error</h1>
-          <p className="text-lg">{error}</p>
-          <p className="text-sm mt-4 opacity-75">Board ID: {boardId}</p>
+      <div className="fixed inset-0 bg-gradient-to-br from-red-900 to-red-800 flex items-center justify-center text-white">
+        <div className="text-center p-8 bg-black/20 backdrop-blur-sm rounded-2xl border border-white/10">
+          <div className="w-16 h-16 mx-auto mb-4 bg-red-500/20 rounded-full flex items-center justify-center">
+            <span className="text-3xl">❌</span>
+          </div>
+          <h1 className="text-3xl font-bold mb-4">Display Error</h1>
+          <p className="text-xl mb-4">{error}</p>
+          <p className="text-sm opacity-75 bg-black/30 px-4 py-2 rounded-lg">Board ID: {boardId}</p>
         </div>
       </div>
     )
@@ -335,11 +363,14 @@ function DisplayContent() {
 
   if (!board) {
     return (
-      <div className="fixed inset-0 bg-black flex items-center justify-center text-white">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Board Not Found</h1>
-          <p className="text-lg">The requested board could not be found.</p>
-          <p className="text-sm mt-4 opacity-75">Board ID: {boardId}</p>
+      <div className="fixed inset-0 bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center text-white">
+        <div className="text-center p-8 bg-black/20 backdrop-blur-sm rounded-2xl border border-white/10">
+          <div className="w-16 h-16 mx-auto mb-4 bg-gray-500/20 rounded-full flex items-center justify-center">
+            <span className="text-3xl">🔍</span>
+          </div>
+          <h1 className="text-3xl font-bold mb-4">Board Not Found</h1>
+          <p className="text-xl mb-4">The requested board could not be found.</p>
+          <p className="text-sm opacity-75 bg-black/30 px-4 py-2 rounded-lg">Board ID: {boardId}</p>
         </div>
       </div>
     )
@@ -356,11 +387,20 @@ function DisplayContent() {
           backgroundPosition: 'center'
         }}
       >
-        <div className="text-center" style={{ color: backgroundColor === '#ffffff' ? '#333' : '#fff' }}>
-          <div className="text-6xl mb-4" style={{ opacity: 0.5 }}>📺</div>
-          <h1 className="text-2xl font-bold mb-2">Empty Board</h1>
-          <p className="mb-4" style={{ opacity: 0.75 }}>Board "{boardName}" has no content yet</p>
-          <p className="text-sm" style={{ opacity: 0.5 }}>Add content in the editor to see it here</p>
+        {/* Overlay for better text readability */}
+        <div className="absolute inset-0 bg-black/20 backdrop-blur-sm"></div>
+        
+        <div className="relative z-10 text-center p-8 bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 shadow-2xl">
+          <div className="text-8xl mb-6 animate-pulse">📺</div>
+          <h1 className="text-4xl font-black mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
+            Empty Board
+          </h1>
+          <p className="text-xl text-white/90 mb-4 font-medium">
+            Board "{boardName}" is ready for content
+          </p>
+          <p className="text-sm text-white/70 bg-white/10 px-4 py-2 rounded-full backdrop-blur-sm">
+            Add widgets and media in the editor to bring this board to life
+          </p>
         </div>
       </div>
     )
@@ -448,7 +488,7 @@ function DisplayContent() {
           return (
             <div
               key={itemKey}
-              className="absolute rounded-lg overflow-hidden"
+              className="absolute rounded-xl overflow-hidden shadow-lg"
               style={{
                 left: scaledX,
                 top: scaledY,
@@ -504,8 +544,9 @@ function DisplayContent() {
 
         {/* Connection status indicator for production */}
         {connectionStatus === 'updated' && (
-          <div className="absolute top-4 right-4 bg-green-500 text-white px-3 py-1 rounded-full text-sm animate-pulse z-50">
-            ✅ Updated
+          <div className="absolute top-6 right-6 bg-gradient-to-r from-emerald-500 to-green-500 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg border border-white/20 backdrop-blur-sm z-50 flex items-center gap-2">
+            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+            Content Updated
           </div>
         )}
       </div>

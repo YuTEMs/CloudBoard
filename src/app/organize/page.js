@@ -38,8 +38,8 @@ const TimeWidget = ({ x, y, width, height, isSelected, item, onDragStart, setSel
   return (
     <div
       draggable
-      className={`absolute bg-black text-white rounded-lg flex items-center justify-center font-bold text-center border-2 ${
-        isSelected ? 'cursor-move border-blue-500 shadow-lg' : 'cursor-move border-transparent hover:border-gray-300 hover:shadow-md transition-all duration-150'
+      className={`absolute bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-xl flex items-center justify-center font-bold text-center border-2 shadow-lg ${
+        isSelected ? 'cursor-move border-blue-400 shadow-blue-500/50 shadow-xl' : 'cursor-move border-transparent hover:border-slate-600 hover:shadow-xl transition-all duration-200'
       }`}
       style={{ 
         left: x, 
@@ -53,11 +53,17 @@ const TimeWidget = ({ x, y, width, height, isSelected, item, onDragStart, setSel
         setSelectedItem(item)
       }}
     >
-      <div>
-        <div style={{ fontSize: Math.min(width * 0.08, height * 0.3, 24) }}>
+      <div className="text-center">
+        <div 
+          className="font-black tracking-tight"
+          style={{ fontSize: Math.min(width * 0.08, height * 0.3, 24) }}
+        >
           {time.toLocaleTimeString()}
         </div>
-        <div style={{ fontSize: Math.min(width * 0.05, height * 0.2, 14), opacity: 0.75 }}>
+        <div 
+          className="opacity-75 font-medium"
+          style={{ fontSize: Math.min(width * 0.05, height * 0.2, 14) }}
+        >
           {time.toLocaleDateString()}
         </div>
       </div>
@@ -66,19 +72,19 @@ const TimeWidget = ({ x, y, width, height, isSelected, item, onDragStart, setSel
       {isSelected && (
         <>
           <div 
-            className="absolute -top-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-nw-resize hover:bg-blue-600"
+            className="absolute -top-2 -left-2 w-4 h-4 bg-blue-500 rounded-full cursor-nw-resize hover:bg-blue-600 shadow-lg border-2 border-white"
             onMouseDown={(e) => onResizeStart && onResizeStart(e, 'nw')}
           ></div>
           <div 
-            className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-ne-resize hover:bg-blue-600"
+            className="absolute -top-2 -right-2 w-4 h-4 bg-blue-500 rounded-full cursor-ne-resize hover:bg-blue-600 shadow-lg border-2 border-white"
             onMouseDown={(e) => onResizeStart && onResizeStart(e, 'ne')}
           ></div>
           <div 
-            className="absolute -bottom-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-sw-resize hover:bg-blue-600"
+            className="absolute -bottom-2 -left-2 w-4 h-4 bg-blue-500 rounded-full cursor-sw-resize hover:bg-blue-600 shadow-lg border-2 border-white"
             onMouseDown={(e) => onResizeStart && onResizeStart(e, 'sw')}
           ></div>
           <div 
-            className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-se-resize hover:bg-blue-600"
+            className="absolute -bottom-2 -right-2 w-4 h-4 bg-blue-500 rounded-full cursor-se-resize hover:bg-blue-600 shadow-lg border-2 border-white"
             onMouseDown={(e) => onResizeStart && onResizeStart(e, 'se')}
           ></div>
         </>
@@ -97,8 +103,8 @@ const WeatherWidget = ({ x, y, width, height, isSelected, item, onDragStart, set
   return (
     <div
       draggable
-      className={`absolute bg-gradient-to-br from-blue-400 to-blue-600 text-white rounded-lg p-4 border-2 ${
-        isSelected ? 'cursor-move border-blue-500 shadow-lg' : 'cursor-move border-transparent hover:border-gray-300 hover:shadow-md transition-all duration-150'
+      className={`absolute bg-gradient-to-br from-blue-500 to-blue-700 text-white rounded-xl p-4 border-2 shadow-lg ${
+        isSelected ? 'cursor-move border-blue-400 shadow-blue-500/50 shadow-xl' : 'cursor-move border-transparent hover:border-blue-600 hover:shadow-xl transition-all duration-200'
       }`}
       style={{ 
         left: x, 
@@ -113,37 +119,45 @@ const WeatherWidget = ({ x, y, width, height, isSelected, item, onDragStart, set
       }}
     >
       <div className="flex items-center justify-between h-full">
-        <div>
-          <div style={{ fontSize: Math.min(width * 0.12, height * 0.3, 32) }} className="font-bold">
+        <div className="flex-1">
+          <div style={{ fontSize: Math.min(width * 0.12, height * 0.3, 32) }} className="font-black mb-1">
             {weather.temp}°C
           </div>
-          <div style={{ fontSize: Math.min(width * 0.06, height * 0.15, 16) }}>
+          <div style={{ fontSize: Math.min(width * 0.06, height * 0.15, 16) }} className="font-medium opacity-90">
             {weather.condition}
           </div>
-          <div style={{ fontSize: Math.min(width * 0.04, height * 0.12, 12), opacity: 0.75 }}>
+          <div style={{ fontSize: Math.min(width * 0.04, height * 0.12, 12) }} className="opacity-75 mt-1">
             Humidity: {weather.humidity}%
           </div>
         </div>
-        <CloudSun style={{ width: Math.min(width * 0.15, height * 0.4, 32), height: Math.min(width * 0.15, height * 0.4, 32) }} />
+        <div className="flex-shrink-0 ml-4">
+          <CloudSun 
+            style={{ 
+              width: Math.min(width * 0.15, height * 0.4, 40), 
+              height: Math.min(width * 0.15, height * 0.4, 40) 
+            }} 
+            className="drop-shadow-lg"
+          />
+        </div>
       </div>
       
       {/* Selection handles */}
       {isSelected && (
         <>
           <div 
-            className="absolute -top-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-nw-resize hover:bg-blue-600"
+            className="absolute -top-2 -left-2 w-4 h-4 bg-blue-500 rounded-full cursor-nw-resize hover:bg-blue-600 shadow-lg border-2 border-white"
             onMouseDown={(e) => onResizeStart && onResizeStart(e, 'nw')}
           ></div>
           <div 
-            className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-ne-resize hover:bg-blue-600"
+            className="absolute -top-2 -right-2 w-4 h-4 bg-blue-500 rounded-full cursor-ne-resize hover:bg-blue-600 shadow-lg border-2 border-white"
             onMouseDown={(e) => onResizeStart && onResizeStart(e, 'ne')}
           ></div>
           <div 
-            className="absolute -bottom-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-sw-resize hover:bg-blue-600"
+            className="absolute -bottom-2 -left-2 w-4 h-4 bg-blue-500 rounded-full cursor-sw-resize hover:bg-blue-600 shadow-lg border-2 border-white"
             onMouseDown={(e) => onResizeStart && onResizeStart(e, 'sw')}
           ></div>
           <div 
-            className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-se-resize hover:bg-blue-600"
+            className="absolute -bottom-2 -right-2 w-4 h-4 bg-blue-500 rounded-full cursor-se-resize hover:bg-blue-600 shadow-lg border-2 border-white"
             onMouseDown={(e) => onResizeStart && onResizeStart(e, 'se')}
           ></div>
         </>
@@ -1082,43 +1096,51 @@ function OrganizePageContent() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
       <AppHeader title={`Edit Board: ${boardName}`} showBack backHref="/dashboard" />
 
       <div className="flex h-[calc(100vh-80px)]">
         {/* Left Sidebar - Content Library */}
-        <div className={`bg-black border-r border-black p-3 overflow-y-auto transition-all duration-300 ${
+        <div className={`bg-gradient-to-b from-slate-900 to-slate-800 border-r border-slate-200 p-4 overflow-y-auto transition-all duration-300 shadow-lg ${
           selectedItem && selectedItem.type === 'widget' && (selectedItem.widgetType === 'slideshow' || selectedItem.widgetType === 'announcement')
             ? 'w-0 opacity-0 overflow-hidden' 
-            : 'w-72 opacity-100'
+            : 'w-80 opacity-100'
         }`}>
-          <h3 className="text-lg font-semibold mb-4 text-white">Content Library</h3>
-
-          {/* Upload Section */}
-              <div className="mb-6">
-            <h4 className="font-medium mb-3 flex items-center gap-2 text-white">
+          <h3 className="text-xl font-bold mb-6 text-white flex items-center gap-3">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
               <Upload className="w-4 h-4 text-white" />
-              Upload Files
+            </div>
+            <span>Content Library</span>
+          </h3>
+
+              {/* Upload Section */}
+              <div className="mb-8">
+            <h4 className="font-semibold mb-4 flex items-center gap-3 text-white">
+              <Upload className="w-5 h-5 text-blue-400 flex-shrink-0" />
+              <span>Upload Files</span>
                 </h4>
             
               {/* Image Upload */}
-            <Card className="mb-3 bg-white border-black">
-              <CardBody className="p-3">
+            <Card className="mb-4 bg-white/10 backdrop-blur-sm border-white/20">
+              <CardBody className="p-4">
                 <div
-                  className={`border-2 border-dashed border-black rounded-lg p-3 text-center transition-colors ${
-                    isUploading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-gray-100'
+                  className={`border-2 border-dashed border-blue-300 rounded-xl p-4 text-center transition-all duration-200 ${
+                    isUploading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-blue-50/20 hover:border-blue-400'
                   }`}
                       onDragOver={handleDragOver}
                   onDrop={(e) => !isUploading && handleFileDrop(e, "image")}
                   onClick={() => !isUploading && imageInputRef.current?.click()}
                 >
                   {isUploading ? (
-                    <div className="w-6 h-6 mx-auto mb-1 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                    <div className="spinner mx-auto mb-2"></div>
                   ) : (
-                    <ImageIcon className="w-6 h-6 mx-auto mb-1 text-black" />
+                    <ImageIcon className="w-8 h-8 mx-auto mb-2 text-blue-400" />
                   )}
-                  <p className="text-xs text-black">
-                    {isUploading ? "Processing..." : "Drop images or click"}
+                  <p className="text-sm font-medium text-white mb-1">
+                    {isUploading ? "Processing..." : "Add Images"}
+                  </p>
+                  <p className="text-xs text-blue-200">
+                    Drag & drop or click to upload
                   </p>
                     </div>
                     <input
@@ -1133,20 +1155,20 @@ function OrganizePageContent() {
                 </Card>
 
               {/* Video Upload */}
-            <Card className="mb-3 bg-white border-black">
-              <CardBody className="p-3">
+            <Card className="mb-4 bg-white/10 backdrop-blur-sm border-white/20">
+              <CardBody className="p-4">
                 <div
-                  className={`border-2 border-dashed border-black rounded-lg p-3 text-center transition-colors ${
-                    isUploading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-gray-100'
+                  className={`border-2 border-dashed border-purple-300 rounded-xl p-4 text-center transition-all duration-200 ${
+                    isUploading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-purple-50/20 hover:border-purple-400'
                   }`}
                       onDragOver={handleDragOver}
                   onDrop={(e) => !isUploading && handleFileDrop(e, "video")}
                   onClick={() => !isUploading && videoInputRef.current?.click()}
                 >
                   {isUploading ? (
-                    <div className="w-6 h-6 mx-auto mb-1 border-2 border-black border-t-transparent rounded-full animate-spin"></div>
+                    <div className="spinner mx-auto mb-2"></div>
                   ) : (
-                    <Video className="w-6 h-6 mx-auto mb-1 text-black" />
+                    <Video className="w-8 h-8 mx-auto mb-2 text-purple-400" />
                   )}
                   <p className="text-xs text-black">
                     {isUploading ? "Processing..." : "Drop videos or click"}
@@ -1165,24 +1187,28 @@ function OrganizePageContent() {
 
             {/* Uploaded Files */}
               {uploadedFiles.length > 0 && (
-              <div className="space-y-2 max-h-40 overflow-y-auto">
+              <div className="space-y-3 max-h-48 overflow-y-auto">
+                <h5 className="text-sm font-semibold text-white flex items-center gap-3">
+                  <ImageIcon className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+                  <span>Media Library ({uploadedFiles.length})</span>
+                </h5>
                     {uploadedFiles.map((file) => (
                   <div 
                     key={file.id} 
-                    className="flex items-center gap-2 p-2 border border-white rounded-lg bg-white cursor-move"
+                    className="flex items-center gap-3 p-3 border border-white/20 rounded-xl bg-white/10 backdrop-blur-sm cursor-move hover:bg-white/20 transition-all duration-200"
                     draggable
                     onDragStart={(e) => makeFileDraggable(e, file)}
                   >
-                    <div className="w-8 h-8 flex-shrink-0">
+                    <div className="w-10 h-10 flex-shrink-0 rounded-lg overflow-hidden">
                           {file.type === "video" ? (
-                        <div className="w-full h-full bg-black rounded flex items-center justify-center">
-                          <Video className="w-4 h-4 text-white" />
+                        <div className="w-full h-full bg-gradient-to-br from-purple-600 to-purple-800 rounded-lg flex items-center justify-center">
+                          <Video className="w-5 h-5 text-white" />
                               </div>
                           ) : (
                             <img
                           src={file.url}
                               alt={file.name}
-                              className="w-full h-full object-cover rounded"
+                              className="w-full h-full object-cover rounded-lg"
                           onLoad={(e) => {
                             const img = e.target
                             const aspectRatio = img.naturalWidth / img.naturalHeight
@@ -1198,22 +1224,27 @@ function OrganizePageContent() {
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium truncate text-black">{file.name}</p>
-                      <p className="text-xs text-gray-500">Drag to slideshow or click Add</p>
+                      <p className="text-sm font-medium truncate text-white">{file.name}</p>
+                      <p className="text-xs text-blue-200">Drag to canvas or slideshow</p>
                         </div>
-                        <div className="flex gap-1">
-                      <Button size="sm" variant="bordered" className="border-black text-black hover:bg-black hover:text-white" onPress={() => addToCanvas(file)}>
-                            Add
-                          </Button>
-                          <Button
-                            size="sm"
-                            color="danger"
-                            variant="light"
-                            isIconOnly
+                        <div className="flex gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="bordered" 
+                        className="border-cyan-300/50 text-cyan-200 hover:bg-cyan-500/20 hover:border-cyan-300 transition-all duration-200 rounded-lg flex items-center justify-center h-8 px-3" 
+                        onPress={() => addToCanvas(file)}
+                      >
+                        <span className="text-xs font-medium">Add</span>
+                      </Button>
+                      <Button
+                        size="sm"
+                        color="danger"
+                        variant="light"
+                        className="rounded-lg flex items-center justify-center h-8 w-8 p-0"
                         onPress={() => removeUploadedFile(file.id)}
-                          >
+                      >
                         <Trash2 className="w-3 h-3" />
-                          </Button>
+                      </Button>
                         </div>
                       </div>
                     ))}
@@ -1222,76 +1253,98 @@ function OrganizePageContent() {
           </div>
 
           {/* Widgets Section */}
-          <div className="mb-6">
-            <h4 className="font-medium mb-3 flex items-center gap-2 text-white">
-              <Settings className="w-4 h-4 text-white" />
-              Widgets
+          <div className="mb-8">
+            <h4 className="font-semibold mb-4 flex items-center gap-3 text-white">
+              <Settings className="w-5 h-5 text-green-400 flex-shrink-0" />
+              <span>Smart Widgets</span>
             </h4>
             
-            {/* Time Widget */}
-            <div className="mb-3">
-                  <Button
-                    size="sm"
-                    variant="bordered"
-                    className="w-full border-white text-white hover:bg-white hover:text-black text-xs"
-                startContent={<Clock className="w-3 h-3" />}
-                onPress={() => addWidget('time')}
-                  >
-                Time Widget
-                  </Button>
+            <div className="grid grid-cols-1 gap-3">
+              {/* Time Widget */}
+              <div>
+                <Button
+                  size="md"
+                  variant="bordered"
+                  className="w-full border-green-300/50 text-white hover:bg-green-500/20 hover:border-green-300 transition-all duration-200 p-4 h-auto rounded-xl"
+                  onPress={() => addWidget('time')}
+                >
+                  <div className="flex flex-col items-center gap-2 w-full">
+                    <Clock className="w-6 h-6 text-green-400 flex-shrink-0" />
+                    <div className="text-center">
+                      <div className="font-medium">Time Widget</div>
+                      <div className="text-xs text-green-200 mt-1">Live clock display</div>
+                    </div>
+                  </div>
+                </Button>
               </div>
 
-            {/* Weather Widget */}
-            <div className="mb-3">
-              <Button
-                size="sm"
-                variant="bordered"
-                className="w-full border-white text-white hover:bg-white hover:text-black text-xs"
-                startContent={<CloudSun className="w-3 h-3" />}
-                onPress={() => addWidget('weather')}
-              >
-                Weather Widget
-              </Button>
-            </div>
+              {/* Weather Widget */}
+              <div>
+                <Button
+                  size="md"
+                  variant="bordered"
+                  className="w-full border-blue-300/50 text-white hover:bg-blue-500/20 hover:border-blue-300 transition-all duration-200 p-4 h-auto rounded-xl"
+                  onPress={() => addWidget('weather')}
+                >
+                  <div className="flex flex-col items-center gap-2 w-full">
+                    <CloudSun className="w-6 h-6 text-blue-400 flex-shrink-0" />
+                    <div className="text-center">
+                      <div className="font-medium">Weather Widget</div>
+                      <div className="text-xs text-blue-200 mt-1">Weather information</div>
+                    </div>
+                  </div>
+                </Button>
+              </div>
 
-            {/* Slideshow Widget */}
-            <div className="mb-3">
-                  <Button
-                    size="sm"
-                    variant="bordered"
-                    className="w-full border-white text-white hover:bg-white hover:text-black text-xs"
-                startContent={<Play className="w-3 h-3" />}
-                onPress={() => addWidget('slideshow')}
-                  >
-                Slideshow Widget
-                  </Button>
-            </div>
+              {/* Slideshow Widget */}
+              <div>
+                <Button
+                  size="md"
+                  variant="bordered"
+                  className="w-full border-purple-300/50 text-white hover:bg-purple-500/20 hover:border-purple-300 transition-all duration-200 p-4 h-auto rounded-xl"
+                  onPress={() => addWidget('slideshow')}
+                >
+                  <div className="flex flex-col items-center gap-2 w-full">
+                    <Play className="w-6 h-6 text-purple-400 flex-shrink-0" />
+                    <div className="text-center">
+                      <div className="font-medium">Slideshow Widget</div>
+                      <div className="text-xs text-purple-200 mt-1">Image & video carousel</div>
+                    </div>
+                  </div>
+                </Button>
+              </div>
 
-            {/* Announcement Widget */}
-            <div className="mb-3">
-                  <Button
-                    size="sm"
-                    variant="bordered"
-                    className="w-full border-white text-white hover:bg-white hover:text-black text-xs"
-                startContent={<Megaphone className="w-3 h-3" />}
-                onPress={() => addWidget('announcement')}
-                  >
-                Announcement Widget
-                  </Button>
+              {/* Announcement Widget */}
+              <div>
+                <Button
+                  size="md"
+                  variant="bordered"
+                  className="w-full border-orange-300/50 text-white hover:bg-orange-500/20 hover:border-orange-300 transition-all duration-200 p-4 h-auto rounded-xl"
+                  onPress={() => addWidget('announcement')}
+                >
+                  <div className="flex flex-col items-center gap-2 w-full">
+                    <Megaphone className="w-6 h-6 text-orange-400 flex-shrink-0" />
+                    <div className="text-center">
+                      <div className="font-medium">Announcement Widget</div>
+                      <div className="text-xs text-orange-200 mt-1">Scheduled messages</div>
+                    </div>
+                  </div>
+                </Button>
+              </div>
             </div>
           </div>
 
           {/* Background Section */}
-          <div className="mb-6">
-            <h4 className="font-medium mb-3 flex items-center gap-2 text-white">
-              <ImageIcon className="w-4 h-4 text-white" />
-              Background
+          <div className="mb-8">
+            <h4 className="font-semibold mb-4 flex items-center gap-3 text-white">
+              <ImageIcon className="w-5 h-5 text-pink-400 flex-shrink-0" />
+              <span>Background Style</span>
             </h4>
             
             {/* Background Preview */}
-            <div className="mb-3">
+            <div className="mb-4">
               <div 
-                className="w-full h-20 rounded-lg border-2 border-white"
+                className="w-full h-20 rounded-xl border-2 border-white/20 shadow-lg overflow-hidden"
                 style={{
                   backgroundColor: backgroundColor,
                   backgroundImage: backgroundImage ? `url(${backgroundImage})` : 'none',
@@ -1299,42 +1352,59 @@ function OrganizePageContent() {
                   backgroundPosition: 'center'
                 }}
               >
-                {!backgroundImage && (
-                  <div className="w-full h-full flex items-center justify-center text-black">
-                    <span className="text-xs font-medium">White Background</span>
-                </div>
-              )}
+                {!backgroundImage && backgroundColor === "#ffffff" && (
+                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
+                    <span className="text-xs font-medium text-gray-600">Clean Background</span>
+                  </div>
+                )}
+                {!backgroundImage && backgroundColor !== "#ffffff" && (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <span className="text-xs font-medium text-white/80">Custom Color</span>
+                  </div>
+                )}
               </div>
             </div>
 
             {/* Background Controls */}
-              <div className="space-y-2">
+              <div className="space-y-3">
               <Button
-                size="sm"
+                size="md"
                 variant="bordered"
-                className="w-full border-white text-white hover:bg-white hover:text-black"
+                className="w-full border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-200 rounded-xl flex items-center justify-center gap-3 h-12"
                 onPress={() => backgroundInputRef.current?.click()}
               >
-                Upload Background
+                <ImageIcon className="w-4 h-4 flex-shrink-0" />
+                <span>Upload Background</span>
               </Button>
               
-              <div className="flex gap-2">
-                <Input
-                  type="color"
-                  size="sm"
-                  value={backgroundColor}
-                  onChange={(e) => setBackgroundColor(e.target.value)}
-                  className="flex-1"
-                />
-                <Button
-                  size="sm"
-                  color="danger"
-                  variant="light"
-                  onPress={removeBackground}
-                  isIconOnly
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className="text-xs text-white/80 block mb-2">Background Color</label>
+                  <Input
+                    type="color"
+                    size="md"
+                    value={backgroundColor}
+                    onChange={(e) => setBackgroundColor(e.target.value)}
+                    className="w-full"
+                    classNames={{
+                      inputWrapper: "bg-white/10 border-white/20 rounded-xl h-12"
+                    }}
+                  />
+                </div>
+                <div className="flex-shrink-0">
+                  <label className="text-xs text-white/80 block mb-2">Reset</label>
+                  <Button
+                    size="md"
+                    variant="bordered"
+                    className="border-white/30 text-white hover:bg-red-500/20 hover:border-red-300 transition-all duration-200 rounded-xl h-12 px-4"
+                    onPress={() => {
+                      setBackgroundColor("#ffffff")
+                      setBackgroundImage(null)
+                    }}
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
 
               <input
@@ -1349,14 +1419,17 @@ function OrganizePageContent() {
 
           {/* Selected Item Properties */}
           {selectedItem && (
-            <div className="border-t border-white pt-3">
-              <h4 className="font-medium mb-2 text-white">Properties</h4>
-              <div className="space-y-2">
+            <div className="border-t border-white/20 pt-6 mt-6">
+              <h4 className="font-semibold mb-4 text-white flex items-center gap-3">
+                <Settings className="w-5 h-5 text-yellow-400 flex-shrink-0" />
+                <span>Properties</span>
+              </h4>
+              <div className="space-y-4">
                 <div>
-                  <label className="text-sm text-white font-medium block mb-1">
-                    Width
+                  <label className="text-sm text-white font-semibold block mb-2 flex items-center gap-2">
+                    <span>Width</span>
                     {selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' && (
-                      <span className="text-xs text-gray-400 ml-1">(16:9 ratio)</span>
+                      <span className="text-xs text-blue-300 bg-blue-500/20 px-2 py-1 rounded-full">16:9 ratio</span>
                     )}
                   </label>
                   <Input
@@ -1364,14 +1437,17 @@ function OrganizePageContent() {
                     size="sm"
                     value={selectedItem.width}
                     onChange={(e) => updateItemProperty('width', parseInt(e.target.value) || 0)}
-                    className="bg-white text-black"
+                    classNames={{
+                      input: "text-gray-900",
+                      inputWrapper: "bg-white border-white/20"
+                    }}
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-white font-medium block mb-1">
-                    Height
+                  <label className="text-sm text-white font-semibold block mb-2 flex items-center gap-2">
+                    <span>Height</span>
                     {selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' && (
-                      <span className="text-xs text-gray-400 ml-1">(auto-adjusted)</span>
+                      <span className="text-xs text-blue-300 bg-blue-500/20 px-2 py-1 rounded-full">auto-adjusted</span>
                     )}
                   </label>
                   <Input
@@ -1379,46 +1455,60 @@ function OrganizePageContent() {
                     size="sm"
                     value={selectedItem.height}
                     onChange={(e) => updateItemProperty('height', parseInt(e.target.value) || 0)}
-                    className="bg-white text-black"
+                    classNames={{
+                      input: "text-gray-900",
+                      inputWrapper: "bg-white border-white/20"
+                    }}
                   />
                 </div>
-                <div>
-                  <label className="text-sm text-white font-medium block mb-1">X Position</label>
-                  <Input
-                    type="number"
-                    size="sm"
-                    value={Math.round(selectedItem.x)}
-                    onChange={(e) => updateItemProperty('x', parseInt(e.target.value) || 0)}
-                    className="bg-white text-black"
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-white font-medium block mb-1">Y Position</label>
-                  <Input
-                    type="number"
-                    size="sm"
-                    value={Math.round(selectedItem.y)}
-                    onChange={(e) => updateItemProperty('y', parseInt(e.target.value) || 0)}
-                    className="bg-white text-black"
-                  />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-sm text-white font-semibold block mb-2">X Position</label>
+                    <Input
+                      type="number"
+                      size="sm"
+                      value={Math.round(selectedItem.x)}
+                      onChange={(e) => updateItemProperty('x', parseInt(e.target.value) || 0)}
+                      classNames={{
+                        input: "text-gray-900",
+                        inputWrapper: "bg-white border-white/20"
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm text-white font-semibold block mb-2">Y Position</label>
+                    <Input
+                      type="number"
+                      size="sm"
+                      value={Math.round(selectedItem.y)}
+                      onChange={(e) => updateItemProperty('y', parseInt(e.target.value) || 0)}
+                      classNames={{
+                        input: "text-gray-900",
+                        inputWrapper: "bg-white border-white/20"
+                      }}
+                    />
+                  </div>
                 </div>
 
                 {/* Slideshow-specific properties */}
                 {selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' && (
-                  <div className="border-t border-gray-600 pt-3 mt-3">
-                    <h5 className="text-sm text-white font-medium mb-2">Slideshow</h5>
-                    <div className="space-y-2">
-                      <div>
-                        <label className="text-xs text-white block mb-1">
+                  <div className="border-t border-white/20 pt-4 mt-4">
+                    <h5 className="text-sm text-white font-semibold mb-3 flex items-center gap-2">
+                      <Play className="w-4 h-4 text-purple-400" />
+                      Slideshow Settings
+                    </h5>
+                    <div className="space-y-3">
+                      <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3">
+                        <div className="text-xs text-white font-medium mb-1">
                           Slides: {selectedItem.playlist?.length || 0}
-                        </label>
+                        </div>
                         {selectedItem.playlist && selectedItem.playlist.length > 0 && (
-                          <label className="text-xs text-gray-300 block mb-1">
+                          <div className="text-xs text-blue-300 mb-2">
                             Total Duration: {selectedItem.playlist.reduce((total, slide) => total + (slide.duration || 5), 0)}s
-                          </label>
+                          </div>
                         )}
-                        <p className="text-xs text-gray-300">
-                          Drag files from above to add slides. Timeline controls at bottom.
+                        <p className="text-xs text-gray-300 leading-relaxed">
+                          Drag files from above to add slides. Use timeline controls below.
                         </p>
                       </div>
                     </div>
@@ -1447,48 +1537,61 @@ function OrganizePageContent() {
             : 'flex-1'
         }`}>
           {/* Canvas Header */}
-          <div className="bg-black border-b border-black p-4 flex justify-between items-center">
+          <div className="bg-gradient-to-r from-slate-800 to-slate-700 border-b border-slate-300 p-4 flex justify-between items-center shadow-sm">
               <div>
-              <h3 className="text-lg font-semibold text-white">
-                Canvas ({canvasItems.length} items)
+              <h3 className="text-xl font-bold text-white flex items-center gap-3">
+                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Settings className="w-4 h-4 text-white" />
+                </div>
+                <span>Canvas</span>
+                <span className="text-sm font-normal text-slate-300">({canvasItems.length} items)</span>
                 {selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' && (
-                  <span className="ml-2 text-sm text-blue-400">• Slideshow Mode</span>
+                  <span className="ml-2 px-3 py-1 text-xs bg-blue-500/20 text-blue-300 rounded-full border border-blue-400/30">
+                    Slideshow Mode
+                  </span>
                 )}
                 {selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'announcement' && (
-                  <span className="ml-2 text-sm text-orange-400">• Announcement Mode</span>
+                  <span className="ml-2 px-3 py-1 text-xs bg-orange-500/20 text-orange-300 rounded-full border border-orange-400/30">
+                    Announcement Mode
+                  </span>
                 )}
               </h3>
-              <p className="text-sm text-white">Size: {canvasSize.width}x{canvasSize.height}px</p>
+              <p className="text-sm text-slate-300">Size: {canvasSize.width}x{canvasSize.height}px</p>
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-4 items-center">
               <Button
-                color="primary"
-                startContent={<Save className="w-4 h-4" />}
                 onPress={handleSaveBoard}
                 isLoading={saving}
-                className="bg-white text-black hover:bg-gray-200"
+                className="bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 font-semibold transition-all duration-300 hover:shadow-xl hover:scale-105 rounded-2xl px-6 py-3 h-12 flex items-center justify-center gap-3"
               >
-                {saving ? 'Saving...' : 'Save Board'}
+                <Save className="w-5 h-5 flex-shrink-0" />
+                <span>{saving ? 'Saving...' : 'Save Board'}</span>
               </Button>
               {lastSaved && (
-                <div className="text-xs text-green-400 ml-2">
-                  Last saved: {lastSaved.toLocaleTimeString()}
+                <div className="bg-emerald-500/20 border border-emerald-400/30 rounded-xl px-3 py-2 flex items-center gap-2">
+                  <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                  <span className="text-xs text-emerald-200 font-medium">
+                    Saved at {lastSaved.toLocaleTimeString()}
+                  </span>
                 </div>
               )}
               {saveError && (
-                <div className="text-xs text-red-400 ml-2">
-                  Error: {saveError}
+                <div className="bg-red-500/20 border border-red-400/30 rounded-xl px-3 py-2 flex items-center gap-2">
+                  <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+                  <span className="text-xs text-red-200 font-medium">
+                    Error: {saveError}
+                  </span>
                 </div>
               )}
               </div>
             </div>
 
           {/* Canvas Container */}
-          <div className="flex-1 p-2 bg-black overflow-auto">
+          <div className="flex-1 p-6 bg-gradient-to-br from-slate-100 via-blue-50 to-purple-50 overflow-auto">
             <div className="h-full flex items-center justify-center">
               <div
                 ref={canvasRef}
-                className="relative border border-black rounded-lg shadow-lg"
+                className="relative border-2 border-slate-200/50 rounded-3xl shadow-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-gray-50/80"
                       style={{
                   width: canvasSize.width * 0.6, 
                   height: canvasSize.height * 0.6,
@@ -2210,10 +2313,14 @@ function OrganizePageContent() {
 export default function OrganizePage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-black mx-auto mb-4"></div>
-          <p className="text-xl font-semibold text-black">Loading board editor...</p>
+          <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center">
+            <span className="text-2xl">📋</span>
+          </div>
+          <div className="spinner mx-auto mb-4"></div>
+          <p className="text-xl font-semibold text-gray-900 mb-2">Loading Board Editor</p>
+          <p className="text-gray-600">Preparing your creative workspace...</p>
         </div>
       </div>
     }>

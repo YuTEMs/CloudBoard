@@ -55,75 +55,114 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <AppHeader title="Sign Up" showBack backHref="/login" />
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
+      <AppHeader title="Create Account" showBack backHref="/login" />
 
       <div className="flex items-center justify-center p-4 pt-8">
-        <Card className="w-full max-w-md">
+        {/* Background decoration */}
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-purple-400/20 to-blue-400/20 rounded-full blur-3xl"></div>
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-green-400/20 rounded-full blur-3xl"></div>
+        </div>
+
+        <Card className="w-full max-w-md card-elevated fade-in relative z-10 backdrop-blur-sm bg-white/80">
           <CardBody className="p-8">
-            <form onSubmit={handleSignup} className="space-y-4">
+            <div className="text-center mb-8">
+              <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
+                <span className="text-2xl">✨</span>
+              </div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Join Us</h1>
+              <p className="text-gray-600">Create your account to get started</p>
+            </div>
+
+            <form onSubmit={handleSignup} className="space-y-5">
               {error && (
-                <div className="p-3 rounded-lg bg-red-100 border border-red-300 text-red-700 text-sm">
-                  {error}
+                <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm slide-in">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-red-200 flex items-center justify-center">
+                      <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                    </div>
+                    {error}
+                  </div>
                 </div>
               )}
               
               {success && (
-                <div className="p-3 rounded-lg bg-green-100 border border-green-300 text-green-700 text-sm">
-                  {success}
+                <div className="p-4 rounded-xl bg-green-50 border border-green-200 text-green-700 text-sm slide-in">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded-full bg-green-200 flex items-center justify-center">
+                      <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                    </div>
+                    {success}
+                  </div>
                 </div>
               )}
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Email</label>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">Email Address</label>
                 <Input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter email"
+                  placeholder="Enter your email"
                   variant="bordered"
                   required
+                  classNames={{
+                    input: "text-gray-900",
+                    inputWrapper: "border-gray-200 hover:border-purple-300 focus-within:border-purple-500 bg-white transition-all duration-200"
+                  }}
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Name (Optional)</label>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">Full Name (Optional)</label>
                 <Input
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder="Enter your full name"
                   variant="bordered"
+                  classNames={{
+                    input: "text-gray-900",
+                    inputWrapper: "border-gray-200 hover:border-purple-300 focus-within:border-purple-500 bg-white transition-all duration-200"
+                  }}
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Username</label>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">Username</label>
                 <Input
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter username"
+                  placeholder="Choose a username"
                   variant="bordered"
                   required
+                  classNames={{
+                    input: "text-gray-900",
+                    inputWrapper: "border-gray-200 hover:border-purple-300 focus-within:border-purple-500 bg-white transition-all duration-200"
+                  }}
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Password</label>
+              <div className="space-y-2">
+                <label className="block text-sm font-semibold text-gray-700">Password</label>
                 <Input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Enter password (min. 6 characters)"
+                  placeholder="Create a secure password (min. 6 characters)"
                   variant="bordered"
                   required
+                  classNames={{
+                    input: "text-gray-900",
+                    inputWrapper: "border-gray-200 hover:border-purple-300 focus-within:border-purple-500 bg-white transition-all duration-200"
+                  }}
                 />
               </div>
 
-              <div className="pt-4">
+              <div className="pt-6">
                 <Button 
                   type="submit"
-                  color="primary" 
-                  className="w-full"
+                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 font-medium py-3 transition-all duration-200 hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
                   isLoading={isLoading}
                   disabled={isLoading || !email || !username || !password}
                 >
@@ -131,9 +170,9 @@ export default function SignupPage() {
                 </Button>
               </div>
               
-              <div className="text-center text-sm text-gray-600">
+              <div className="text-center text-sm text-gray-600 pt-4">
                 Already have an account?{' '}
-                <Link href="/login" className="text-blue-600 hover:text-blue-800">
+                <Link href="/login" className="text-purple-600 hover:text-purple-800 font-medium transition-colors duration-200">
                   Sign in here
                 </Link>
               </div>

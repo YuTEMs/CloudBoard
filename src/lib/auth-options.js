@@ -49,18 +49,32 @@ export const authOptions = {
       }
     },
     
-    async jwt({ token, user }) {
+    async jwt({ token, user, account, profile }) {
       // If user exists (first login), store user info in token
       if (user) {
         token.sub = user.id
+        token.name = user.name
+        token.email = user.email
+        token.image = user.image
       }
+      
+      // For Google OAuth, ensure we preserve the image
+      if (account?.provider === 'google' && profile) {
+        token.name = profile.name
+        token.email = profile.email
+        token.image = profile.picture || profile.image
+      }
+      
       return token
     },
     
     async session({ session, token }) {
-      // Pass user ID to session
+      // Pass user data to session
       if (token?.sub) {
         session.user.id = token.sub
+        session.user.name = token.name
+        session.user.email = token.email
+        session.user.image = token.image
       }
       return session
     },
