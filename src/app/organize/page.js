@@ -21,10 +21,12 @@ import {
   Megaphone
 } from "lucide-react"
 import { useState, useRef, useEffect, useCallback, Suspense, memo, useMemo } from "react"
+import { useSession } from 'next-auth/react'
 import { useSearchParams } from "next/navigation"
 import { AppHeader } from "../../components/layout/app-hearder"
 import { useRealtimeBoards } from "../../hooks/useRealtimeBoards"
 import { useBoardSave } from "../../hooks/useBoardSave"
+import { uploadMedia, isTooLarge, deleteMedia } from "../../lib/storage"
 
 // Widget Components
 const TimeWidget = memo(function TimeWidget({ x, y, width, height, isSelected, item, onDragStart, setSelectedItem, onResizeStart }) {
@@ -541,6 +543,12 @@ const AnnouncementWidget = ({ x, y, width, height, isSelected, item, onDragStart
 function OrganizePageContent() {
   const searchParams = useSearchParams()
   const boardId = searchParams.get('board')
+  const { data: session } = useSession()
+  const userIdForPath = session?.user?.id
+    ? `google_${session.user.id}`
+    : session?.user?.email
+    ? `email_${session.user.email.replace('@', '_').replaceAll('.', '_')}`
+    : 'anonymous'
   
   // Use real-time boards hook
   const { boards, updateBoard } = useRealtimeBoards()
@@ -574,8 +582,7 @@ function OrganizePageContent() {
 
   
   // File upload refs
-  const imageInputRef = useRef(null)
-  const videoInputRef = useRef(null)
+  const mediaInputRef = useRef(null)
   const backgroundInputRef = useRef(null)
   const canvasRef = useRef(null)
   
@@ -860,26 +867,39 @@ function OrganizePageContent() {
   const handleFileUpload = async (files, type) => {
     setIsUploading(true)
     try {
-      const newFiles = await Promise.all(
-        Array.from(files).map(async (file) => {
-          // Convert file to base64 data URL for persistence
-          const dataURL = await new Promise((resolve) => {
-            const reader = new FileReader()
-            reader.onload = (e) => resolve(e.target.result)
-            reader.readAsDataURL(file)
-          })
-          
-          return {
-      id: `${type}_${Date.now()}_${Math.random()}`,
-      name: file.name,
-      type: type,
-      file: file,
-            url: dataURL, // Use data URL instead of blob URL
-      size: file.size,
-          }
+      const tasks = Array.from(files).map(async (file) => {
+        if (type === 'image' && !file.type.startsWith('image/')) return null
+        if (type === 'video' && !file.type.startsWith('video/')) return null
+        if (isTooLarge(file)) {
+          const mb = (file.size / (1024 * 1024)).toFixed(1)
+          console.error(`File too large: ${file.name} (${mb}MB)`)
+          alert(`File too large: ${file.name} (${mb}MB). Max allowed is 50MB.`)
+          return null
+        }
+        const { publicUrl, bucket, path } = await uploadMedia(file, {
+          boardId: boardId || 'shared',
+          userId: userIdForPath,
+          kind: type,
         })
-      )
-    setUploadedFiles((prev) => [...prev, ...newFiles])
+        return {
+          id: `${type}_${Date.now()}_${Math.random()}`,
+          name: file.name,
+          type,
+          size: file.size,
+          url: publicUrl,
+          bucket,
+          path,
+        }
+      })
+      const results = await Promise.allSettled(tasks)
+      const uploads = results
+        .filter(r => r.status === 'fulfilled' && r.value)
+        .map(r => r.value)
+      if (uploads.length) setUploadedFiles((prev) => [...prev, ...uploads])
+      const failures = results.filter(r => r.status === 'rejected')
+      if (failures.length) {
+        alert(`${failures.length} file(s) failed to upload.`)
+      }
     } finally {
       setIsUploading(false)
     }
@@ -888,39 +908,39 @@ function OrganizePageContent() {
   // Handle slideshow-specific file upload (independent)
   const handleSlideshowFileUpload = async (files, type) => {
     if (!selectedItem || selectedItem.widgetType !== 'slideshow') return
-    
     setIsUploading(true)
     try {
-      const newSlides = await Promise.all(
-        Array.from(files).map(async (file) => {
-          if ((type === 'image' && !file.type.startsWith('image/')) ||
-              (type === 'video' && !file.type.startsWith('video/'))) {
-            return null
-          }
-          
-          // Convert file to base64 data URL for persistence
-          const dataURL = await new Promise((resolve) => {
-            const reader = new FileReader()
-            reader.onload = (e) => resolve(e.target.result)
-            reader.readAsDataURL(file)
-          })
-          
-          return {
-            id: `slide_${Date.now()}_${Math.random()}`,
-            type: type,
-            name: file.name,
-            url: dataURL,
-            duration: 5,
-            order: (selectedItem.playlist?.length || 0) + 1
-          }
+      const startOrder = (selectedItem.playlist?.length || 0)
+      const tasks = Array.from(files).map(async (file, idx) => {
+        if ((type === 'image' && !file.type.startsWith('image/')) ||
+            (type === 'video' && !file.type.startsWith('video/'))) return null
+        if (isTooLarge(file)) {
+          const mb = (file.size / (1024 * 1024)).toFixed(1)
+          console.error(`File too large: ${file.name} (${mb}MB)`)
+          alert(`File too large: ${file.name} (${mb}MB). Max allowed is 50MB.`)
+          return null
+        }
+        const { publicUrl } = await uploadMedia(file, {
+          boardId: boardId || 'shared',
+          userId: userIdForPath,
+          kind: type,
         })
-      )
-      
-      // Filter out null values and add to slideshow
-      const validSlides = newSlides.filter(slide => slide !== null)
-      if (validSlides.length > 0) {
+        return {
+          id: `slide_${Date.now()}_${Math.random()}`,
+          type,
+          name: file.name,
+          url: publicUrl,
+          duration: 5,
+          order: startOrder + idx + 1,
+        }
+      })
+      const results = await Promise.allSettled(tasks)
+      const slides = results
+        .filter(r => r.status === 'fulfilled' && r.value)
+        .map(r => r.value)
+      if (slides.length) {
         const currentPlaylist = selectedItem.playlist || []
-        const newPlaylist = [...currentPlaylist, ...validSlides]
+        const newPlaylist = [...currentPlaylist, ...slides]
         addToSlideshow(selectedItem.id, newPlaylist)
       }
     } finally {
@@ -1024,21 +1044,37 @@ function OrganizePageContent() {
     )
   }
 
-  const removeUploadedFile = (fileId) => {
-    setUploadedFiles(prev => prev.filter(file => file.id !== fileId))
+  const removeUploadedFile = async (fileId) => {
+    setUploadedFiles(prev => {
+      const file = prev.find(f => f.id === fileId)
+      if (file && file.path) {
+        // Fire and forget deletion
+        deleteMedia({ bucket: file.bucket, path: file.path }).catch(() => {})
+      }
+      return prev.filter(file => file.id !== fileId)
+    })
   }
 
   // Background management
   const handleBackgroundUpload = async (files) => {
-    const file = files[0]
-    if (file && file.type.startsWith('image/')) {
-      // Convert to data URL for persistence
-      const dataURL = await new Promise((resolve) => {
-        const reader = new FileReader()
-        reader.onload = (e) => resolve(e.target.result)
-        reader.readAsDataURL(file)
+    const file = files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) return
+    if (isTooLarge(file)) {
+      const mb = (file.size / (1024 * 1024)).toFixed(1)
+      alert(`Background image too large (${mb}MB). Max allowed is 50MB.`)
+      return
+    }
+    try {
+      const { publicUrl } = await uploadMedia(file, {
+        boardId: boardId || 'shared',
+        userId: userIdForPath,
+        kind: 'image',
       })
-      setBackgroundImage(dataURL)
+      setBackgroundImage(publicUrl)
+    } catch (err) {
+      console.error('Background upload failed:', err)
+      alert(`Failed to upload background: ${err.message || err}`)
     }
   }
 
@@ -1175,70 +1211,68 @@ function OrganizePageContent() {
               <span>Upload Files</span>
                 </h4>
             
-              {/* Image Upload */}
+              {/* Unified Media Upload */}
             <Card className="mb-4 bg-white/10 backdrop-blur-sm border-white/20">
               <CardBody className="p-4">
                 <div
-                  className={`border-2 border-dashed border-blue-300 rounded-xl p-4 text-center transition-all duration-200 ${
-                    isUploading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-blue-50/20 hover:border-blue-400'
+                  className={`border-2 border-dashed border-blue-300/70 rounded-xl p-4 text-center transition-all duration-200 ${
+                    isUploading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-white/10 hover:border-blue-300'
                   }`}
-                      onDragOver={handleDragOver}
-                  onDrop={(e) => !isUploading && handleFileDrop(e, "image")}
-                  onClick={() => !isUploading && imageInputRef.current?.click()}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => {
+                    if (isUploading) return
+                    e.preventDefault()
+                    const files = e.dataTransfer.files
+                    if (!files || files.length === 0) return
+                    const images = []
+                    const videos = []
+                    Array.from(files).forEach(f => {
+                      if (f.type.startsWith('image/')) images.push(f)
+                      else if (f.type.startsWith('video/')) videos.push(f)
+                    })
+                    if (images.length) handleFileUpload(images, 'image')
+                    if (videos.length) handleFileUpload(videos, 'video')
+                  }}
+                  onClick={() => !isUploading && mediaInputRef.current?.click()}
                 >
                   {isUploading ? (
                     <div className="spinner mx-auto mb-2"></div>
                   ) : (
-                    <ImageIcon className="w-8 h-8 mx-auto mb-2 text-blue-400" />
+                    <div className="flex items-center justify-center gap-3 mb-2">
+                      <ImageIcon className="w-6 h-6 text-blue-300" />
+                      <Video className="w-6 h-6 text-purple-300" />
+                    </div>
                   )}
                   <p className="text-sm font-medium text-white mb-1">
-                    {isUploading ? "Processing..." : "Add Images"}
+                    {isUploading ? 'Processing...' : 'Add Media'}
                   </p>
                   <p className="text-xs text-blue-200">
-                    Drag & drop or click to upload
+                    Drag & drop images or videos, or click to upload
                   </p>
-                    </div>
-                    <input
-                      ref={imageInputRef}
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => handleFileUpload(e.target.files, "image")}
-                    />
-                  </CardBody>
-                </Card>
-
-              {/* Video Upload */}
-            <Card className="mb-4 bg-white/10 backdrop-blur-sm border-white/20">
-              <CardBody className="p-4">
-                <div
-                  className={`border-2 border-dashed border-purple-300 rounded-xl p-4 text-center transition-all duration-200 ${
-                    isUploading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-purple-50/20 hover:border-purple-400'
-                  }`}
-                      onDragOver={handleDragOver}
-                  onDrop={(e) => !isUploading && handleFileDrop(e, "video")}
-                  onClick={() => !isUploading && videoInputRef.current?.click()}
-                >
-                  {isUploading ? (
-                    <div className="spinner mx-auto mb-2"></div>
-                  ) : (
-                    <Video className="w-8 h-8 mx-auto mb-2 text-purple-400" />
-                  )}
-                  <p className="text-xs text-black">
-                    {isUploading ? "Processing..." : "Drop videos or click"}
-                  </p>
-                    </div>
-                    <input
-                      ref={videoInputRef}
-                      type="file"
-                      multiple
-                      accept="video/*"
-                      className="hidden"
-                      onChange={(e) => handleFileUpload(e.target.files, "video")}
-                    />
-                  </CardBody>
-                </Card>
+                </div>
+                <input
+                  ref={mediaInputRef}
+                  type="file"
+                  multiple
+                  accept="image/*,video/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const files = e.target.files
+                    if (!files || files.length === 0) return
+                    const images = []
+                    const videos = []
+                    Array.from(files).forEach(f => {
+                      if (f.type.startsWith('image/')) images.push(f)
+                      else if (f.type.startsWith('video/')) videos.push(f)
+                    })
+                    if (images.length) handleFileUpload(images, 'image')
+                    if (videos.length) handleFileUpload(videos, 'video')
+                    // Reset input to allow same file re-selection
+                    e.target.value = ''
+                  }}
+                />
+              </CardBody>
+            </Card>
 
             {/* Uploaded Files */}
               {uploadedFiles.length > 0 && (
@@ -1837,36 +1871,9 @@ function OrganizePageContent() {
                     e.preventDefault()
                     if (isUploading) return
                     
-                    // Handle direct file drop (independent from sidebar)
                     const files = e.dataTransfer.files
                     if (files.length > 0) {
-                      setIsUploading(true)
-                      Array.from(files).forEach(async (file) => {
-                        if (file.type.startsWith('image/')) {
-                          try {
-                            const dataURL = await new Promise((resolve) => {
-                              const reader = new FileReader()
-                              reader.onload = (e) => resolve(e.target.result)
-                              reader.readAsDataURL(file)
-                            })
-                            
-                            const newSlide = {
-                              id: `slide_${Date.now()}_${Math.random()}`,
-                              type: 'image',
-                              name: file.name,
-                              url: dataURL,
-                              duration: 5,
-                              order: (selectedItem.playlist?.length || 0) + 1
-                            }
-                            const currentPlaylist = selectedItem.playlist || []
-                            const newPlaylist = [...currentPlaylist, newSlide]
-                            addToSlideshow(selectedItem.id, newPlaylist)
-                          } catch (error) {
-                            console.error('Failed to process image:', error)
-                          }
-                        }
-                      })
-                      setIsUploading(false)
+                      handleSlideshowFileUpload(files, 'image')
                     } else {
                       // Handle drag from sidebar
                       const draggedData = e.dataTransfer.getData("application/json")
@@ -1910,36 +1917,9 @@ function OrganizePageContent() {
                     e.preventDefault()
                     if (isUploading) return
                     
-                    // Handle direct file drop (independent from sidebar)
                     const files = e.dataTransfer.files
                     if (files.length > 0) {
-                      setIsUploading(true)
-                      Array.from(files).forEach(async (file) => {
-                        if (file.type.startsWith('video/')) {
-                          try {
-                            const dataURL = await new Promise((resolve) => {
-                              const reader = new FileReader()
-                              reader.onload = (e) => resolve(e.target.result)
-                              reader.readAsDataURL(file)
-                            })
-                            
-                            const newSlide = {
-                              id: `slide_${Date.now()}_${Math.random()}`,
-                              type: 'video',
-                              name: file.name,
-                              url: dataURL,
-                              duration: 5,
-                              order: (selectedItem.playlist?.length || 0) + 1
-                            }
-                            const currentPlaylist = selectedItem.playlist || []
-                            const newPlaylist = [...currentPlaylist, newSlide]
-                            addToSlideshow(selectedItem.id, newPlaylist)
-                          } catch (error) {
-                            console.error('Failed to process video:', error)
-                          }
-                        }
-                      })
-                      setIsUploading(false)
+                      handleSlideshowFileUpload(files, 'video')
                     } else {
                       // Handle drag from sidebar
                       const draggedData = e.dataTransfer.getData("application/json")

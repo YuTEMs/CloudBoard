@@ -142,6 +142,9 @@ Google Chrome only
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+NEXT_PUBLIC_SUPABASE_MEDIA_BUCKET=media
+NEXT_PUBLIC_USE_API_UPLOAD=true
+NEXT_PUBLIC_USE_SIGNED_UPLOAD=true
 GOOGLE_CLIENT_ID=your_google_oauth_client_id
 GOOGLE_CLIENT_SECRET=your_google_oauth_client_secret
 NEXTAUTH_SECRET=your_nextauth_secret
@@ -153,6 +156,16 @@ NEXTAUTH_URL=http://localhost:3000
 2. Set up the required tables (`users`, `boards`)
 3. Configure Row Level Security (RLS) policies
 4. Set up webhook endpoints for real-time updates
+5. Create a Storage bucket for media (e.g., `upload-media`)
+   - Make the bucket public
+   - Add policies to allow uploads for your usage (anon or authenticated)
+   - Files are uploaded to paths like `userId/boardId/(images|videos)/...`
+   - Max file size enforced client-side is 50MB
+   - Optimized: Direct-to-Supabase signed uploads are enabled by default (`NEXT_PUBLIC_USE_SIGNED_UPLOAD=true`). This bypasses Vercel for the file bytes for faster uploads.
+   - Fallbacks: If signed uploads fail, the server-side `/api/upload` route is used. As a last resort, direct browser uploads can be enabled with `NEXT_PUBLIC_USE_API_UPLOAD=false` (requires permissive Storage RLS; not recommended with NextAuth).
+
+6. Vercel Regions (optional performance)
+   - `vercel.json` sets API function regions (e.g., `sin1`, `syd1`). Adjust to be closest to your Supabase project region for lower latency.
 
 ## 📱 Use Cases
 
@@ -180,5 +193,3 @@ NEXTAUTH_URL=http://localhost:3000
 1. Connect your GitHub repository to Vercel
 2. Vercel will automatically detect it's a Next.js project
 3. Deploy with zero configuration needed
-
-
