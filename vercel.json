@@ -6,9 +6,5 @@
       "use": "@vercel/next"
     }
   ],
-  "functions": {
-    "api/**": {
-      "regions": ["sin1", "syd1", "bom1", "hnd1"]
-    }
-  }
+  "regions": ["sin1", "syd1", "bom1", "hnd1"]
 }
