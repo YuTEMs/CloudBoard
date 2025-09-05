@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { boardService } from '@/lib/supabase'
-import { adminBoardService } from '@/lib/supabase-admin'
+import { adminBoardService, supabaseAdmin } from '@/lib/supabase-admin'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
 
@@ -157,9 +157,50 @@ export async function DELETE(request) {
       )
     }
 
+    // First delete the board row
     await adminBoardService.deleteBoard(boardId, userId)
-    
-    return NextResponse.json({ success: true })
+
+    // Then clean up any storage assets for this board
+    async function cleanupBoardStorage(uid, bid) {
+      const primaryBucket = process.env.NEXT_PUBLIC_SUPABASE_MEDIA_BUCKET || 'upload-media'
+      const buckets = Array.from(new Set([primaryBucket, 'upload-media', 'media'])).filter(Boolean)
+      const subfolders = ['images', 'videos', 'files']
+      const summary = {}
+
+      for (const bucket of buckets) {
+        let deleted = 0
+        const errors = []
+        for (const sub of subfolders) {
+          const prefix = `${uid}/${bid}/${sub}`
+          try {
+            const { data: listed, error: listErr } = await supabaseAdmin
+              .storage
+              .from(bucket)
+              .list(prefix, { limit: 1000 })
+            if (listErr || !Array.isArray(listed) || listed.length === 0) continue
+
+            const paths = listed.map(item => `${prefix}/${item.name}`)
+            const { error: rmErr } = await supabaseAdmin
+              .storage
+              .from(bucket)
+              .remove(paths)
+            if (rmErr) {
+              errors.push(rmErr.message || String(rmErr))
+            } else {
+              deleted += paths.length
+            }
+          } catch (e) {
+            errors.push(e?.message || String(e))
+          }
+        }
+        summary[bucket] = { deleted, errors }
+      }
+      return summary
+    }
+
+    const storage = await cleanupBoardStorage(userId, boardId)
+
+    return NextResponse.json({ success: true, storage })
   } catch (error) {
     console.error('Error deleting board:', error)
     return NextResponse.json(

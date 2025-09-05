@@ -158,8 +158,17 @@ export function useRealtimeBoards() {
     if (!userId) throw new Error('User not authenticated')
 
     try {
-      await boardService.deleteBoard(boardId, userId)
-      // Real-time subscription will handle removing from state
+      // Use API route so server can also purge storage assets
+      const res = await fetch(`/api/boards?boardId=${encodeURIComponent(boardId)}`, {
+        method: 'DELETE'
+      })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(payload?.error || 'Failed to delete board')
+      }
+
+      // Optimistically remove immediately; realtime will also confirm
+      setBoards(current => current.filter(b => b.id !== boardId))
       return true
     } catch (err) {
       console.error('Error deleting board:', err)

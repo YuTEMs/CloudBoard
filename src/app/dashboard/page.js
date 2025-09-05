@@ -15,6 +15,9 @@ function DashboardContent() {
   const [newBoardName, setNewBoardName] = useState("")
   const [newBoardDescription, setNewBoardDescription] = useState("")
   const { isOpen, onOpen, onOpenChange } = useDisclosure()
+  const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onOpenChange: onDeleteOpenChange } = useDisclosure()
+  const [boardToDelete, setBoardToDelete] = useState(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Use real-time boards hook
   const { boards, loading, error, createBoard, deleteBoard: deleteBoardFromDb } = useRealtimeBoards()
@@ -50,10 +53,15 @@ function DashboardContent() {
 
   const handleDeleteBoard = async (boardId) => {
     try {
+      setIsDeleting(true)
       await deleteBoardFromDb(boardId)
+      setBoardToDelete(null)
+      onDeleteOpenChange(false)
     } catch (err) {
       console.error('Error deleting board:', err)
       // You could add a toast notification here
+    } finally {
+      setIsDeleting(false)
     }
   }
 
@@ -164,7 +172,13 @@ function DashboardContent() {
         {filteredBoards.length === 0 && !searchQuery && (
           <div className="text-center py-20">
             <div className="relative">
-              <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-3xl flex items-center justify-center shadow-2xl transform hover:scale-105 transition-transform duration-300">
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={onOpen}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() } }}
+                className="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-3xl flex items-center justify-center shadow-2xl transform hover:scale-105 transition-transform duration-300 cursor-pointer focus:outline-none focus:ring-4 focus:ring-blue-300/40"
+              >
                 <div className="w-24 h-24 bg-white rounded-2xl flex items-center justify-center">
                   <Plus className="w-12 h-12 text-gray-700" />
                 </div>
@@ -173,15 +187,7 @@ function DashboardContent() {
               <div className="absolute top-8 left-1/2 -translate-x-16 w-3 h-3 bg-purple-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }}></div>
             </div>
             <h3 className="text-3xl font-bold text-gray-900 mb-4">Create Your First Board</h3>
-            <p className="text-gray-600 mb-10 max-w-lg mx-auto text-lg leading-relaxed">Get started by creating your first bulletin board. Add widgets, announcements, and customize it to perfectly fit your needs.</p>
-            <Button 
-              className="bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 text-white hover:from-blue-700 hover:via-purple-700 hover:to-pink-700 font-semibold transition-all duration-300 hover:shadow-xl hover:scale-105 px-10 py-4 rounded-2xl flex items-center justify-center gap-3 h-14" 
-              onPress={onOpen}
-              size="lg"
-            >
-              <Plus className="w-5 h-5 flex-shrink-0" />
-              <span>Create Your First Board</span>
-            </Button>
+            <p className="text-gray-600 max-w-lg mx-auto text-lg leading-relaxed">Get started by creating your first bulletin board. Add widgets, announcements, and customize it to perfectly fit your needs.</p>
           </div>
         )}
 
@@ -284,7 +290,7 @@ function DashboardContent() {
                     <Button
                       size="sm"
                       variant="light"
-                      onClick={() => handleDeleteBoard(board.id)}
+                      onClick={() => { setBoardToDelete(board); onDeleteOpen() }}
                       className="w-full text-red-600 hover:bg-red-50/80 font-medium rounded-xl transition-all duration-300 hover:shadow-sm flex items-center justify-center gap-2 h-10"
                     >
                       <Trash2 className="w-4 h-4 flex-shrink-0" />
@@ -392,6 +398,71 @@ function DashboardContent() {
                     isDisabled={!newBoardName.trim()}
                   >
                     <span>Create Board</span>
+                  </Button>
+                </div>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal 
+        isOpen={isDeleteOpen}
+        onOpenChange={onDeleteOpenChange}
+        placement="top-center"
+        classNames={{
+          base: "bg-white/95 backdrop-blur-md rounded-3xl border-0",
+          backdrop: "bg-black/30 backdrop-blur-sm"
+        }}
+        motionProps={{
+          variants: {
+            enter: { y: 0, opacity: 1, scale: 1, transition: { duration: 0.25, ease: "easeOut" } },
+            exit: { y: -20, opacity: 0, scale: 0.98, transition: { duration: 0.2, ease: "easeIn" } },
+          }
+        }}
+      >
+        <ModalContent className="border-0 shadow-2xl rounded-3xl overflow-hidden">
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex flex-col gap-1 text-gray-900 p-8 pb-4 bg-gradient-to-r from-red-50 to-rose-50 border-b border-gray-100/50">
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-rose-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Trash2 className="w-4 h-4 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-red-700">Delete Board</h3>
+                </div>
+                <p className="text-sm text-gray-600 font-normal ml-11">This action cannot be undone.</p>
+              </ModalHeader>
+              <ModalBody className="p-8">
+                <div className="space-y-3">
+                  <p className="text-gray-700">
+                    Are you sure you want to delete
+                    {" "}
+                    <span className="font-semibold">{boardToDelete?.name || 'this board'}</span>
+                    ?
+                  </p>
+                  <p className="text-gray-500 text-sm">
+                    All board data will be permanently removed from the database.
+                  </p>
+                </div>
+              </ModalBody>
+              <ModalFooter className="p-8 pt-4 bg-gray-50/30 border-t border-gray-100/50">
+                <div className="flex gap-3 w-full">
+                  <Button 
+                    variant="bordered" 
+                    className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 font-medium transition-all duration-300 rounded-xl hover:shadow-md flex items-center justify-center h-12" 
+                    onPress={() => { setBoardToDelete(null); onClose(); }}
+                    isDisabled={isDeleting}
+                  >
+                    <span>Cancel</span>
+                  </Button>
+                  <Button
+                    className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white hover:from-red-700 hover:to-rose-700 font-semibold transition-all duration-300 hover:shadow-lg hover:scale-[1.02] rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center h-12"
+                    onPress={() => boardToDelete && handleDeleteBoard(boardToDelete.id)}
+                    isDisabled={!boardToDelete || isDeleting}
+                  >
+                    <span>{isDeleting ? 'Deleting…' : 'Yes, Delete'}</span>
                   </Button>
                 </div>
               </ModalFooter>
