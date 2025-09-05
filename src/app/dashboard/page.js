@@ -164,7 +164,7 @@ function DashboardContent() {
           <div className="text-center py-20">
             <div className="relative">
               <div className="w-32 h-32 mx-auto mb-8 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-3xl flex items-center justify-center shadow-2xl transform hover:scale-105 transition-transform duration-300">
-                <div className="absolute inset-2 bg-white rounded-2xl flex items-center justify-center">
+                <div className="w-24 h-24 bg-white rounded-2xl flex items-center justify-center">
                   <Plus className="w-12 h-12 text-gray-700" />
                 </div>
               </div>
