@@ -147,6 +147,7 @@ function DashboardContent() {
                   inputWrapper: "border-gray-200 hover:border-blue-400 focus-within:border-blue-500 bg-white/90 backdrop-blur-sm transition-all duration-300 rounded-2xl shadow-sm group-data-[focus=true]:shadow-lg group-data-[focus=true]:border-blue-500 h-14 flex items-center",
                   innerWrapper: "flex items-center gap-3"
                 }}
+                style={{ outline: 'none', boxShadow: 'none' }}
               />
             </div>
             <Button
