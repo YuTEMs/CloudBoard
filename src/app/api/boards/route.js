@@ -16,7 +16,7 @@ export async function GET(request) {
       )
     }
 
-    const userId = `google_${session.user.id}` || `email_${session.user.email.replace('@', '_').replace('.', '_')}`
+    const userId = session.user.id
     
     const boards = await adminBoardService.getUserBoards(userId)
     
@@ -45,7 +45,7 @@ export async function POST(request) {
       )
     }
 
-    const userId = `google_${session.user.id}` || `email_${session.user.email.replace('@', '_').replace('.', '_')}`
+    const userId = session.user.id
     const boardData = await request.json()
 
     // Validate required fields
@@ -88,7 +88,7 @@ export async function PUT(request) {
       )
     }
 
-    const userId = `google_${session.user.id}` || `email_${session.user.email.replace('@', '_').replace('.', '_')}`
+    const userId = session.user.id
     const { boardId, ...updates } = await request.json()
 
     if (!boardId) {
@@ -146,7 +146,7 @@ export async function DELETE(request) {
       )
     }
 
-    const userId = `google_${session.user.id}` || `email_${session.user.email.replace('@', '_').replace('.', '_')}`
+    const userId = session.user.id
     const { searchParams } = new URL(request.url)
     const boardId = searchParams.get('boardId')
 

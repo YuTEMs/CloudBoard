@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
+import { ClipboardList, XCircle, Search as SearchIcon } from 'lucide-react'
 import { useDisplayBoard } from '../../hooks/useDisplayBoard'
 
 // Widget Components for Display
@@ -336,7 +337,7 @@ function DisplayContent() {
       <div className="fixed inset-0 bg-gradient-to-br from-slate-900 to-slate-800 flex items-center justify-center text-white">
         <div className="text-center p-8 bg-black/20 backdrop-blur-sm rounded-2xl border border-white/10">
           <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center">
-            <span className="text-3xl">📋</span>
+            <ClipboardList className="w-8 h-8" />
           </div>
           <div className="spinner mx-auto mb-6"></div>
           <p className="text-2xl font-semibold">Loading Display</p>
@@ -351,7 +352,7 @@ function DisplayContent() {
       <div className="fixed inset-0 bg-gradient-to-br from-red-900 to-red-800 flex items-center justify-center text-white">
         <div className="text-center p-8 bg-black/20 backdrop-blur-sm rounded-2xl border border-white/10">
           <div className="w-16 h-16 mx-auto mb-4 bg-red-500/20 rounded-full flex items-center justify-center">
-            <span className="text-3xl">❌</span>
+            <XCircle className="w-8 h-8" />
           </div>
           <h1 className="text-3xl font-bold mb-4">Display Error</h1>
           <p className="text-xl mb-4">{error}</p>
@@ -366,7 +367,7 @@ function DisplayContent() {
       <div className="fixed inset-0 bg-gradient-to-br from-gray-900 to-gray-800 flex items-center justify-center text-white">
         <div className="text-center p-8 bg-black/20 backdrop-blur-sm rounded-2xl border border-white/10">
           <div className="w-16 h-16 mx-auto mb-4 bg-gray-500/20 rounded-full flex items-center justify-center">
-            <span className="text-3xl">🔍</span>
+            <SearchIcon className="w-8 h-8" />
           </div>
           <h1 className="text-3xl font-bold mb-4">Board Not Found</h1>
           <p className="text-xl mb-4">The requested board could not be found.</p>

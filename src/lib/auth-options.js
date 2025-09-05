@@ -1,4 +1,6 @@
 import GoogleProvider from "next-auth/providers/google"
+import CredentialsProvider from "next-auth/providers/credentials"
+import { authService } from "@/lib/auth"
 import { userService } from "@/lib/supabase"
 
 export const authOptions = {
@@ -6,6 +8,28 @@ export const authOptions = {
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    }),
+    CredentialsProvider({
+      name: 'Email and Password',
+      credentials: {
+        email: { label: 'Email', type: 'email' },
+        password: { label: 'Password', type: 'password' }
+      },
+      async authorize(credentials) {
+        try {
+          if (!credentials?.email || !credentials?.password) return null
+          const user = await authService.verifyCredentials(credentials.email, credentials.password)
+          if (!user) return null
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            image: user.avatar_url || null,
+          }
+        } catch (e) {
+          return null
+        }
+      }
     })
   ],
   callbacks: {
@@ -35,6 +59,7 @@ export const authOptions = {
           return true
         }
         
+        // Credentials provider has already verified user via authorize
         return true
       } catch (error) {
         console.error('❌ SignIn callback error:', error)

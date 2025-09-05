@@ -262,7 +262,7 @@ function DashboardContent() {
                       }`}
                     >
                       <Copy className="w-4 h-4 flex-shrink-0" />
-                      <span className="flex-1 text-center">{copiedItem === board.id ? "✓ Copied!" : "Copy Display URL"}</span>
+                      <span className="flex-1 text-center">{copiedItem === board.id ? "Copied!" : "Copy Display URL"}</span>
                     </Button>
 
                     <div className="flex gap-3">
@@ -462,7 +462,7 @@ function DashboardContent() {
                     onPress={() => boardToDelete && handleDeleteBoard(boardToDelete.id)}
                     isDisabled={!boardToDelete || isDeleting}
                   >
-                    <span>{isDeleting ? 'Deleting…' : 'Yes, Delete'}</span>
+                    <span>{isDeleting ? 'Deleting...' : 'Yes, Delete'}</span>
                   </Button>
                 </div>
               </ModalFooter>

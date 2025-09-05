@@ -10,11 +10,11 @@ export function useRealtimeBoards() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // Get user ID from session
-  const userId = session?.user?.email ? `google_${session.user.id}` || `email_${session.user.email.replace('@', '_').replace('.', '_')}` : null
+  // Use Supabase user ID provided by NextAuth session
+  const userId = session?.user?.id || null
 
   // Load initial boards
-  const loadBoards = useCallback(async () => {
+  const loadBoards = useCallback(async (silent = false) => {
     if (!userId) {
       setBoards([])
       setLoading(false)
@@ -22,7 +22,7 @@ export function useRealtimeBoards() {
     }
 
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       setError(null)
       
       // First, try to migrate from localStorage if boards exist there
@@ -62,7 +62,7 @@ export function useRealtimeBoards() {
         setBoards(JSON.parse(localBoards))
       }
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
   }, [userId])
 
@@ -124,7 +124,25 @@ export function useRealtimeBoards() {
 
   // Load boards when user changes
   useEffect(() => {
-    loadBoards()
+    loadBoards(false)
+  }, [loadBoards])
+
+  // Passive resyncs to handle missed realtime events (multi-device scenarios)
+  useEffect(() => {
+    const onFocus = () => loadBoards(true)
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') loadBoards(true)
+    }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisibility)
+    const interval = setInterval(() => {
+      if (document.visibilityState === 'visible') loadBoards(true)
+    }, 60000) // 60s background refresh
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisibility)
+      clearInterval(interval)
+    }
   }, [loadBoards])
 
   // Board management functions
@@ -183,6 +201,6 @@ export function useRealtimeBoards() {
     createBoard,
     updateBoard,
     deleteBoard,
-    refetch: loadBoards
+    refetch: () => loadBoards(false)
   }
 }

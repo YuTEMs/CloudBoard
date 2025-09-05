@@ -1,5 +1,5 @@
 import { Button } from "@heroui/react"
-import { ArrowLeft, Menu } from "lucide-react"
+import { ArrowLeft, Menu, ClipboardList } from "lucide-react"
 import Link from "next/link"
 import UserProfileDropdown from "../auth/UserProfileDropdown"
 
@@ -28,7 +28,7 @@ export function AppHeader({ title, showBack = false, backHref = "/" }) {
         )}
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-            <span className="text-white text-sm">📋</span>
+            <ClipboardList className="w-4 h-4 text-white" />
           </div>
           <h1 className="text-xl font-bold text-gray-900">{title}</h1>
         </div>

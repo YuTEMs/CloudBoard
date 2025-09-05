@@ -14,19 +14,25 @@ export const userService = {
   // Create or update user profile
   async upsertUser(userData) {
     console.log('📝 Supabase upsertUser called with:', userData)
-    
+
+    // Build payload and only include password_hash if provided to avoid overwriting
+    const payload = {
+      id: userData.id,
+      email: userData.email,
+      name: userData.name,
+      username: userData.username,
+      avatar_url: userData.image || userData.avatar_url,
+      provider: userData.provider || 'email',
+      created_at: userData.created_at || new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    }
+    if (userData.password_hash) {
+      payload.password_hash = userData.password_hash
+    }
+
     const { data, error } = await supabase
       .from('users')
-      .upsert({
-        id: userData.id,
-        email: userData.email,
-        name: userData.name,
-        username: userData.username,
-        avatar_url: userData.image || userData.avatar_url,
-        provider: userData.provider || 'email',
-        created_at: userData.created_at || new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
+      .upsert(payload)
       .select()
 
     if (error) {

@@ -20,6 +20,7 @@ import {
   Pause,
   Megaphone
 } from "lucide-react"
+import { ClipboardList } from "lucide-react"
 import { useState, useRef, useEffect, useCallback, Suspense, memo, useMemo } from "react"
 import { useSession } from 'next-auth/react'
 import { useSearchParams } from "next/navigation"
@@ -544,11 +545,7 @@ function OrganizePageContent() {
   const searchParams = useSearchParams()
   const boardId = searchParams.get('board')
   const { data: session } = useSession()
-  const userIdForPath = session?.user?.id
-    ? `google_${session.user.id}`
-    : session?.user?.email
-    ? `email_${session.user.email.replace('@', '_').replaceAll('.', '_')}`
-    : 'anonymous'
+  const userIdForPath = session?.user?.id || 'anonymous'
   
   // Use real-time boards hook
   const { boards, updateBoard } = useRealtimeBoards()
@@ -2352,7 +2349,7 @@ export default function OrganizePage() {
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 flex items-center justify-center">
         <div className="text-center">
           <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center">
-            <span className="text-2xl">📋</span>
+            <ClipboardList className="w-7 h-7 text-white" />
           </div>
           <div className="spinner mx-auto mb-4"></div>
           <p className="text-xl font-semibold text-gray-900 mb-2">Loading Board Editor</p>

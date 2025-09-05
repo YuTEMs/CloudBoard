@@ -10,11 +10,7 @@ export function useBoardSave() {
   const [lastSaved, setLastSaved] = useState(null)
   const [error, setError] = useState(null)
 
-  const userId = session?.user?.id 
-    ? `google_${session.user.id}` 
-    : session?.user?.email 
-    ? `email_${session.user.email.replace('@', '_').replace('.', '_')}`
-    : null
+  const userId = session?.user?.id || null
 
   const saveBoard = useCallback(async (boardId, configuration) => {
     if (!userId || !boardId) {

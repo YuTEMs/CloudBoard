@@ -1,10 +1,11 @@
 "use client"
 
 import { Button, Input, Card, CardBody } from "@heroui/react"
+import { ClipboardList } from "lucide-react"
 import { useState } from "react"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { AppHeader } from "../../components/layout/app-hearder"
+import { signIn } from "next-auth/react"
 
 export default function SignupPage() {
   const [email, setEmail] = useState("")
@@ -39,10 +40,20 @@ export default function SignupPage() {
       const data = await response.json()
 
       if (response.ok) {
-        setSuccess('Account created successfully! Redirecting to login...')
-        setTimeout(() => {
+        // Auto-sign in with credentials so the user can start using the app
+        const result = await signIn('credentials', {
+          redirect: false,
+          email,
+          password,
+          callbackUrl: '/dashboard'
+        })
+
+        if (result?.error) {
+          setSuccess('Account created successfully! Please sign in.')
           router.push('/login')
-        }, 2000)
+        } else {
+          router.push(result?.url || '/dashboard')
+        }
       } else {
         setError(data.error || 'Something went wrong')
       }
@@ -55,27 +66,24 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 via-white to-blue-50">
-      <AppHeader title="Create Account" showBack backHref="/login" />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4 relative">
+      {/* Background decoration to match login */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 right-10 w-64 h-64 bg-gradient-to-br from-blue-400/10 to-purple-400/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-20 left-10 w-64 h-64 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-3xl"></div>
+      </div>
 
-      <div className="flex items-center justify-center p-4 pt-8">
-        {/* Background decoration */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-purple-400/20 to-blue-400/20 rounded-full blur-3xl"></div>
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-green-400/20 rounded-full blur-3xl"></div>
-        </div>
-
-        <Card className="w-full max-w-md card-elevated fade-in relative z-10 backdrop-blur-sm bg-white/80">
-          <CardBody className="p-8">
-            <div className="text-center mb-8">
-              <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-purple-600 to-blue-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <span className="text-2xl">✨</span>
-              </div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Join Us</h1>
-              <p className="text-gray-600">Create your account to get started</p>
+      <Card className="w-full max-w-md relative z-10 backdrop-blur-md bg-white/90 border border-white/40 shadow-xl rounded-3xl">
+        <CardBody className="p-8">
+          <div className="mb-8">
+            <div className="w-20 h-20 mb-6 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg mx-auto">
+              <ClipboardList className="w-8 h-8 text-white" />
             </div>
+            <h1 className="text-2xl font-bold text-gray-900 text-center">Create Account</h1>
+            <p className="text-gray-600 text-center">Sign up to start organizing boards</p>
+          </div>
 
-            <form onSubmit={handleSignup} className="space-y-5">
+          <form onSubmit={handleSignup} className="space-y-5">
               {error && (
                 <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm slide-in">
                   <div className="flex items-center gap-2">
@@ -109,7 +117,7 @@ export default function SignupPage() {
                   required
                   classNames={{
                     input: "text-gray-900",
-                    inputWrapper: "border-gray-200 hover:border-purple-300 focus-within:border-purple-500 bg-white transition-all duration-200"
+                    inputWrapper: "border-gray-200 hover:border-blue-400 focus-within:border-blue-500 bg-white/90 backdrop-blur-sm rounded-xl transition-all duration-200"
                   }}
                 />
               </div>
@@ -123,7 +131,7 @@ export default function SignupPage() {
                   variant="bordered"
                   classNames={{
                     input: "text-gray-900",
-                    inputWrapper: "border-gray-200 hover:border-purple-300 focus-within:border-purple-500 bg-white transition-all duration-200"
+                    inputWrapper: "border-gray-200 hover:border-blue-400 focus-within:border-blue-500 bg-white/90 backdrop-blur-sm rounded-xl transition-all duration-200"
                   }}
                 />
               </div>
@@ -138,7 +146,7 @@ export default function SignupPage() {
                   required
                   classNames={{
                     input: "text-gray-900",
-                    inputWrapper: "border-gray-200 hover:border-purple-300 focus-within:border-purple-500 bg-white transition-all duration-200"
+                    inputWrapper: "border-gray-200 hover:border-blue-400 focus-within:border-blue-500 bg-white/90 backdrop-blur-sm rounded-xl transition-all duration-200"
                   }}
                 />
               </div>
@@ -154,7 +162,7 @@ export default function SignupPage() {
                   required
                   classNames={{
                     input: "text-gray-900",
-                    inputWrapper: "border-gray-200 hover:border-purple-300 focus-within:border-purple-500 bg-white transition-all duration-200"
+                    inputWrapper: "border-gray-200 hover:border-blue-400 focus-within:border-blue-500 bg-white/90 backdrop-blur-sm rounded-xl transition-all duration-200"
                   }}
                 />
               </div>
@@ -162,7 +170,7 @@ export default function SignupPage() {
               <div className="pt-6">
                 <Button 
                   type="submit"
-                  className="w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700 font-medium py-3 transition-all duration-200 hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 font-medium py-3 transition-all duration-200 hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl"
                   isLoading={isLoading}
                   disabled={isLoading || !email || !username || !password}
                 >
@@ -172,14 +180,13 @@ export default function SignupPage() {
               
               <div className="text-center text-sm text-gray-600 pt-4">
                 Already have an account?{' '}
-                <Link href="/login" className="text-purple-600 hover:text-purple-800 font-medium transition-colors duration-200">
+                <Link href="/login" className="text-blue-600 hover:text-blue-800 font-medium transition-colors duration-200">
                   Sign in here
                 </Link>
               </div>
             </form>
-          </CardBody>
-        </Card>
-      </div>
+        </CardBody>
+      </Card>
     </div>
   )
 }

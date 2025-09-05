@@ -1,6 +1,7 @@
 "use client"
 
 import { Button, Input, Card, CardBody, Divider } from "@heroui/react"
+import { ClipboardList } from "lucide-react"
 import { useState, useEffect } from "react"
 import Link from "next/link"
 import { signIn, useSession } from "next-auth/react"
@@ -30,33 +31,24 @@ export default function LoginPage() {
     setError("")
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
+      const result = await signIn('credentials', {
+        redirect: false,
+        email,
+        password,
+        callbackUrl: '/dashboard'
       })
 
-      const data = await response.json()
-
-      if (response.ok) {
-        // For manual login, you might want to create a custom session
-        // For now, redirect to dashboard - you may need to implement custom session management
-        router.push('/dashboard')
+      if (result?.error) {
+        setError(
+          <div>
+            Invalid credentials.{' '}
+            <Link href="/signup" className="text-blue-600 hover:text-blue-800 underline">
+              Create an account
+            </Link>
+          </div>
+        )
       } else {
-        if (response.status === 401) {
-          setError(
-            <div>
-              User not found or invalid credentials.{' '}
-              <Link href="/signup" className="text-blue-600 hover:text-blue-800 underline">
-                Create an account
-              </Link>
-            </div>
-          )
-        } else {
-          setError(data.error || 'Login failed')
-        }
+        router.push(result?.url || '/dashboard')
       }
     } catch (error) {
       console.error('Login error:', error)
@@ -78,21 +70,21 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4">
-      {/* Background decoration */}
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-white to-purple-50 p-4 relative">
+      {/* Background decoration to match dashboard */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-400/20 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-3xl"></div>
+        <div className="absolute top-20 right-10 w-64 h-64 bg-gradient-to-br from-blue-400/10 to-purple-400/10 rounded-full blur-3xl"></div>
+        <div className="absolute bottom-20 left-10 w-64 h-64 bg-gradient-to-br from-purple-400/10 to-pink-400/10 rounded-full blur-3xl"></div>
       </div>
 
-      <Card className="w-full max-w-md card-elevated fade-in relative z-10 backdrop-blur-sm bg-white/80">
+      <Card className="w-full max-w-md relative z-10 backdrop-blur-md bg-white/90 border border-white/40 shadow-xl rounded-3xl">
         <CardBody className="p-8">
-          <div className="text-center mb-8">
-            <div className="w-20 h-20 mx-auto mb-6 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-              <span className="text-2xl font-bold text-white">📋</span>
+          <div className="mb-8">
+            <div className="w-20 h-20 mb-6 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg mx-auto">
+              <ClipboardList className="w-8 h-8 text-white" />
             </div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Welcome Back</h1>
-            <p className="text-gray-600">Sign in to your Smart Bulletin Board</p>
+            <h1 className="text-2xl font-bold text-gray-900 text-center">Welcome Back</h1>
+            <p className="text-gray-600 text-center">Sign in to your Smart Bulletin Board</p>
           </div>
 
           <div className="space-y-6">
@@ -100,7 +92,7 @@ export default function LoginPage() {
             <Button
               onClick={handleGoogleSignIn}
               variant="bordered"
-              className="w-full border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center gap-3 py-3 font-medium transition-all duration-200 hover:shadow-md"
+              className="w-full border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 flex items-center justify-center gap-3 py-3 font-medium transition-all duration-200 hover:shadow-md rounded-xl"
             >
               <svg className="w-5 h-5" viewBox="0 0 24 24">
                 <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -119,7 +111,7 @@ export default function LoginPage() {
 
             <form onSubmit={handleManualLogin} className="space-y-5">
               {error && (
-                <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm slide-in">
+                <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 rounded-full bg-red-200 flex items-center justify-center">
                       <div className="w-2 h-2 rounded-full bg-red-500"></div>
@@ -141,8 +133,9 @@ export default function LoginPage() {
                   className="transition-all duration-200"
                   classNames={{
                     input: "text-gray-900",
-                    inputWrapper: "border-gray-200 hover:border-blue-300 focus-within:border-blue-500 bg-white"
+                    inputWrapper: "border-gray-200 hover:border-blue-400 focus-within:border-blue-500 bg-white/90 backdrop-blur-sm rounded-xl"
                   }}
+                  style={{ outline: 'none', boxShadow: 'none' }}
                 />
               </div>
 
@@ -158,8 +151,9 @@ export default function LoginPage() {
                   className="transition-all duration-200"
                   classNames={{
                     input: "text-gray-900",
-                    inputWrapper: "border-gray-200 hover:border-blue-300 focus-within:border-blue-500 bg-white"
+                    inputWrapper: "border-gray-200 hover:border-blue-400 focus-within:border-blue-500 bg-white/90 backdrop-blur-sm rounded-xl"
                   }}
+                  style={{ outline: 'none', boxShadow: 'none' }}
                 />
               </div>
 
@@ -167,14 +161,14 @@ export default function LoginPage() {
                 <Link href="/signup" className="flex-1">
                   <Button 
                     variant="bordered" 
-                    className="w-full border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 font-medium transition-all duration-200 hover:shadow-md"
+                    className="w-full border-gray-300 text-gray-700 hover:bg-gray-50 hover:border-gray-400 font-medium transition-all duration-200 hover:shadow-md rounded-xl"
                   >
                     Create Account
                   </Button>
                 </Link>
                 <Button 
                   type="submit"
-                  className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 font-medium transition-all duration-200 hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 font-medium transition-all duration-200 hover:shadow-lg hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed rounded-xl"
                   isLoading={isLoading}
                   disabled={isLoading || !email || !password}
                 >
