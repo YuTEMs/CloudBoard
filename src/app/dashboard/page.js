@@ -355,6 +355,7 @@ function DashboardContent() {
                         input: "text-gray-900 font-medium",
                         inputWrapper: "border-gray-200 hover:border-blue-400 focus-within:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-300 rounded-xl group-data-[focus=true]:border-blue-500 group-data-[focus=true]:shadow-lg"
                       }}
+                      style={{ outline: 'none', boxShadow: 'none' }}
                     />
                   </div>
                   <div className="space-y-2">
@@ -366,8 +367,9 @@ function DashboardContent() {
                       onChange={(e) => setNewBoardDescription(e.target.value)}
                       classNames={{
                         input: "text-gray-900",
-                        inputWrapper: "border-gray-200 hover:border-blue-400 focus-within:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-300 rounded-xl group-data-[focus=true]:border-blue-500 group-data-[focus=true]:shadow-lg"
+                        inputWrapper: "border-gray-200 hover:border-blue-400 focus-within:border-blue-500 bg-white/80 backdrop-blur-sm transition-all duration-300 rounded-xl group-data-[focus=true]:border-blue-500 group-data-[focus=true]:shadow-lg !h-auto !min-h-fit"
                       }}
+                      style={{ outline: 'none', boxShadow: 'none' }}
                       minRows={3}
                       maxRows={5}
                     />
