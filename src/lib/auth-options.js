@@ -11,11 +11,6 @@ export const authOptions = {
   callbacks: {
     async signIn({ user, account, profile }) {
       try {
-        console.log('🔐 SignIn callback triggered:', { 
-          provider: account?.provider, 
-          userEmail: user?.email,
-          userId: user?.id 
-        })
         
         if (account?.provider === 'google') {
           // Generate a unique user ID for Supabase
@@ -37,7 +32,6 @@ export const authOptions = {
           // Store the Supabase user ID in the NextAuth user object
           user.id = supabaseUserId
           
-          console.log('✅ User successfully stored in Supabase:', userData)
           return true
         }
         

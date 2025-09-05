@@ -28,12 +28,7 @@ export default function UserProfileDropdown() {
   const userName = session.user?.name || session.user?.email?.split('@')[0] || "User"
   const userEmail = session.user?.email || ""
 
-  console.log('User session data:', { 
-    image: userImage, 
-    name: userName, 
-    email: userEmail,
-    fullSession: session.user 
-  })
+
 
   // Create a fallback avatar component
   const FallbackAvatar = ({ size = "sm" }) => {

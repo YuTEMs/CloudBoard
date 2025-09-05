@@ -7,7 +7,6 @@ export function addConnection(boardId, controller) {
   }
   boardConnections.get(boardId).add(controller)
   
-  console.log('🔍 DEBUG: Added connection for board:', boardId, 'Total connections:', boardConnections.get(boardId).size)
 }
 
 export function removeConnection(boardId, controller) {
@@ -17,17 +16,14 @@ export function removeConnection(boardId, controller) {
     if (connections.size === 0) {
       boardConnections.delete(boardId)
     }
-    console.log('🔍 DEBUG: Removed connection for board:', boardId, 'Remaining connections:', connections?.size || 0)
   }
 }
 
 export function broadcastToBoard(boardId, message) {
   const connections = boardConnections.get(boardId)
   
-  console.log('🔍 DEBUG: Broadcasting to board:', boardId, 'Available connections:', connections?.size || 0)
   
   if (!connections || connections.size === 0) {
-    console.log('🔍 DEBUG: No connections found for board:', boardId)
     return 0
   }
 
@@ -39,9 +35,7 @@ export function broadcastToBoard(boardId, message) {
     try {
       controller.enqueue(messageData)
       sentCount++
-      console.log('🔍 DEBUG: Successfully sent to connection', sentCount)
     } catch (error) {
-      console.log('🔍 DEBUG: Connection error, will remove:', error.message)
       disconnected.push(controller)
     }
   }
@@ -55,6 +49,5 @@ export function broadcastToBoard(boardId, message) {
     boardConnections.delete(boardId)
   }
 
-  console.log('🔍 DEBUG: Broadcast complete. Sent to:', sentCount, 'connections. Disconnected:', disconnected.length)
   return sentCount
 }
