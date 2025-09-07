@@ -565,6 +565,10 @@ function OrganizePageContent() {
   const [resizeHandle, setResizeHandle] = useState(null)
   const [resizeStartPos, setResizeStartPos] = useState({ x: 0, y: 0 })
   const [resizeStartSize, setResizeStartSize] = useState({ width: 0, height: 0 })
+  
+  // Track if there are unsaved changes to prevent real-time updates from overriding them
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [lastSavedState, setLastSavedState] = useState(null)
 
   // Refs for high-frequency resize updates (avoid re-subscribing listeners)
   const isResizingRef = useRef(false)
@@ -590,15 +594,48 @@ function OrganizePageContent() {
   // Use save-based board management
   const { saveBoard: saveBoardToDb, saving, lastSaved, error: saveError } = useBoardSave()
 
-  // Load board data from real-time hook
+  // Load board data from real-time hook - only if no unsaved changes
   useEffect(() => {
     if (currentBoard) {
       setBoardName(currentBoard.name)
-      setCanvasItems(currentBoard.configuration?.items || [])
-      setBackgroundImage(currentBoard.configuration?.backgroundImage || null)
-      setBackgroundColor(currentBoard.configuration?.backgroundColor || "#ffffff")
+      
+      // Only update local state if there are no unsaved changes to prevent overriding user's work
+      if (!hasUnsavedChanges) {
+        const newItems = currentBoard.configuration?.items || []
+        const newBackgroundImage = currentBoard.configuration?.backgroundImage || null
+        const newBackgroundColor = currentBoard.configuration?.backgroundColor || "#ffffff"
+        
+        setCanvasItems(newItems)
+        setBackgroundImage(newBackgroundImage)
+        setBackgroundColor(newBackgroundColor)
+        
+        // Store the current state as the last saved state for comparison
+        setLastSavedState({
+          items: newItems,
+          backgroundImage: newBackgroundImage,
+          backgroundColor: newBackgroundColor
+        })
+      }
     }
-  }, [currentBoard])
+  }, [currentBoard, hasUnsavedChanges])
+
+  // Detect changes to mark as unsaved
+  useEffect(() => {
+    if (lastSavedState) {
+      // Compare current state with last saved state
+      const currentStateString = JSON.stringify({
+        items: canvasItems,
+        backgroundImage,
+        backgroundColor
+      })
+      const lastSavedStateString = JSON.stringify(lastSavedState)
+      
+      const hasChanges = currentStateString !== lastSavedStateString
+      if (hasChanges !== hasUnsavedChanges) {
+        setHasUnsavedChanges(hasChanges)
+      }
+    }
+  }, [canvasItems, backgroundImage, backgroundColor, lastSavedState, hasUnsavedChanges])
 
   // Keep refs in sync with state that is read during resize
   useEffect(() => {
@@ -625,6 +662,15 @@ function OrganizePageContent() {
       }
 
       await saveBoardToDb(boardId, configuration)
+      
+      // Mark as saved and update last saved state
+      setHasUnsavedChanges(false)
+      setLastSavedState({
+        items: [...canvasItems],
+        backgroundImage,
+        backgroundColor
+      })
+      
       console.log('✅ Board configuration saved successfully!')
     } catch (error) {
       console.error('❌ Error saving board configuration:', error)
@@ -1648,10 +1694,17 @@ function OrganizePageContent() {
               <Button
                 onPress={handleSaveBoard}
                 isLoading={saving}
-                className="bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 font-semibold transition-all duration-300 hover:shadow-xl hover:scale-105 rounded-2xl px-6 py-3 h-12 flex items-center justify-center gap-3"
+                className={`${
+                  hasUnsavedChanges 
+                    ? 'bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700' 
+                    : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
+                } text-white font-semibold transition-all duration-300 hover:shadow-xl hover:scale-105 rounded-2xl px-6 py-3 h-12 flex items-center justify-center gap-3`}
               >
                 <Save className="w-5 h-5 flex-shrink-0" />
-                <span>{saving ? 'Saving...' : 'Save Board'}</span>
+                <span>
+                  {saving ? 'Saving...' : hasUnsavedChanges ? 'Save Changes' : 'Save Board'}
+                  {hasUnsavedChanges && !saving && <span className="ml-1 w-2 h-2 bg-white rounded-full inline-block animate-pulse"></span>}
+                </span>
               </Button>
               {lastSaved && (
                 <div className="bg-emerald-500/20 border border-emerald-400/30 rounded-xl px-3 py-2 flex items-center gap-2">

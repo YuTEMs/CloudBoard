@@ -127,7 +127,7 @@ export function useRealtimeBoards() {
     loadBoards(false)
   }, [loadBoards])
 
-  // Passive resyncs to handle missed realtime events (multi-device scenarios)
+  // Refresh on focus/visibility change only (no background polling)
   useEffect(() => {
     const onFocus = () => loadBoards(true)
     const onVisibility = () => {
@@ -135,13 +135,9 @@ export function useRealtimeBoards() {
     }
     window.addEventListener('focus', onFocus)
     document.addEventListener('visibilitychange', onVisibility)
-    const interval = setInterval(() => {
-      if (document.visibilityState === 'visible') loadBoards(true)
-    }, 60000) // 60s background refresh
     return () => {
       window.removeEventListener('focus', onFocus)
       document.removeEventListener('visibilitychange', onVisibility)
-      clearInterval(interval)
     }
   }, [loadBoards])
 

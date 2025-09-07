@@ -77,100 +77,74 @@ export function useDisplayBoard(boardId) {
     if (!boardId) return
 
     let eventSource = null
-    let pollingInterval = null
     
-    try {
-      console.log('🔍 DEBUG: Setting up SSE connection for board:', boardId)
-      eventSource = new EventSource(`/api/stream?boardId=${boardId}`)
-      
-      eventSource.onopen = () => {
-        console.log('🔍 DEBUG: SSE connection opened for board:', boardId)
-        setConnectionStatus('connected')
-        // Clear polling since SSE is working
-        if (pollingInterval) {
-          clearInterval(pollingInterval)
-          pollingInterval = null
-        }
-      }
-      
-      eventSource.onmessage = (event) => {
-        console.log('🔍 DEBUG: SSE message received:', event.data)
-        try {
-          const data = JSON.parse(event.data)
-          
-          switch (data.type) {
-            case 'connected':
-              console.log('🔍 DEBUG: SSE connection confirmed for board:', boardId)
-              break
-              
-            case 'ping':
-              console.log('🔍 DEBUG: SSE ping received')
-              break
-              
-            case 'board_updated':
-              console.log('🔍 DEBUG: Board update received via SSE:', data)
-              // Update board data reactively without page refresh
-              if (data.data) {
-                // Parse configuration if it's a string
-                let updatedBoard = { ...data.data }
-                if (typeof updatedBoard.configuration === 'string') {
-                  try {
-                    updatedBoard.configuration = JSON.parse(updatedBoard.configuration)
-                  } catch (e) {
-                    updatedBoard.configuration = {}
-                  }
-                }
-                
-                setBoard(updatedBoard)
-                setLastUpdated(new Date(data.timestamp))
-                
-                // Show a brief update indicator
-                setConnectionStatus('updated')
-                setTimeout(() => setConnectionStatus('connected'), 2000)
-              } else {
-                // If no data provided, reload from database
-                setConnectionStatus('updated')
-                loadBoard()
-              }
-              break
-              
-            default:
-              console.log('🔍 DEBUG: Unknown SSE message type:', data.type)
-              break
-          }
-        } catch (err) {
-          console.error('🔍 DEBUG: Error parsing SSE message:', err)
-        }
-      }
-      
-      eventSource.onerror = (error) => {
-        console.error('🔍 DEBUG: SSE connection error:', error)
-        setConnectionStatus('error')
+    console.log('🔍 DEBUG: Setting up SSE connection for board:', boardId)
+    eventSource = new EventSource(`/api/stream?boardId=${boardId}`)
+    
+    eventSource.onopen = () => {
+      console.log('🔍 DEBUG: SSE connection opened for board:', boardId)
+      setConnectionStatus('connected')
+    }
+    
+    eventSource.onmessage = (event) => {
+      console.log('🔍 DEBUG: SSE message received:', event.data)
+      try {
+        const data = JSON.parse(event.data)
         
-        // Start polling as fallback if SSE fails
-        if (!pollingInterval) {
-          console.log('🔍 DEBUG: Starting polling fallback for board:', boardId)
-          pollingInterval = setInterval(() => {
-            loadBoard()
-          }, 3000) // Poll every 3 seconds
+        switch (data.type) {
+          case 'connected':
+            console.log('🔍 DEBUG: SSE connection confirmed for board:', boardId)
+            break
+            
+          case 'ping':
+            console.log('🔍 DEBUG: SSE ping received')
+            break
+            
+          case 'board_updated':
+            console.log('🔍 DEBUG: Board update received via SSE:', data)
+            // Update board data reactively without page refresh
+            if (data.data) {
+              // Parse configuration if it's a string
+              let updatedBoard = { ...data.data }
+              if (typeof updatedBoard.configuration === 'string') {
+                try {
+                  updatedBoard.configuration = JSON.parse(updatedBoard.configuration)
+                } catch (e) {
+                  updatedBoard.configuration = {}
+                }
+              }
+              
+              setBoard(updatedBoard)
+              setLastUpdated(new Date(data.timestamp))
+              
+              // Show a brief update indicator
+              setConnectionStatus('updated')
+              setTimeout(() => setConnectionStatus('connected'), 2000)
+            } else {
+              // If no data provided, reload from database
+              setConnectionStatus('updated')
+              loadBoard()
+            }
+            break
+            
+          default:
+            console.log('🔍 DEBUG: Unknown SSE message type:', data.type)
+            break
         }
+      } catch (err) {
+        console.error('🔍 DEBUG: Error parsing SSE message:', err)
       }
-    } catch (error) {
-      console.error('🔍 DEBUG: Failed to create SSE connection:', error)
-      // If SSE fails completely, use polling
-      setConnectionStatus('polling')
-      pollingInterval = setInterval(() => {
-        loadBoard()
-      }, 3000)
+    }
+    
+    eventSource.onerror = (error) => {
+      console.error('🔍 DEBUG: SSE connection error:', error)
+      setConnectionStatus('error')
     }
     
     return () => {
       console.log('🔍 DEBUG: Cleaning up SSE connection for board:', boardId)
       if (eventSource) {
         eventSource.close()
-      }
-      if (pollingInterval) {
-        clearInterval(pollingInterval)
       }
       setConnectionStatus('disconnected')
     }

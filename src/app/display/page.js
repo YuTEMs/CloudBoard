@@ -397,7 +397,7 @@ function DisplayContent() {
             Empty Board
           </h1>
           <p className="text-xl text-white/90 mb-4 font-medium">
-            Board "{boardName}" is ready for content
+            Board &quot;{boardName}&quot; is ready for content
           </p>
           <p className="text-sm text-white/70 bg-white/10 px-4 py-2 rounded-full backdrop-blur-sm">
             Add widgets and media in the editor to bring this board to life
