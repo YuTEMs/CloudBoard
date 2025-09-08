@@ -18,6 +18,8 @@ function DashboardContent() {
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onOpenChange: onDeleteOpenChange } = useDisclosure()
   const [boardToDelete, setBoardToDelete] = useState(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [deletingBoards, setDeletingBoards] = useState(new Set())
+  const [deletionError, setDeletionError] = useState(null)
 
   // Use real-time boards hook
   const { boards, loading, error, createBoard, deleteBoard: deleteBoardFromDb } = useRealtimeBoards()
@@ -54,14 +56,37 @@ function DashboardContent() {
   const handleDeleteBoard = async (boardId) => {
     try {
       setIsDeleting(true)
-      await deleteBoardFromDb(boardId)
+      
+      // Add to deleting set for immediate UI feedback
+      setDeletingBoards(prev => new Set([...prev, boardId]))
+      
+      // Close modal immediately for better UX
       setBoardToDelete(null)
       onDeleteOpenChange(false)
+      
+      // Perform deletion
+      await deleteBoardFromDb(boardId)
+      
     } catch (err) {
       console.error('Error deleting board:', err)
-      // You could add a toast notification here
+      // Remove from deleting set on error
+      setDeletingBoards(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(boardId)
+        return newSet
+      })
+      // Show error message
+      setDeletionError(`Failed to delete board: ${err.message}`)
+      // Clear error after 5 seconds
+      setTimeout(() => setDeletionError(null), 5000)
     } finally {
       setIsDeleting(false)
+      // Remove from deleting set when complete
+      setDeletingBoards(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(boardId)
+        return newSet
+      })
     }
   }
 
@@ -203,13 +228,27 @@ function DashboardContent() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {filteredBoards.map((board, index) => (
-            <div
+          {filteredBoards.map((board, index) => {
+            const isBeingDeleted = deletingBoards.has(board.id)
+            return (
+              <div
               key={board.id}
-              className="fade-in group"
+              className={`fade-in group transition-all duration-500 ${
+                isBeingDeleted ? 'opacity-50 scale-95 pointer-events-none' : ''
+              }`}
               style={{ animationDelay: `${index * 0.1}s` }}
             >
               <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-white via-blue-50/30 to-purple-50/30 border border-white/40 shadow-lg hover:shadow-2xl transition-all duration-500 hover:-translate-y-2 backdrop-blur-sm">
+                {/* Deletion overlay */}
+                {isBeingDeleted && (
+                  <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-3xl">
+                    <div className="text-center">
+                      <div className="w-8 h-8 mx-auto mb-3 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                      <p className="text-red-600 font-medium text-sm">Deleting...</p>
+                    </div>
+                  </div>
+                )}
+                
                 {/* Decorative gradient overlay */}
                 <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 
@@ -292,17 +331,42 @@ function DashboardContent() {
                       variant="light"
                       onClick={() => { setBoardToDelete(board); onDeleteOpen() }}
                       className="w-full text-red-600 hover:bg-red-50/80 font-medium rounded-xl transition-all duration-300 hover:shadow-sm flex items-center justify-center gap-2 h-10"
+                      isDisabled={isBeingDeleted}
                     >
                       <Trash2 className="w-4 h-4 flex-shrink-0" />
-                      <span>Delete Board</span>
+                      <span>{isBeingDeleted ? 'Deleting...' : 'Delete Board'}</span>
                     </Button>
                   </div>
                 </div>
               </div>
-            </div>
-          ))}
+              </div>
+            )
+          })}
         </div>
       </div>
+
+      {/* Error Toast */}
+      {deletionError && (
+        <div className="fixed top-4 right-4 z-50 max-w-md">
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 shadow-lg backdrop-blur-sm animate-in slide-in-from-right-2 duration-300">
+            <div className="flex items-start gap-3">
+              <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-white text-xs font-bold">!</span>
+              </div>
+              <div className="flex-1">
+                <h4 className="text-red-800 font-semibold text-sm mb-1">Deletion Failed</h4>
+                <p className="text-red-700 text-xs leading-relaxed">{deletionError}</p>
+              </div>
+              <button
+                onClick={() => setDeletionError(null)}
+                className="text-red-400 hover:text-red-600 transition-colors flex-shrink-0"
+              >
+                <span className="text-lg leading-none">&times;</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Create Board Modal */}
       <Modal 
