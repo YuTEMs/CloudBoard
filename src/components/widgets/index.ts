@@ -1,0 +1,7 @@
+export * from './types'
+export * from './BaseWidget'
+export * from './WidgetRegistry'
+export { default as TimeWidget } from './TimeWidget'
+export { default as WeatherWidget } from './WeatherWidget'
+export { default as SlideshowWidget } from './SlideshowWidget'
+export { default as AnnouncementWidget } from './AnnouncementWidget'
