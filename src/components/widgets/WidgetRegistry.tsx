@@ -53,6 +53,7 @@ interface RenderWidgetProps extends WidgetProps {
   announcement?: any
   onAddToSlideshow?: (itemId: string, newPlaylist: any[]) => void
   uploadedFiles?: any[]
+  onUpdateDuration?: (url: string, duration: number) => void
 }
 
 export const RenderWidget: React.FC<RenderWidgetProps> = ({
@@ -67,7 +68,6 @@ export const RenderWidget: React.FC<RenderWidgetProps> = ({
       return <WeatherWidget {...props} />
     
     case 'slideshow':
-      // FUNCTIONALITY DISABLED - Don't render slideshow widgets
       return <SlideshowWidget {...props}/>
     
     case 'announcement':
