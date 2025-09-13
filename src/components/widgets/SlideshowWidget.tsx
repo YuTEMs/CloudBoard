@@ -18,34 +18,51 @@ const SlideshowWidget: React.FC<SlideshowWidgetProps> = memo(function SlideshowW
 
   const isOrganizeMode = mode === 'organize'
 
+  // Clamp/reset currentIndex if playlist changes (prevents out-of-bounds errors)
   useEffect(() => {
-    if (playlist.length === 0) return
+    if (currentIndex >= playlist.length) {
+      setCurrentIndex(0)
+    }
+  }, [playlist, currentIndex])
+
+  useEffect(() => {
+    if (!playlist.length) return
     const currentItem = playlist[currentIndex]
+    if (!currentItem) return
 
     if (currentItem.type === 'video') {
       const video = videoRefs.current[currentIndex]
       if (video) {
-        const onEnd = () => handleNext()
-        video.addEventListener('ended', onEnd)
+        video.currentTime = 0
         video.play().catch(() => { })
-        return () => video.removeEventListener('ended', onEnd)
+        const handleEnded = () => handleNext()
+        video.addEventListener('ended', handleEnded)
+
+        return () => {
+          video.removeEventListener('ended', handleEnded)
+        }
       }
     } else {
-      // Use currentItem.duration if available, otherwise default to 5 seconds
-      const duration = currentItem.duration ? currentItem.duration * 1000 : 5000
-      const timer = setTimeout(() => handleNext(), duration)
+      // Image case: advance after duration
+      const duration = (currentItem.duration ?? 5) * 1000
+      const timer = setTimeout(handleNext, duration)
       return () => clearTimeout(timer)
     }
   }, [currentIndex, playlist])
 
-  // Ensure currentIndex stays valid when playlist changes
-  useEffect(() => {
-    if (currentIndex >= playlist.length && playlist.length > 0) {
-      setCurrentIndex(0) // reset back to first slide
-    }
-  }, [playlist, currentIndex])
-
   const handleNext = () => {
+    if (!playlist.length) return
+
+    // Special case: single video loops
+    if (playlist.length === 1 && playlist[0].type === 'video') {
+      const video = videoRefs.current[0]
+      if (video) {
+        video.currentTime = 0
+        video.play().catch(() => { })
+      }
+      return
+    }
+
     setCurrentIndex((prev) => (prev + 1) % playlist.length)
   }
 
