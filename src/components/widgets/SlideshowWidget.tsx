@@ -18,51 +18,56 @@ const SlideshowWidget: React.FC<SlideshowWidgetProps> = memo(function SlideshowW
 
   const isOrganizeMode = mode === 'organize'
 
-  // Clamp/reset currentIndex if playlist changes (prevents out-of-bounds errors)
   useEffect(() => {
-    if (currentIndex >= playlist.length) {
-      setCurrentIndex(0)
-    }
-  }, [playlist, currentIndex])
-
-  useEffect(() => {
-    if (!playlist.length) return
+    if (playlist.length === 0) return
     const currentItem = playlist[currentIndex]
     if (!currentItem) return
+
+    let timer: NodeJS.Timeout
 
     if (currentItem.type === 'video') {
       const video = videoRefs.current[currentIndex]
       if (video) {
         video.currentTime = 0
-        video.play().catch(() => { })
-        const handleEnded = () => handleNext()
-        video.addEventListener('ended', handleEnded)
+        video.play().catch(() => {})
 
-        return () => {
-          video.removeEventListener('ended', handleEnded)
+        // If slide has no duration, try to derive from metadata
+        if (!currentItem.duration || currentItem.duration <= 0) {
+          if (!isNaN(video.duration) && video.duration > 0) {
+            timer = setTimeout(() => handleNext(), video.duration * 1000)
+          } else {
+            // wait until metadata loads
+            const onLoaded = () => {
+              if (video.duration && !isNaN(video.duration)) {
+                timer = setTimeout(() => handleNext(), video.duration * 1000)
+              } else {
+                // fallback if metadata fails
+                timer = setTimeout(() => handleNext(), 5000)
+              }
+              video.removeEventListener('loadedmetadata', onLoaded)
+            }
+            video.addEventListener('loadedmetadata', onLoaded)
+          }
+          //debugging
+          console.log(video.duration)
+        } else {
+          // Use provided duration if present
+          timer = setTimeout(() => handleNext(), currentItem.duration * 1000)
         }
       }
     } else {
-      // Image case: advance after duration
-      const duration = (currentItem.duration ?? 5) * 1000
-      const timer = setTimeout(handleNext, duration)
-      return () => clearTimeout(timer)
+      // Image slide → use duration (default 5s)
+      const duration = currentItem.duration ? currentItem.duration * 1000 : 5000
+      timer = setTimeout(() => handleNext(), duration)
+    }
+
+    return () => {
+      if (timer) clearTimeout(timer)
     }
   }, [currentIndex, playlist])
 
   const handleNext = () => {
-    if (!playlist.length) return
-
-    // Special case: single video loops
-    if (playlist.length === 1 && playlist[0].type === 'video') {
-      const video = videoRefs.current[0]
-      if (video) {
-        video.currentTime = 0
-        video.play().catch(() => { })
-      }
-      return
-    }
-
+    if (playlist.length === 0) return
     setCurrentIndex((prev) => (prev + 1) % playlist.length)
   }
 
