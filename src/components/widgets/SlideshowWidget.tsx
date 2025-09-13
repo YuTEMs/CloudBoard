@@ -25,19 +25,25 @@ const SlideshowWidget: React.FC<SlideshowWidgetProps> = memo(function SlideshowW
     if (currentItem.type === 'video') {
       const video = videoRefs.current[currentIndex]
       if (video) {
-        video.currentTime = 0
-        video.play().catch(() => {})
         const onEnd = () => handleNext()
         video.addEventListener('ended', onEnd)
+        video.play().catch(() => { })
         return () => video.removeEventListener('ended', onEnd)
       }
     } else {
       // Use currentItem.duration if available, otherwise default to 5 seconds
-    const duration = currentItem.duration ? currentItem.duration * 1000 : 5000
-    const timer = setTimeout(() => handleNext(), duration)
-    return () => clearTimeout(timer)
+      const duration = currentItem.duration ? currentItem.duration * 1000 : 5000
+      const timer = setTimeout(() => handleNext(), duration)
+      return () => clearTimeout(timer)
     }
   }, [currentIndex, playlist])
+
+  // Ensure currentIndex stays valid when playlist changes
+  useEffect(() => {
+    if (currentIndex >= playlist.length && playlist.length > 0) {
+      setCurrentIndex(0) // reset back to first slide
+    }
+  }, [playlist, currentIndex])
 
   const handleNext = () => {
     setCurrentIndex((prev) => (prev + 1) % playlist.length)
