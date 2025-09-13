@@ -68,7 +68,7 @@ export const RenderWidget: React.FC<RenderWidgetProps> = ({
     
     case 'slideshow':
       // FUNCTIONALITY DISABLED - Don't render slideshow widgets
-      return null
+      return <SlideshowWidget {...props}/>
     
     case 'announcement':
       // FUNCTIONALITY DISABLED - Don't render announcement widgets
