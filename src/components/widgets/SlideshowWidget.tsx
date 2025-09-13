@@ -51,18 +51,18 @@ const SlideshowWidget: React.FC<SlideshowWidgetProps> = memo(function SlideshowW
     )
   }
 
-  if (isOrganizeMode) {
-    return (
-      <BaseWidget {...props} className="bg-gradient-to-br from-gray-800 to-gray-900 shadow-xl border border-gray-700">
-        <div className="flex items-center justify-center h-full text-gray-400">
-          <div className="text-center opacity-70">
-            <div className="text-5xl mb-2">🖼️</div>
-            <p className="text-sm">Slideshow Widget (Preview Disabled)</p>
-          </div>
-        </div>
-      </BaseWidget>
-    )
-  }
+  // if (isOrganizeMode) {
+  //   return (
+  //     <BaseWidget {...props} className="bg-gradient-to-br from-gray-800 to-gray-900 shadow-xl border border-gray-700">
+  //       <div className="flex items-center justify-center h-full text-gray-400">
+  //         <div className="text-center opacity-70">
+  //           <div className="text-5xl mb-2">🖼️</div>
+  //           <p className="text-sm">Slideshow Widget (Preview Disabled)</p>
+  //         </div>
+  //       </div>
+  //     </BaseWidget>
+  //   )
+  // }
 
   const currentItem = playlist[currentIndex]
 
