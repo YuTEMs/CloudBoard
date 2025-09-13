@@ -1259,6 +1259,7 @@ function OrganizePageContent() {
                         onResizeStart={handleResizeStart}
                         onAddToSlideshow={addToSlideshow}
                         uploadedFiles={uploadedFiles}
+                        playlist={item.widgetType === 'slideshow' ? item.playlist : undefined}
                       />
                     )
                   }

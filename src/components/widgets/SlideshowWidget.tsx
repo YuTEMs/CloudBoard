@@ -32,9 +32,10 @@ const SlideshowWidget: React.FC<SlideshowWidgetProps> = memo(function SlideshowW
         return () => video.removeEventListener('ended', onEnd)
       }
     } else {
-      // auto-advance images after 5s
-      const timer = setTimeout(() => handleNext(), 5000)
-      return () => clearTimeout(timer)
+      // Use currentItem.duration if available, otherwise default to 5 seconds
+    const duration = currentItem.duration ? currentItem.duration * 1000 : 5000
+    const timer = setTimeout(() => handleNext(), duration)
+    return () => clearTimeout(timer)
     }
   }, [currentIndex, playlist])
 
@@ -80,6 +81,7 @@ const SlideshowWidget: React.FC<SlideshowWidgetProps> = memo(function SlideshowW
           src={currentItem.url}
           className="w-full h-full object-cover"
           muted
+          playsInline
         />
       )}
     </BaseWidget>
