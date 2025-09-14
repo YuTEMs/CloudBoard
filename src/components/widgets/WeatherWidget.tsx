@@ -119,7 +119,7 @@ const WeatherWidget: React.FC<WidgetProps> = memo(function WeatherWidget(props) 
   return (
     <BaseWidget
       {...props}
-      className={`${weatherColors} p-4 shadow-xl`}
+      className={`${weatherColors} p-4`}
     >
       <div className="flex items-center justify-between h-full">
         <div className="flex-1">

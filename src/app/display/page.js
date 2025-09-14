@@ -146,7 +146,7 @@ function DisplayContent() {
         {/* Overlay for better text readability */}
         <div className="absolute inset-0 bg-black/20 backdrop-blur-sm"></div>
         
-        <div className="relative z-10 text-center p-8 bg-white/10 backdrop-blur-md rounded-3xl border border-white/20 shadow-2xl">
+        <div className="relative z-10 text-center p-8 bg-white/10 backdrop-blur-md rounded-3xl border border-white/20">
           <div className="text-8xl mb-6 animate-pulse">📺</div>
           <h1 className="text-4xl font-black mb-4 bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent">
             Empty Board
@@ -204,6 +204,7 @@ function DisplayContent() {
                 width={scaledWidth}
                 height={scaledHeight}
                 mode="display"
+                item={item}
                 playlist={item.playlist || []}
                 announcement={item.announcement || {}}
               />
@@ -214,7 +215,7 @@ function DisplayContent() {
           return (
             <div
               key={itemKey}
-              className="absolute rounded-xl overflow-hidden shadow-lg"
+              className="absolute rounded-xl overflow-hidden"
               style={{
                 left: scaledX,
                 top: scaledY,
@@ -270,7 +271,7 @@ function DisplayContent() {
 
         {/* Connection status indicator for production */}
         {connectionStatus === 'updated' && (
-          <div className="absolute top-6 right-6 bg-gradient-to-r from-emerald-500 to-green-500 text-white px-4 py-2 rounded-full text-sm font-medium shadow-lg border border-white/20 backdrop-blur-sm z-50 flex items-center gap-2">
+          <div className="absolute top-6 right-6 bg-gradient-to-r from-emerald-500 to-green-500 text-white px-4 py-2 rounded-full text-sm font-medium border border-white/20 backdrop-blur-sm z-50 flex items-center gap-2">
             <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
             Content Updated
           </div>

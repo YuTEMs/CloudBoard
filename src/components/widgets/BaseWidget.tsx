@@ -49,10 +49,10 @@ export const BaseWidget: React.FC<BaseWidgetProps> = ({
   return (
     <div
       draggable
-      className={`${baseClassName} border-2 shadow-lg ${
+      className={`${baseClassName} ${
         isSelected 
-          ? 'cursor-move border-blue-400 shadow-blue-500/50 shadow-xl' 
-          : 'cursor-move border-transparent hover:border-slate-600 hover:shadow-xl transition-all duration-200'
+          ? 'cursor-move' 
+          : 'cursor-move transition-all duration-200'
       }`}
       style={baseStyle}
       onDragStart={(e) => onDragStart && onDragStart(e, item)}
@@ -67,19 +67,19 @@ export const BaseWidget: React.FC<BaseWidgetProps> = ({
       {isSelected && (
         <>
           <div 
-            className="absolute -top-2 -left-2 w-4 h-4 bg-blue-500 rounded-full cursor-nw-resize hover:bg-blue-600 shadow-lg border-2 border-white"
+            className="absolute -top-2 -left-2 w-4 h-4 bg-blue-500 rounded-full cursor-nw-resize hover:bg-blue-600"
             onMouseDown={(e) => onResizeStart && onResizeStart(e, 'nw')}
           />
           <div 
-            className="absolute -top-2 -right-2 w-4 h-4 bg-blue-500 rounded-full cursor-ne-resize hover:bg-blue-600 shadow-lg border-2 border-white"
+            className="absolute -top-2 -right-2 w-4 h-4 bg-blue-500 rounded-full cursor-ne-resize hover:bg-blue-600"
             onMouseDown={(e) => onResizeStart && onResizeStart(e, 'ne')}
           />
           <div 
-            className="absolute -bottom-2 -left-2 w-4 h-4 bg-blue-500 rounded-full cursor-sw-resize hover:bg-blue-600 shadow-lg border-2 border-white"
+            className="absolute -bottom-2 -left-2 w-4 h-4 bg-blue-500 rounded-full cursor-sw-resize hover:bg-blue-600"
             onMouseDown={(e) => onResizeStart && onResizeStart(e, 'sw')}
           />
           <div 
-            className="absolute -bottom-2 -right-2 w-4 h-4 bg-blue-500 rounded-full cursor-se-resize hover:bg-blue-600 shadow-lg border-2 border-white"
+            className="absolute -bottom-2 -right-2 w-4 h-4 bg-blue-500 rounded-full cursor-se-resize hover:bg-blue-600"
             onMouseDown={(e) => onResizeStart && onResizeStart(e, 'se')}
           />
         </>

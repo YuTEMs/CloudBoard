@@ -49,7 +49,7 @@ const AnnouncementWidget: React.FC<AnnouncementWidgetProps> = memo(function Anno
   return (
     <BaseWidget
       {...props}
-      className="bg-gradient-to-r from-gray-500 to-gray-600 text-white p-4 overflow-hidden shadow-xl border"
+      className="bg-gradient-to-r from-gray-500 to-gray-600 text-white p-4 overflow-hidden border"
       style={{ opacity: 0.7 }}
     >
       {disabledContent}

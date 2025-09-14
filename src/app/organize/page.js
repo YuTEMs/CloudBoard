@@ -61,6 +61,10 @@ function OrganizePageContent() {
   // Track if there are unsaved changes to prevent real-time updates from overriding them
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [lastSavedState, setLastSavedState] = useState(null)
+  const [expandedTimeWidget, setExpandedTimeWidget] = useState(false)
+  const [selectedDigitalColor, setSelectedDigitalColor] = useState('#1e293b')
+  const [selectedAnalogColor, setSelectedAnalogColor] = useState('transparent')
+  const [showAnalogColorPicker, setShowAnalogColorPicker] = useState(false)
 
   // Refs for high-frequency resize updates (avoid re-subscribing listeners)
   const isResizingRef = useRef(false)
@@ -170,11 +174,14 @@ function OrganizePageContent() {
   }, [boardId, canvasItems, canvasSize, backgroundImage, backgroundColor, saveBoardToDb])
 
   // Widget size configurations
-  const widgetSizes = {
-    time: { width: 200, height: 100 },
-    weather: { width: 250, height: 150 },
-    slideshow: { width: 480, height: 270 }, // 16:9 aspect ratio
-    announcement: { width: 400, height: 150 }
+  const getWidgetSize = (type, subType = null) => {
+    const sizes = {
+      time: subType === 'analog' ? { width: 150, height: 150 } : { width: 200, height: 100 },
+      weather: { width: 250, height: 150 },
+      slideshow: { width: 480, height: 270 }, // 16:9 aspect ratio
+      announcement: { width: 400, height: 150 }
+    }
+    return sizes[type] || { width: 200, height: 100 }
   }
 
   // HTML5 Drag and Drop handlers (like proto.js)
@@ -628,8 +635,8 @@ function OrganizePageContent() {
   }
 
   // Add preset widgets
-  const addWidget = (type) => {
-    const sizes = widgetSizes[type]
+  const addWidget = (type, timeType = null, backgroundColor = null) => {
+    const sizes = getWidgetSize(type, timeType)
     let widgetName = '';
     if (type === 'time') widgetName = 'Time';
     else if (type === 'weather') widgetName = 'Weather';
@@ -642,6 +649,10 @@ function OrganizePageContent() {
       name: `${widgetName} Widget`,
       width: sizes.width,
       height: sizes.height,
+      timeType: type === 'time' ? (timeType || 'digital') : undefined,
+      backgroundColor: type === 'time' ? (
+        backgroundColor !== null ? backgroundColor : (timeType === 'analog' ? 'transparent' : '#1e293b')
+      ) : undefined,
       playlist: type === 'slideshow' ? [] : undefined,
       announcement: type === 'announcement' ? {
         text: "",
@@ -653,6 +664,12 @@ function OrganizePageContent() {
       } : undefined
     }
     addToCanvas(widget)
+    
+    // Reset expanded state after adding widget
+    if (type === 'time') {
+      setExpandedTimeWidget(false)
+      setShowAnalogColorPicker(false)
+    }
   }
 
   // Handle adding items to slideshow
@@ -901,20 +918,150 @@ function OrganizePageContent() {
             <div className="grid grid-cols-1 gap-3">
               {/* Time Widget */}
               <div>
-                <Button
-                  size="md"
-                  variant="bordered"
-                  className="w-full border-green-300/50 text-white hover:bg-green-500/20 hover:border-green-300 transition-all duration-200 p-4 h-auto rounded-xl"
-                  onPress={() => addWidget('time')}
-                >
-                  <div className="flex flex-col items-center gap-2 w-full">
-                    <Clock className="w-6 h-6 text-green-400 flex-shrink-0" />
-                    <div className="text-center">
-                      <div className="font-medium">Time Widget</div>
-                      <div className="text-xs text-green-200 mt-1">Live clock display</div>
+                {!expandedTimeWidget ? (
+                  <Button
+                    size="md"
+                    variant="bordered"
+                    className="w-full border-green-300/50 text-white hover:bg-green-500/20 hover:border-green-300 transition-all duration-200 p-4 h-auto rounded-xl"
+                    onPress={() => setExpandedTimeWidget(true)}
+                  >
+                    <div className="flex flex-col items-center gap-2 w-full">
+                      <Clock className="w-6 h-6 text-green-400 flex-shrink-0" />
+                      <div className="text-center">
+                        <div className="font-medium">Time Widget</div>
+                        <div className="text-xs text-green-200 mt-1">Live clock display</div>
+                      </div>
+                    </div>
+                  </Button>
+                ) : (
+                  <div className="border border-green-300/50 rounded-xl p-3 bg-green-500/10 transition-all duration-300">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Clock className="w-5 h-5 text-green-400 flex-shrink-0" />
+                      <span className="text-sm font-medium text-white">Choose Time Widget Type</span>
+                      <Button
+                        size="sm"
+                        variant="light"
+                        isIconOnly
+                        className="ml-auto text-green-300 hover:text-white"
+                        onPress={() => setExpandedTimeWidget(false)}
+                      >
+                        ✕
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      {/* Analog Option */}
+                      <div className="border border-green-300/30 rounded-lg p-3 bg-green-500/5">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div 
+                            className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 border border-white/20"
+                            style={{ 
+                              backgroundColor: selectedAnalogColor === 'transparent' ? 'rgba(255,255,255,0.9)' : selectedAnalogColor
+                            }}
+                          >
+                            <div className="w-3 h-3 border border-gray-600 rounded-full relative bg-white">
+                              <div className="absolute top-1/2 left-1/2 w-0.5 h-0.5 bg-gray-600 rounded-full transform -translate-x-1/2 -translate-y-1/2"></div>
+                              <div className="absolute top-1/2 left-1/2 w-0.5 h-1 bg-gray-600 transform -translate-x-1/2 -translate-y-full origin-bottom rotate-45"></div>
+                              <div className="absolute top-1/2 left-1/2 w-0.5 h-1.5 bg-gray-400 transform -translate-x-1/2 -translate-y-full origin-bottom rotate-90"></div>
+                            </div>
+                          </div>
+                          <div className="text-left flex-1">
+                            <div className="text-sm font-medium text-white">Analog Clock</div>
+                            <div className="text-xs text-green-200">Traditional clock face</div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className="flex items-center gap-2 flex-1">
+                            <Button
+                              size="sm"
+                              variant={selectedAnalogColor === 'transparent' ? 'solid' : 'bordered'}
+                              color={selectedAnalogColor === 'transparent' ? 'primary' : 'default'}
+                              onPress={() => setSelectedAnalogColor('transparent')}
+                              className="text-xs px-2 h-6"
+                            >
+                              Transparent
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant={selectedAnalogColor !== 'transparent' ? 'solid' : 'bordered'}
+                              color={selectedAnalogColor !== 'transparent' ? 'primary' : 'default'}
+                              onPress={() => {
+                                if (selectedAnalogColor === 'transparent') {
+                                  setSelectedAnalogColor('#f0f9ff')
+                                }
+                                setShowAnalogColorPicker(!showAnalogColorPicker)
+                              }}
+                              className="text-xs px-2 h-6"
+                            >
+                              Color
+                            </Button>
+                          </div>
+                        </div>
+                        
+                        {showAnalogColorPicker && selectedAnalogColor !== 'transparent' && (
+                          <div className="flex items-center gap-2 mb-2">
+                            <label className="text-xs text-green-200 min-w-0 flex-shrink-0">Background:</label>
+                            <Input
+                              type="color"
+                              size="sm"
+                              value={selectedAnalogColor === 'transparent' ? '#f0f9ff' : selectedAnalogColor}
+                              onChange={(e) => setSelectedAnalogColor(e.target.value)}
+                              className="w-16"
+                              classNames={{
+                                input: "h-6 w-full min-h-0 p-0 border-none",
+                                inputWrapper: "h-6 min-h-0 bg-transparent border border-green-300/30 rounded"
+                              }}
+                            />
+                          </div>
+                        )}
+                        
+                        <Button
+                          size="sm"
+                          className="bg-green-600 hover:bg-green-700 text-white font-medium rounded-md text-xs px-3 h-6 w-full"
+                          onPress={() => addWidget('time', 'analog', selectedAnalogColor)}
+                        >
+                          Add Analog
+                        </Button>
+                      </div>
+                      
+                      {/* Digital Option */}
+                      <div className="border border-green-300/30 rounded-lg p-3 bg-green-500/5">
+                        <div className="flex items-center gap-3 mb-2">
+                          <div className="w-8 h-8 rounded flex items-center justify-center flex-shrink-0" style={{ backgroundColor: selectedDigitalColor }}>
+                            <span className="text-white text-xs font-bold">12:34</span>
+                          </div>
+                          <div className="text-left flex-1">
+                            <div className="text-sm font-medium text-white">Digital Clock</div>
+                            <div className="text-xs text-green-200">Customizable display</div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-2 mb-2">
+                          <label className="text-xs text-green-200 min-w-0 flex-shrink-0">Color:</label>
+                          <Input
+                            type="color"
+                            size="sm"
+                            value={selectedDigitalColor}
+                            onChange={(e) => setSelectedDigitalColor(e.target.value)}
+                            className="w-16"
+                            classNames={{
+                              input: "h-6 w-full min-h-0 p-0 border-none",
+                              inputWrapper: "h-6 min-h-0 bg-transparent border border-green-300/30 rounded"
+                            }}
+                          />
+                          <Button
+                            size="sm"
+                            className="bg-green-600 hover:bg-green-700 text-white font-medium rounded-md text-xs px-3 h-6 flex-1"
+                            onPress={() => addWidget('time', 'digital', selectedDigitalColor)}
+                          >
+                            Add Digital
+                          </Button>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </Button>
+                )}
               </div>
 
               {/* Weather Widget */}
@@ -1128,6 +1275,7 @@ function OrganizePageContent() {
                     />
                   </div>
                 </div>
+
 
                 {/* Slideshow-specific properties */}
                 {selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' && (
