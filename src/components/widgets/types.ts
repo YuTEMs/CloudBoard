@@ -41,7 +41,8 @@ export interface SlideItem {
   type: 'image' | 'video'
   url: string
   name: string
-  duration?: number
+  duration?: number,
+  order?: number,
 }
 
 export type Playlist = SlideItem[]

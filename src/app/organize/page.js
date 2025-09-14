@@ -721,6 +721,21 @@ function OrganizePageContent() {
     // Note: Changes are now saved manually when user clicks Save button
   }, [])
 
+  const handleUpdateDuration = (url, duration) => {
+  setCanvasItems(items =>
+    items.map(item =>
+      item.widgetType === 'slideshow' && item.playlist
+        ? {
+            ...item,
+            playlist: item.playlist.map(slide =>
+              slide.url === url ? { ...slide, duration } : slide
+            )
+          }
+        : item
+    )
+  )
+}
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
       <AppHeader title={`Edit Board: ${boardName}`} showBack backHref="/dashboard" />
@@ -1259,6 +1274,8 @@ function OrganizePageContent() {
                         onResizeStart={handleResizeStart}
                         onAddToSlideshow={addToSlideshow}
                         uploadedFiles={uploadedFiles}
+                        playlist={item.widgetType === 'slideshow' ? item.playlist : undefined}
+                        onUpdateDuration={handleUpdateDuration}
                       />
                     )
                   }
