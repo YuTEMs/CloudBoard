@@ -52,7 +52,7 @@ const AnalogClock: React.FC<{ time: Date, size: number, backgroundColor?: string
       
       {/* Hour markers and numbers */}
       {[...Array(12)].map((_, i) => {
-        const angle = (i * 30) * (Math.PI / 180)
+        const angle = ((i * 30) - 90) * (Math.PI / 180) // Start from 12 o'clock position
         const x1 = centerX + Math.cos(angle) * (radius - hourMarkLength)
         const y1 = centerY + Math.sin(angle) * (radius - hourMarkLength)
         const x2 = centerX + Math.cos(angle) * (radius - hourMarkLength/3)
