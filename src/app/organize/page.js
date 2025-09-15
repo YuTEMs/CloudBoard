@@ -1,25 +1,7 @@
 "use client"
 
-import { Button, Card, CardBody, Input, Slider } from "@heroui/react"
-import {
-  Plus,
-  Save,
-  Upload,
-  ImageIcon,
-  Video,
-  Trash2,
-  Move,
-  RotateCcw,
-  Clock,
-  CloudSun,
-  Type,
-  Settings,
-  Play,
-  ChevronUp,
-  ChevronDown,
-  Pause,
-  Megaphone
-} from "lucide-react"
+import { Button } from "@heroui/react"
+import { Save, Settings } from "lucide-react"
 import { ClipboardList } from "lucide-react"
 import { useState, useRef, useEffect, useCallback, Suspense, memo, useMemo } from "react"
 import { useSession } from 'next-auth/react'
@@ -28,7 +10,11 @@ import { AppHeader } from "../../components/layout/app-hearder"
 import { useRealtimeBoards } from "../../hooks/useRealtimeBoards"
 import { useBoardSave } from "../../hooks/useBoardSave"
 import { uploadMedia, isTooLarge, deleteMedia } from "../../lib/storage"
-import { RenderWidget } from "../../components/widgets"
+import { ToolsPanel } from "../../components/organize/ToolsPanel"
+import { PropertiesPanel } from "../../components/organize/PropertiesPanel"
+import { CanvasArea } from "../../components/organize/CanvasArea"
+import { ContextPanel } from "../../components/organize/ContextPanel"
+import { ResponsiveLayout } from "../../components/organize/ResponsiveLayout"
 
 // Widget Components removed - now using shared widgets
 // Widget definitions removed - now using shared widgets from ../../components/widgets
@@ -61,10 +47,6 @@ function OrganizePageContent() {
   // Track if there are unsaved changes to prevent real-time updates from overriding them
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [lastSavedState, setLastSavedState] = useState(null)
-  const [expandedTimeWidget, setExpandedTimeWidget] = useState(false)
-  const [selectedDigitalColor, setSelectedDigitalColor] = useState('#1e293b')
-  const [selectedAnalogColor, setSelectedAnalogColor] = useState('transparent')
-  const [showAnalogColorPicker, setShowAnalogColorPicker] = useState(false)
 
   // Refs for high-frequency resize updates (avoid re-subscribing listeners)
   const isResizingRef = useRef(false)
@@ -525,13 +507,15 @@ function OrganizePageContent() {
 
   // Handle clicks outside slideshow to deselect
   const handlePageClick = (e) => {
-    // Only deselect if clicking outside the main canvas area and bottom panel
+    // Only deselect if clicking outside the main canvas area, panels, and sidebars
     const isCanvasArea = canvasRef.current?.contains(e.target)
     const isSlideshowPanel = e.target.closest('[data-slideshow-panel]')
     const isAnnouncementPanel = e.target.closest('[data-announcement-panel]')
-    const isSidebar = e.target.closest('.w-72')
-    
-    if (!isCanvasArea && !isSlideshowPanel && !isAnnouncementPanel && !isSidebar) {
+    const isPropertiesPanel = e.target.closest('[data-properties-panel]')
+    const isToolsPanel = e.target.closest('[data-tools-panel]')
+    const isSidebar = e.target.closest('.w-72') || e.target.closest('.w-80')
+
+    if (!isCanvasArea && !isSlideshowPanel && !isAnnouncementPanel && !isPropertiesPanel && !isToolsPanel && !isSidebar) {
       setSelectedItem(null)
     }
   }
@@ -757,1253 +741,128 @@ function OrganizePageContent() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
       <AppHeader title={`Edit Board: ${boardName}`} showBack backHref="/dashboard" />
 
-      <div className="flex h-[calc(100vh-80px)]">
-        {/* Left Sidebar - Content Library */}
-        <div className={`bg-gradient-to-b from-slate-900 to-slate-800 border-r border-slate-200 p-4 overflow-y-auto transition-all duration-300 shadow-lg ${
-          selectedItem && selectedItem.type === 'widget' && (selectedItem.widgetType === 'slideshow' || selectedItem.widgetType === 'announcement')
-            ? 'w-0 opacity-0 overflow-hidden' 
-            : 'w-80 opacity-100'
-        }`}>
-          <h3 className="text-xl font-bold mb-6 text-white flex items-center gap-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Upload className="w-4 h-4 text-white" />
-            </div>
-            <span>Content Library</span>
-          </h3>
-
-              {/* Upload Section */}
-              <div className="mb-8">
-            <h4 className="font-semibold mb-4 flex items-center gap-3 text-white">
-              <Upload className="w-5 h-5 text-blue-400 flex-shrink-0" />
-              <span>Upload Files</span>
-                </h4>
-            
-              {/* Unified Media Upload */}
-            <Card className="mb-4 bg-white/10 backdrop-blur-sm border-white/20">
-              <CardBody className="p-4">
-                <div
-                  className={`border-2 border-dashed border-blue-300/70 rounded-xl p-4 text-center transition-all duration-200 ${
-                    isUploading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-white/10 hover:border-blue-300'
-                  }`}
-                  onDragOver={handleDragOver}
-                  onDrop={(e) => {
-                    if (isUploading) return
-                    e.preventDefault()
-                    const files = e.dataTransfer.files
-                    if (!files || files.length === 0) return
-                    const images = []
-                    const videos = []
-                    Array.from(files).forEach(f => {
-                      if (f.type.startsWith('image/')) images.push(f)
-                      else if (f.type.startsWith('video/')) videos.push(f)
-                    })
-                    if (images.length) handleFileUpload(images, 'image')
-                    if (videos.length) handleFileUpload(videos, 'video')
-                  }}
-                  onClick={() => !isUploading && mediaInputRef.current?.click()}
-                >
-                  {isUploading ? (
-                    <div className="spinner mx-auto mb-2"></div>
-                  ) : (
-                    <div className="flex items-center justify-center gap-3 mb-2">
-                      <ImageIcon className="w-6 h-6 text-blue-300" />
-                      <Video className="w-6 h-6 text-purple-300" />
-                    </div>
-                  )}
-                  <p className="text-sm font-medium text-white mb-1">
-                    {isUploading ? 'Processing...' : 'Add Media'}
-                  </p>
-                  <p className="text-xs text-blue-200">
-                    Drag & drop images or videos, or click to upload
-                  </p>
-                </div>
-                <input
-                  ref={mediaInputRef}
-                  type="file"
-                  multiple
-                  accept="image/*,video/*"
-                  className="hidden"
-                  onChange={(e) => {
-                    const files = e.target.files
-                    if (!files || files.length === 0) return
-                    const images = []
-                    const videos = []
-                    Array.from(files).forEach(f => {
-                      if (f.type.startsWith('image/')) images.push(f)
-                      else if (f.type.startsWith('video/')) videos.push(f)
-                    })
-                    if (images.length) handleFileUpload(images, 'image')
-                    if (videos.length) handleFileUpload(videos, 'video')
-                    // Reset input to allow same file re-selection
-                    e.target.value = ''
-                  }}
-                />
-              </CardBody>
-            </Card>
-
-            {/* Uploaded Files */}
-              {uploadedFiles.length > 0 && (
-              <div className="space-y-3 max-h-48 overflow-y-auto">
-                <h5 className="text-sm font-semibold text-white flex items-center gap-3">
-                  <ImageIcon className="w-4 h-4 text-cyan-400 flex-shrink-0" />
-                  <span>Media Library ({uploadedFiles.length})</span>
-                </h5>
-                    {uploadedFiles.map((file) => (
-                  <div 
-                    key={file.id} 
-                    className="flex items-center gap-3 p-3 border border-white/20 rounded-xl bg-white/10 backdrop-blur-sm cursor-move hover:bg-white/20 transition-all duration-200"
-                    draggable
-                    onDragStart={(e) => makeFileDraggable(e, file)}
-                  >
-                    <div className="w-10 h-10 flex-shrink-0 rounded-lg overflow-hidden">
-                          {file.type === "video" ? (
-                        <div className="w-full h-full bg-gradient-to-br from-purple-600 to-purple-800 rounded-lg flex items-center justify-center">
-                          <Video className="w-5 h-5 text-white" />
-                              </div>
-                          ) : (
-                            <img
-                          src={file.url}
-                              alt={file.name}
-                              className="w-full h-full object-cover rounded-lg"
-                          onLoad={(e) => {
-                            const img = e.target
-                            const aspectRatio = img.naturalWidth / img.naturalHeight
-                                setUploadedFiles(prev =>
-                                  prev.map(f =>
-                                    f.id === file.id
-                                  ? { ...f, width: 300, height: Math.round(300 / aspectRatio) }
-                                      : f
-                                  )
-                            )
-                              }}
-                            />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate text-white">{file.name}</p>
-                      <p className="text-xs text-blue-200">Drag to canvas or slideshow</p>
-                        </div>
-                        <div className="flex gap-2">
-                      <Button 
-                        size="sm" 
-                        variant="bordered" 
-                        className="border-cyan-300/50 text-cyan-200 hover:bg-cyan-500/20 hover:border-cyan-300 transition-all duration-200 rounded-lg flex items-center justify-center h-8 px-3" 
-                        onPress={() => addToCanvas(file)}
-                      >
-                        <span className="text-xs font-medium">Add</span>
-                      </Button>
-                      <Button
-                        size="sm"
-                        color="danger"
-                        variant="light"
-                        className="rounded-lg flex items-center justify-center h-8 w-8 p-0"
-                        onPress={() => removeUploadedFile(file.id)}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-            )}
-          </div>
-
-          {/* Widgets Section */}
-          <div className="mb-8">
-            <h4 className="font-semibold mb-4 flex items-center gap-3 text-white">
-              <Settings className="w-5 h-5 text-green-400 flex-shrink-0" />
-              <span>Smart Widgets</span>
-            </h4>
-            
-            <div className="grid grid-cols-1 gap-3">
-              {/* Time Widget */}
-              <div>
-                {!expandedTimeWidget ? (
-                  <Button
-                    size="md"
-                    variant="bordered"
-                    className="w-full border-green-300/50 text-white hover:bg-green-500/20 hover:border-green-300 transition-all duration-200 p-4 h-auto rounded-xl"
-                    onPress={() => setExpandedTimeWidget(true)}
-                  >
-                    <div className="flex flex-col items-center gap-2 w-full">
-                      <Clock className="w-6 h-6 text-green-400 flex-shrink-0" />
-                      <div className="text-center">
-                        <div className="font-medium">Time Widget</div>
-                        <div className="text-xs text-green-200 mt-1">Live clock display</div>
-                      </div>
-                    </div>
-                  </Button>
-                ) : (
-                  <div className="border border-green-300/50 rounded-xl p-3 bg-green-500/10 transition-all duration-300">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Clock className="w-5 h-5 text-green-400 flex-shrink-0" />
-                      <span className="text-sm font-medium text-white">Choose Time Widget Type</span>
-                      <Button
-                        size="sm"
-                        variant="light"
-                        isIconOnly
-                        className="ml-auto text-green-300 hover:text-white"
-                        onPress={() => setExpandedTimeWidget(false)}
-                      >
-                        ✕
-                      </Button>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      {/* Analog Option */}
-                      <div className="border border-green-300/30 rounded-lg p-3 bg-green-500/5">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div 
-                            className="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 border border-white/20"
-                            style={{ 
-                              backgroundColor: selectedAnalogColor === 'transparent' ? 'rgba(255,255,255,0.9)' : selectedAnalogColor
-                            }}
-                          >
-                            <div className="w-3 h-3 border border-gray-600 rounded-full relative bg-white">
-                              <div className="absolute top-1/2 left-1/2 w-0.5 h-0.5 bg-gray-600 rounded-full transform -translate-x-1/2 -translate-y-1/2"></div>
-                              <div className="absolute top-1/2 left-1/2 w-0.5 h-1 bg-gray-600 transform -translate-x-1/2 -translate-y-full origin-bottom rotate-45"></div>
-                              <div className="absolute top-1/2 left-1/2 w-0.5 h-1.5 bg-gray-400 transform -translate-x-1/2 -translate-y-full origin-bottom rotate-90"></div>
-                            </div>
-                          </div>
-                          <div className="text-left flex-1">
-                            <div className="text-sm font-medium text-white">Analog Clock</div>
-                            <div className="text-xs text-green-200">Traditional clock face</div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-2 mb-2">
-                          <div className="flex items-center gap-2 flex-1">
-                            <Button
-                              size="sm"
-                              variant={selectedAnalogColor === 'transparent' ? 'solid' : 'bordered'}
-                              color={selectedAnalogColor === 'transparent' ? 'primary' : 'default'}
-                              onPress={() => setSelectedAnalogColor('transparent')}
-                              className="text-xs px-2 h-6"
-                            >
-                              Transparent
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant={selectedAnalogColor !== 'transparent' ? 'solid' : 'bordered'}
-                              color={selectedAnalogColor !== 'transparent' ? 'primary' : 'default'}
-                              onPress={() => {
-                                if (selectedAnalogColor === 'transparent') {
-                                  setSelectedAnalogColor('#f0f9ff')
-                                }
-                                setShowAnalogColorPicker(!showAnalogColorPicker)
-                              }}
-                              className="text-xs px-2 h-6"
-                            >
-                              Color
-                            </Button>
-                          </div>
-                        </div>
-                        
-                        {showAnalogColorPicker && selectedAnalogColor !== 'transparent' && (
-                          <div className="flex items-center gap-2 mb-2">
-                            <label className="text-xs text-green-200 min-w-0 flex-shrink-0">Background:</label>
-                            <Input
-                              type="color"
-                              size="sm"
-                              value={selectedAnalogColor === 'transparent' ? '#f0f9ff' : selectedAnalogColor}
-                              onChange={(e) => setSelectedAnalogColor(e.target.value)}
-                              className="w-16"
-                              classNames={{
-                                input: "h-6 w-full min-h-0 p-0 border-none",
-                                inputWrapper: "h-6 min-h-0 bg-transparent border border-green-300/30 rounded"
-                              }}
-                            />
-                          </div>
-                        )}
-                        
-                        <Button
-                          size="sm"
-                          className="bg-green-600 hover:bg-green-700 text-white font-medium rounded-md text-xs px-3 h-6 w-full"
-                          onPress={() => addWidget('time', 'analog', selectedAnalogColor)}
-                        >
-                          Add Analog
-                        </Button>
-                      </div>
-                      
-                      {/* Digital Option */}
-                      <div className="border border-green-300/30 rounded-lg p-3 bg-green-500/5">
-                        <div className="flex items-center gap-3 mb-2">
-                          <div className="w-8 h-8 rounded flex items-center justify-center flex-shrink-0" style={{ backgroundColor: selectedDigitalColor }}>
-                            <span className="text-white text-xs font-bold">12:34</span>
-                          </div>
-                          <div className="text-left flex-1">
-                            <div className="text-sm font-medium text-white">Digital Clock</div>
-                            <div className="text-xs text-green-200">Customizable display</div>
-                          </div>
-                        </div>
-                        
-                        <div className="flex items-center gap-2 mb-2">
-                          <label className="text-xs text-green-200 min-w-0 flex-shrink-0">Color:</label>
-                          <Input
-                            type="color"
-                            size="sm"
-                            value={selectedDigitalColor}
-                            onChange={(e) => setSelectedDigitalColor(e.target.value)}
-                            className="w-16"
-                            classNames={{
-                              input: "h-6 w-full min-h-0 p-0 border-none",
-                              inputWrapper: "h-6 min-h-0 bg-transparent border border-green-300/30 rounded"
-                            }}
-                          />
-                          <Button
-                            size="sm"
-                            className="bg-green-600 hover:bg-green-700 text-white font-medium rounded-md text-xs px-3 h-6 flex-1"
-                            onPress={() => addWidget('time', 'digital', selectedDigitalColor)}
-                          >
-                            Add Digital
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
+      <ResponsiveLayout
+        toolsPanel={
+          <ToolsPanel
+            isUploading={isUploading}
+            uploadedFiles={uploadedFiles}
+            mediaInputRef={mediaInputRef}
+            backgroundInputRef={backgroundInputRef}
+            handleFileUpload={handleFileUpload}
+            handleDragOver={handleDragOver}
+            addWidget={addWidget}
+            makeFileDraggable={makeFileDraggable}
+            addToCanvas={addToCanvas}
+            removeUploadedFile={removeUploadedFile}
+            handleBackgroundUpload={handleBackgroundUpload}
+            backgroundColor={backgroundColor}
+            setBackgroundColor={setBackgroundColor}
+            backgroundImage={backgroundImage}
+            setBackgroundImage={setBackgroundImage}
+          />
+        }
+        propertiesPanel={
+          <PropertiesPanel
+            selectedItem={selectedItem}
+            updateItemProperty={updateItemProperty}
+            deleteSelectedItem={deleteSelectedItem}
+            canvasItems={canvasItems}
+            isUploading={isUploading}
+            slideshowImageInputRef={slideshowImageInputRef}
+            slideshowVideoInputRef={slideshowVideoInputRef}
+            handleSlideshowFileUpload={handleSlideshowFileUpload}
+            handleDragOver={handleDragOver}
+            addToSlideshow={addToSlideshow}
+            uploadedFiles={uploadedFiles}
+            makeFileDraggable={makeFileDraggable}
+            moveSlide={moveSlide}
+          />
+        }
+        contextPanel={
+          <ContextPanel
+            selectedItem={selectedItem}
+            addToSlideshow={addToSlideshow}
+            moveSlide={moveSlide}
+            updateAnnouncement={updateAnnouncement}
+          />
+        }
+      >
+        {/* Canvas Header */}
+        <div className="bg-gradient-to-r from-slate-800 to-slate-700 border-b border-slate-300 p-4 flex justify-between items-center shadow-sm">
+          <div>
+            <h3 className="text-xl font-bold text-white flex items-center gap-3">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                <Settings className="w-4 h-4 text-white" />
               </div>
-
-              {/* Weather Widget */}
-              <div>
-                <Button
-                  size="md"
-                  variant="bordered"
-                  className="w-full border-blue-300/50 text-white hover:bg-blue-500/20 hover:border-blue-300 transition-all duration-200 p-4 h-auto rounded-xl"
-                  onPress={() => addWidget('weather')}
-                >
-                  <div className="flex flex-col items-center gap-2 w-full">
-                    <CloudSun className="w-6 h-6 text-blue-400 flex-shrink-0" />
-                    <div className="text-center">
-                      <div className="font-medium">Weather Widget</div>
-                      <div className="text-xs text-blue-200 mt-1">Weather information</div>
-                    </div>
-                  </div>
-                </Button>
-              </div>
-
-              {/* Slideshow Widget */}
-              <div>
-                <Button
-                  size="md"
-                  variant="bordered"
-                  className="w-full border-purple-300/50 text-white hover:bg-purple-500/20 hover:border-purple-300 transition-all duration-200 p-4 h-auto rounded-xl"
-                  onPress={() => addWidget('slideshow')}
-                >
-                  <div className="flex flex-col items-center gap-2 w-full">
-                    <Play className="w-6 h-6 text-purple-400 flex-shrink-0" />
-                    <div className="text-center">
-                      <div className="font-medium">Slideshow Widget</div>
-                      <div className="text-xs text-purple-200 mt-1">Image & video carousel</div>
-                    </div>
-                  </div>
-                </Button>
-              </div>
-
-              {/* Announcement Widget */}
-              <div>
-                <Button
-                  size="md"
-                  variant="bordered"
-                  className="w-full border-orange-300/50 text-white hover:bg-orange-500/20 hover:border-orange-300 transition-all duration-200 p-4 h-auto rounded-xl"
-                  onPress={() => addWidget('announcement')}
-                >
-                  <div className="flex flex-col items-center gap-2 w-full">
-                    <Megaphone className="w-6 h-6 text-orange-400 flex-shrink-0" />
-                    <div className="text-center">
-                      <div className="font-medium">Announcement Widget</div>
-                      <div className="text-xs text-orange-200 mt-1">Scheduled messages</div>
-                    </div>
-                  </div>
-                </Button>
-              </div>
-            </div>
-          </div>
-
-          {/* Background Section */}
-          <div className="mb-8">
-            <h4 className="font-semibold mb-4 flex items-center gap-3 text-white">
-              <ImageIcon className="w-5 h-5 text-pink-400 flex-shrink-0" />
-              <span>Background Style</span>
-            </h4>
-            
-            {/* Background Preview */}
-            <div className="mb-4">
-              <div 
-                className="w-full h-20 rounded-xl border-2 border-white/20 shadow-lg overflow-hidden"
-                style={{
-                  backgroundColor: backgroundColor,
-                  backgroundImage: backgroundImage ? `url(${backgroundImage})` : 'none',
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center'
-                }}
-              >
-                {!backgroundImage && backgroundColor === "#ffffff" && (
-                  <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-                    <span className="text-xs font-medium text-gray-600">Clean Background</span>
-                  </div>
-                )}
-                {!backgroundImage && backgroundColor !== "#ffffff" && (
-                  <div className="w-full h-full flex items-center justify-center">
-                    <span className="text-xs font-medium text-white/80">Custom Color</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Background Controls */}
-              <div className="space-y-3">
-              <Button
-                size="md"
-                variant="bordered"
-                className="w-full border-white/30 text-white hover:bg-white/10 hover:border-white/50 transition-all duration-200 rounded-xl flex items-center justify-center gap-3 h-12"
-                onPress={() => backgroundInputRef.current?.click()}
-              >
-                <ImageIcon className="w-4 h-4 flex-shrink-0" />
-                <span>Upload Background</span>
-              </Button>
-              
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <label className="text-xs text-white/80 block mb-2">Background Color</label>
-                  <Input
-                    type="color"
-                    size="md"
-                    value={backgroundColor}
-                    onChange={(e) => setBackgroundColor(e.target.value)}
-                    className="w-full"
-                    classNames={{
-                      inputWrapper: "bg-white/10 border-white/20 rounded-xl h-12"
-                    }}
-                  />
-                </div>
-                <div className="flex-shrink-0">
-                  <label className="text-xs text-white/80 block mb-2">Reset</label>
-                  <Button
-                    size="md"
-                    variant="bordered"
-                    className="border-white/30 text-white hover:bg-red-500/20 hover:border-red-300 transition-all duration-200 rounded-xl h-12 px-4"
-                    onPress={() => {
-                      setBackgroundColor("#ffffff")
-                      setBackgroundImage(null)
-                    }}
-                  >
-                    <RotateCcw className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-
-              <input
-                ref={backgroundInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => handleBackgroundUpload(e.target.files)}
-              />
-            </div>
-          </div>
-
-          {/* Selected Item Properties */}
-          {selectedItem && (
-            <div className="border-t border-white/20 pt-6 mt-6">
-              <h4 className="font-semibold mb-4 text-white flex items-center gap-3">
-                <Settings className="w-5 h-5 text-yellow-400 flex-shrink-0" />
-                <span>Properties</span>
-              </h4>
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm text-white font-semibold block mb-2 flex items-center gap-2">
-                    <span>Width</span>
-                    {selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' && (
-                      <span className="text-xs text-blue-300 bg-blue-500/20 px-2 py-1 rounded-full">16:9 ratio</span>
-                    )}
-                  </label>
-                  <Input
-                    type="number"
-                    size="sm"
-                    value={selectedItem.width}
-                    onChange={(e) => updateItemProperty('width', parseInt(e.target.value) || 0)}
-                    classNames={{
-                      input: "text-gray-900",
-                      inputWrapper: "bg-white border-white/20"
-                    }}
-                  />
-                </div>
-                <div>
-                  <label className="text-sm text-white font-semibold block mb-2 flex items-center gap-2">
-                    <span>Height</span>
-                    {selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' && (
-                      <span className="text-xs text-blue-300 bg-blue-500/20 px-2 py-1 rounded-full">auto-adjusted</span>
-                    )}
-                  </label>
-                  <Input
-                    type="number"
-                    size="sm"
-                    value={selectedItem.height}
-                    onChange={(e) => updateItemProperty('height', parseInt(e.target.value) || 0)}
-                    classNames={{
-                      input: "text-gray-900",
-                      inputWrapper: "bg-white border-white/20"
-                    }}
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-sm text-white font-semibold block mb-2">X Position</label>
-                    <Input
-                      type="number"
-                      size="sm"
-                      value={Math.round(selectedItem.x)}
-                      onChange={(e) => updateItemProperty('x', parseInt(e.target.value) || 0)}
-                      classNames={{
-                        input: "text-gray-900",
-                        inputWrapper: "bg-white border-white/20"
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label className="text-sm text-white font-semibold block mb-2">Y Position</label>
-                    <Input
-                      type="number"
-                      size="sm"
-                      value={Math.round(selectedItem.y)}
-                      onChange={(e) => updateItemProperty('y', parseInt(e.target.value) || 0)}
-                      classNames={{
-                        input: "text-gray-900",
-                        inputWrapper: "bg-white border-white/20"
-                      }}
-                    />
-                  </div>
-                </div>
-
-
-                {/* Slideshow-specific properties */}
-                {selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' && (
-                  <div className="border-t border-white/20 pt-4 mt-4">
-                    <h5 className="text-sm text-white font-semibold mb-3 flex items-center gap-2">
-                      <Play className="w-4 h-4 text-purple-400" />
-                      Slideshow Settings
-                    </h5>
-                    <div className="space-y-3">
-                      <div className="bg-white/10 backdrop-blur-sm rounded-lg p-3">
-                        <div className="text-xs text-white font-medium mb-1">
-                          Slides: {selectedItem.playlist?.length || 0}
-                        </div>
-                        {selectedItem.playlist && selectedItem.playlist.length > 0 && (
-                          <div className="text-xs text-blue-300 mb-2">
-                            Total Duration: {selectedItem.playlist.reduce((total, slide) => total + (slide.duration || 5), 0)}s
-                          </div>
-                        )}
-                        <p className="text-xs text-gray-300 leading-relaxed">
-                          Drag files from above to add slides. Use timeline controls below.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <Button
-                  size="sm"
-                  color="danger"
-                  variant="bordered"
-                  startContent={<Trash2 className="w-4 h-4" />}
-                  onPress={deleteSelectedItem}
-                  className="w-full"
-                >
-                  Delete Item
-                </Button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Main Canvas Area */}
-        <div className={`flex flex-col transition-all duration-300 ${
-          selectedItem && selectedItem.type === 'widget' && (selectedItem.widgetType === 'slideshow' || selectedItem.widgetType === 'announcement')
-            ? 'w-full' 
-            : 'flex-1'
-        }`}>
-          {/* Canvas Header */}
-          <div className="bg-gradient-to-r from-slate-800 to-slate-700 border-b border-slate-300 p-4 flex justify-between items-center shadow-sm">
-              <div>
-              <h3 className="text-xl font-bold text-white flex items-center gap-3">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Settings className="w-4 h-4 text-white" />
-                </div>
-                <span>Canvas</span>
-                <span className="text-sm font-normal text-slate-300">({canvasItems.length} items)</span>
-                {selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' && (
-                  <span className="ml-2 px-3 py-1 text-xs bg-blue-500/20 text-blue-300 rounded-full border border-blue-400/30">
-                    Slideshow Mode
-                  </span>
-                )}
-                {selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'announcement' && (
-                  <span className="ml-2 px-3 py-1 text-xs bg-orange-500/20 text-orange-300 rounded-full border border-orange-400/30">
-                    Announcement Mode
-                  </span>
-                )}
-              </h3>
-              <p className="text-sm text-slate-300">Size: {canvasSize.width}x{canvasSize.height}px</p>
-              </div>
-              <div className="flex gap-4 items-center">
-              <Button
-                onPress={handleSaveBoard}
-                isLoading={saving}
-                className={`${
-                  hasUnsavedChanges 
-                    ? 'bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700' 
-                    : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
-                } text-white font-semibold transition-all duration-300 hover:shadow-xl hover:scale-105 rounded-2xl px-6 py-3 h-12 flex items-center justify-center gap-3`}
-              >
-                <Save className="w-5 h-5 flex-shrink-0" />
-                <span>
-                  {saving ? 'Saving...' : hasUnsavedChanges ? 'Save Changes' : 'Save Board'}
-                  {hasUnsavedChanges && !saving && <span className="ml-1 w-2 h-2 bg-white rounded-full inline-block animate-pulse"></span>}
+              <span className="hidden sm:inline">Canvas</span>
+              <span className="text-sm font-normal text-slate-300">({canvasItems.length} items)</span>
+              {selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' && (
+                <span className="ml-2 px-3 py-1 text-xs bg-blue-500/20 text-blue-300 rounded-full border border-blue-400/30 hidden sm:inline">
+                  Slideshow Mode
                 </span>
-              </Button>
-              {lastSaved && (
-                <div className="bg-emerald-500/20 border border-emerald-400/30 rounded-xl px-3 py-2 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
-                  <span className="text-xs text-emerald-200 font-medium">
-                    Saved at {lastSaved.toLocaleTimeString()}
-                  </span>
-                </div>
               )}
-              {saveError && (
-                <div className="bg-red-500/20 border border-red-400/30 rounded-xl px-3 py-2 flex items-center gap-2">
-                  <div className="w-2 h-2 bg-red-400 rounded-full"></div>
-                  <span className="text-xs text-red-200 font-medium">
-                    Error: {saveError}
-                  </span>
-                </div>
+              {selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'announcement' && (
+                <span className="ml-2 px-3 py-1 text-xs bg-orange-500/20 text-orange-300 rounded-full border border-orange-400/30 hidden sm:inline">
+                  Announcement Mode
+                </span>
               )}
+            </h3>
+            <p className="text-sm text-slate-300 hidden sm:block">Size: {canvasSize.width}x{canvasSize.height}px</p>
+          </div>
+          <div className="flex gap-2 sm:gap-4 items-center">
+            <Button
+              onPress={handleSaveBoard}
+              isLoading={saving}
+              size="sm"
+              className={`${
+                hasUnsavedChanges
+                  ? 'bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-700 hover:to-red-700'
+                  : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700'
+              } text-white font-semibold transition-all duration-300 hover:shadow-xl hover:scale-105 rounded-2xl px-3 sm:px-6 py-2 sm:py-3 h-10 sm:h-12 flex items-center justify-center gap-2 sm:gap-3`}
+            >
+              <Save className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" />
+              <span className="text-xs sm:text-sm">
+                {saving ? 'Saving...' : hasUnsavedChanges ? 'Save' : 'Save'}
+                {hasUnsavedChanges && !saving && <span className="ml-1 w-2 h-2 bg-white rounded-full inline-block animate-pulse"></span>}
+              </span>
+            </Button>
+            {lastSaved && (
+              <div className="bg-emerald-500/20 border border-emerald-400/30 rounded-xl px-2 sm:px-3 py-1 sm:py-2 flex items-center gap-2 hidden sm:flex">
+                <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse"></div>
+                <span className="text-xs text-emerald-200 font-medium">
+                  Saved at {lastSaved.toLocaleTimeString()}
+                </span>
               </div>
-            </div>
-
-          {/* Canvas Container */}
-          <div className="flex-1 p-6 bg-gradient-to-br from-slate-100 via-blue-50 to-purple-50 overflow-auto">
-            <div className="h-full flex items-center justify-center">
-              <div
-                ref={canvasRef}
-                className="relative border-2 border-slate-200/50 rounded-3xl shadow-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-gray-50/80"
-                      style={{
-                  width: canvasSize.width * 0.6, 
-                  height: canvasSize.height * 0.6,
-                  maxWidth: selectedItem && selectedItem.type === 'widget' && (selectedItem.widgetType === 'slideshow' || selectedItem.widgetType === 'announcement')
-                    ? 'calc(100vw - 40px)' 
-                    : 'calc(100vw - 320px)',
-                  maxHeight: 'calc(100vh - 140px)',
-                  transformOrigin: 'center center',
-                  backgroundColor: backgroundColor,
-                  backgroundImage: backgroundImage ? `url(${backgroundImage})` : 'none',
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center'
-                }}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={handleCanvasDrop}
-                onClick={handleCanvasClick}
-              >
-                {/* Canvas Items */}
-                {canvasItems.map((item) => {
-                  if (item.type === 'widget') {
-                    return (
-                      <RenderWidget
-                        key={item.id}
-                        widgetType={item.widgetType}
-                        x={item.x * 0.6}
-                        y={item.y * 0.6}
-                        width={item.width * 0.6}
-                        height={item.height * 0.6}
-                        mode="organize"
-                        isSelected={selectedItem?.id === item.id}
-                        item={item}
-                        onDragStart={handleDragStart}
-                        setSelectedItem={setSelectedItem}
-                        onResizeStart={handleResizeStart}
-                        onAddToSlideshow={addToSlideshow}
-                        uploadedFiles={uploadedFiles}
-                        playlist={item.widgetType === 'slideshow' ? item.playlist : undefined}
-                        onUpdateDuration={handleUpdateDuration}
-                      />
-                    )
-                  }
-                  
-                  return (
-                    <div
-                      key={item.id}
-                      draggable
-                      className={`absolute border-2 rounded-lg overflow-hidden ${
-                        selectedItem?.id === item.id 
-                          ? 'cursor-move border-blue-500 shadow-lg' 
-                          : 'cursor-move border-transparent hover:border-gray-300 hover:shadow-md transition-all duration-150'
-                      }`}
-                      style={{
-                        left: item.x * 0.6,
-                        top: item.y * 0.6,
-                        width: item.width * 0.6,
-                        height: item.height * 0.6,
-                        zIndex: item.zIndex,
-                        transform: `rotate(${item.rotation || 0}deg)`
-                      }}
-                      onDragStart={(e) => handleDragStart(e, item)}
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        setSelectedItem(item)
-                      }}
-                    >
-                      {item.type === 'image' && (
-                        <img
-                          src={item.url}
-                          alt={item.name}
-                          className="w-full h-full object-cover pointer-events-none"
-                          draggable={false}
-                        />
-                      )}
-                      {item.type === 'video' && (
-                        <div className="w-full h-full bg-gray-800 flex items-center justify-center pointer-events-none">
-                          <Video className="w-8 h-8 text-white" />
-                          <span className="text-white text-xs ml-2">{item.name}</span>
-                      </div>
-                    )}
-                      
-                      {/* Selection handles */}
-                      {selectedItem?.id === item.id && (
-                        <>
-                          <div 
-                            className="absolute -top-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-nw-resize hover:bg-blue-600"
-                            onMouseDown={(e) => handleResizeStart(e, 'nw')}
-                          ></div>
-                          <div 
-                            className="absolute -top-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-ne-resize hover:bg-blue-600"
-                            onMouseDown={(e) => handleResizeStart(e, 'ne')}
-                          ></div>
-                          <div 
-                            className="absolute -bottom-1 -left-1 w-3 h-3 bg-blue-500 rounded-full cursor-sw-resize hover:bg-blue-600"
-                            onMouseDown={(e) => handleResizeStart(e, 'sw')}
-                          ></div>
-                          <div 
-                            className="absolute -bottom-1 -right-1 w-3 h-3 bg-blue-500 rounded-full cursor-se-resize hover:bg-blue-600"
-                            onMouseDown={(e) => handleResizeStart(e, 'se')}
-                          ></div>
-                        </>
-                    )}
-                  </div>
-                  )
-                })}
-
-                {/* Canvas Guide */}
-                {canvasItems.length === 0 && (
-                  <div className="absolute inset-0 flex items-center justify-center text-black">
-                  <div className="text-center">
-                      <Plus className="w-16 h-16 mx-auto mb-4 opacity-60" />
-                      <p className="text-lg font-medium">Drop files here or use the sidebar</p>
-                      <p className="text-sm">to add content to your board</p>
-                  </div>
-                    </div>
-                  )}
+            )}
+            {saveError && (
+              <div className="bg-red-500/20 border border-red-400/30 rounded-xl px-2 sm:px-3 py-1 sm:py-2 flex items-center gap-2">
+                <div className="w-2 h-2 bg-red-400 rounded-full"></div>
+                <span className="text-xs text-red-200 font-medium">
+                  Error
+                </span>
               </div>
-            </div>
+            )}
           </div>
         </div>
 
-        {/* Slideshow Timeline Panel - Bottom */}
-        {selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' && (
-          <div className="border-t border-gray-300 bg-white p-4" data-slideshow-panel>
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="font-medium text-gray-900">
-                Slideshow Timeline ({selectedItem.playlist?.length || 0} slides)
-              </h4>
-              {selectedItem.playlist && selectedItem.playlist.length > 0 && (
-                <span className="text-sm text-gray-600">
-                  Total Duration: {selectedItem.playlist.reduce((total, slide) => total + (slide.duration || 5), 0)}s
-                </span>
-              )}
-      </div>
-            
-            {/* Upload Area for Slideshow */}
-            <div className="mb-4">
-              <div className="grid grid-cols-2 gap-3">
-                {/* Image Upload Area */}
-                <div
-                  className={`border-2 border-dashed border-blue-300 rounded-lg p-4 text-center transition-colors ${
-                    isUploading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-blue-400 hover:bg-blue-50'
-                  }`}
-                  onDragOver={handleDragOver}
-                  onDrop={(e) => {
-                    e.preventDefault()
-                    if (isUploading) return
-                    
-                    const files = e.dataTransfer.files
-                    if (files.length > 0) {
-                      handleSlideshowFileUpload(files, 'image')
-                    } else {
-                      // Handle drag from sidebar
-                      const draggedData = e.dataTransfer.getData("application/json")
-                      if (draggedData) {
-                        try {
-                          const draggedItem = JSON.parse(draggedData)
-                          if (draggedItem.type === 'image') {
-                            const newSlide = {
-                              id: `slide_${Date.now()}_${Math.random()}`,
-                              assetId: draggedItem.id,
-                              type: draggedItem.type,
-                              name: draggedItem.name,
-                              url: draggedItem.url,
-                              duration: 5,
-                              order: (selectedItem.playlist?.length || 0) + 1
-                            }
-                            const currentPlaylist = selectedItem.playlist || []
-                            const newPlaylist = [...currentPlaylist, newSlide]
-                            addToSlideshow(selectedItem.id, newPlaylist)
-                          }
-                        } catch (error) {
-                          console.error('Failed to parse dropped item:', error)
-                        }
-                      }
-                    }
-                  }}
-                  onClick={() => !isUploading && slideshowImageInputRef.current?.click()}
-                >
-                  <ImageIcon className="w-8 h-8 mx-auto mb-2 text-blue-500" />
-                  <p className="text-sm font-medium text-gray-700">Add Images</p>
-                  <p className="text-xs text-gray-500">Drag & drop or click to upload</p>
-    </div>
-
-                {/* Video Upload Area */}
-                <div
-                  className={`border-2 border-dashed border-purple-300 rounded-lg p-4 text-center transition-colors ${
-                    isUploading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:border-purple-400 hover:bg-purple-50'
-                  }`}
-                  onDragOver={handleDragOver}
-                  onDrop={(e) => {
-                    e.preventDefault()
-                    if (isUploading) return
-                    
-                    const files = e.dataTransfer.files
-                    if (files.length > 0) {
-                      handleSlideshowFileUpload(files, 'video')
-                    } else {
-                      // Handle drag from sidebar
-                      const draggedData = e.dataTransfer.getData("application/json")
-                      if (draggedData) {
-                        try {
-                          const draggedItem = JSON.parse(draggedData)
-                          if (draggedItem.type === 'video') {
-                            const newSlide = {
-                              id: `slide_${Date.now()}_${Math.random()}`,
-                              assetId: draggedItem.id,
-                              type: draggedItem.type,
-                              name: draggedItem.name,
-                              url: draggedItem.url,
-                              duration: 5,
-                              order: (selectedItem.playlist?.length || 0) + 1
-                            }
-                            const currentPlaylist = selectedItem.playlist || []
-                            const newPlaylist = [...currentPlaylist, newSlide]
-                            addToSlideshow(selectedItem.id, newPlaylist)
-                          }
-                        } catch (error) {
-                          console.error('Failed to parse dropped item:', error)
-                        }
-                      }
-                    }
-                  }}
-                  onClick={() => !isUploading && slideshowVideoInputRef.current?.click()}
-                >
-                  <Video className="w-8 h-8 mx-auto mb-2 text-purple-500" />
-                  <p className="text-sm font-medium text-gray-700">Add Videos</p>
-                  <p className="text-xs text-gray-500">Drag & drop or click to upload</p>
-                </div>
-              </div>
-            </div>
-            
-            {selectedItem.playlist && selectedItem.playlist.length > 0 ? (
-              <div className="space-y-3">
-                {/* Slide Timeline */}
-                <div className="flex gap-3 overflow-x-auto pb-2">
-                  {selectedItem.playlist.map((slide, index) => (
-                    <div
-                      key={slide.id}
-                      className="flex-shrink-0 border-2 border-gray-200 rounded-lg p-3 bg-gray-50 hover:bg-gray-100 transition-colors"
-                      style={{ width: "200px" }}
-                    >
-                      {/* Slide Preview */}
-                      <div className="w-full h-24 bg-gray-200 rounded mb-2 flex items-center justify-center overflow-hidden">
-                        {slide.type === 'image' && (
-                          <img
-                            src={slide.url}
-                            alt={slide.name}
-                            className="w-full h-full object-contain rounded"
-                          />
-                        )}
-                        {slide.type === 'video' && (
-                          <video
-                            key={slide.id}
-                            src={slide.url}
-                            className="w-full h-full object-contain rounded"
-                            muted
-                            playsInline
-                            preload="metadata"
-                            onError={(e) => {
-                              console.error('Video thumbnail failed to load:', slide.url)
-                            }}
-                          />
-                        )}
-                      </div>
-                      
-                      {/* Slide Info */}
-                      <div className="space-y-2">
-                        <div className="flex items-center gap-1">
-                          <span className="text-sm font-medium text-gray-900">#{index + 1}</span>
-                          <span className="text-xs text-gray-600 truncate flex-1">{slide.name}</span>
-                          
-                          {/* Reorder buttons */}
-                          <div className="flex gap-1">
-                            <Button
-                              size="sm"
-                              variant="light"
-                              isIconOnly
-                              isDisabled={index === 0}
-                              onPress={() => moveSlide(selectedItem.id, slide.id, 'up')}
-                              className="min-w-6 h-6"
-                            >
-                              <ChevronUp className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="light"
-                              isIconOnly
-                              isDisabled={index === selectedItem.playlist.length - 1}
-                              onPress={() => moveSlide(selectedItem.id, slide.id, 'down')}
-                              className="min-w-6 h-6"
-                            >
-                              <ChevronDown className="w-3 h-3" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="light"
-                              isIconOnly
-                              color="danger"
-                              onPress={() => {
-                                const newPlaylist = selectedItem.playlist.filter(s => s.id !== slide.id)
-                                addToSlideshow(selectedItem.id, newPlaylist)
-                              }}
-                              className="min-w-6 h-6"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        </div>
-                        
-                        {/* Duration Control */}
-                        <div className="flex items-center gap-2">
-                          <label className="text-xs text-gray-600">Duration:</label>
-                          <Input
-                            type="number"
-                            size="sm"
-                            value={slide.duration || 5}
-                            onChange={(e) => {
-                              const newDuration = parseInt(e.target.value) || 5
-                              const updatedPlaylist = selectedItem.playlist.map(s =>
-                                s.id === slide.id ? { ...s, duration: newDuration } : s
-                              )
-                              addToSlideshow(selectedItem.id, updatedPlaylist)
-                            }}
-                            className="w-16"
-                            min="1"
-                            max="60"
-                          />
-                          <span className="text-xs text-gray-500">sec</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Add Slide Placeholder */}
-                  <div
-                    className="flex-shrink-0 border-2 border-dashed border-gray-300 rounded-lg p-3 flex items-center justify-center hover:border-gray-400 transition-colors cursor-pointer"
-                    style={{ width: "200px", height: "140px" }}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => {
-                      e.preventDefault()
-                      const draggedData = e.dataTransfer.getData("application/json")
-                      if (draggedData) {
-                        try {
-                          const draggedItem = JSON.parse(draggedData)
-                          if (draggedItem.type === 'image' || draggedItem.type === 'video') {
-                            const newSlide = {
-                              id: `slide_${Date.now()}_${Math.random()}`,
-                              assetId: draggedItem.id,
-                              type: draggedItem.type,
-                              name: draggedItem.name,
-                              url: draggedItem.url,
-                              duration: 5,
-                              order: selectedItem.playlist?.length || 0 + 1
-                            }
-                            const currentPlaylist = selectedItem.playlist || []
-                            const newPlaylist = [...currentPlaylist, newSlide]
-                            addToSlideshow(selectedItem.id, newPlaylist)
-                          }
-                        } catch (error) {
-                          console.error('Failed to parse dropped item:', error)
-                        }
-                      }
-                    }}
-                  >
-                    <div className="text-center text-gray-500">
-                      <Plus className="w-8 h-8 mx-auto mb-2" />
-                      <p className="text-xs">Drag files here</p>
-                      <p className="text-xs">to add slides</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div 
-                className="text-center py-8 text-gray-500 border-2 border-dashed border-gray-300 rounded-lg hover:border-gray-400 transition-colors"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  const draggedData = e.dataTransfer.getData("application/json")
-                  if (draggedData) {
-                    try {
-                      const draggedItem = JSON.parse(draggedData)
-                      if (draggedItem.type === 'image' || draggedItem.type === 'video') {
-                        const newSlide = {
-                          id: `slide_${Date.now()}_${Math.random()}`,
-                          assetId: draggedItem.id,
-                          type: draggedItem.type,
-                          name: draggedItem.name,
-                          url: draggedItem.url,
-                          duration: 5,
-                          order: 1
-                        }
-                        addToSlideshow(selectedItem.id, [newSlide])
-                      }
-                    } catch (error) {
-                      console.error('Failed to parse dropped item:', error)
-                    }
-                  }
-                }}
-              >
-                <Plus className="w-12 h-12 mx-auto mb-3 opacity-50" />
-                <p className="text-sm font-medium">No slides in slideshow</p>
-                <p className="text-xs">Drag images or videos from the sidebar to add slides</p>
-              </div>
-            )}
-            
-            {/* Hidden input elements for independent slideshow uploads */}
-            <input
-              ref={slideshowImageInputRef}
-              type="file"
-              multiple
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => handleSlideshowFileUpload(e.target.files, "image")}
-            />
-            <input
-              ref={slideshowVideoInputRef}
-              type="file"
-              multiple
-              accept="video/*"
-              className="hidden"
-              onChange={(e) => handleSlideshowFileUpload(e.target.files, "video")}
-            />
-          </div>
-        )}
-
-        {/* Announcement Editing Panel - Bottom */}
-        {selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'announcement' && (
-          <div className="border-t border-gray-300 bg-white p-4" data-announcement-panel>
-            <div className="flex justify-between items-center mb-4">
-              <h4 className="font-medium text-gray-900">
-                Announcement Settings
-              </h4>
-              <div className="flex items-center gap-2">
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  selectedItem.announcement?.isActive 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-gray-100 text-gray-800'
-                }`}>
-                  {selectedItem.announcement?.isActive ? 'Active' : 'Inactive'}
-                </span>
-              </div>
-            </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Left Column - Text */}
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Announcement Text
-                  </label>
-                  <textarea
-                    value={selectedItem.announcement?.text || ""}
-                    onChange={(e) => {
-                      e.stopPropagation()
-                      updateAnnouncement(selectedItem.id, {
-                        ...selectedItem.announcement,
-                        text: e.target.value
-                      })
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    onFocus={(e) => e.stopPropagation()}
-                    onMouseDown={(e) => e.stopPropagation()}
-                    className="w-full h-24 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-black bg-white"
-                    placeholder="Enter your announcement text..."
-                  />
-                </div>
-              </div>
-
-              {/* Right Column - Timing and Status */}
-              <div className="space-y-4">
-                {/* Date Controls */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Start Date
-                    </label>
-                    <input
-                      type="date"
-                      value={selectedItem.announcement?.startDate || (() => {
-                        const now = new Date()
-                        const year = now.getFullYear()
-                        const month = String(now.getMonth() + 1).padStart(2, '0')
-                        const day = String(now.getDate()).padStart(2, '0')
-                        return `${year}-${month}-${day}`
-                      })()}
-                      onChange={(e) => {
-                        e.stopPropagation()
-                        updateAnnouncement(selectedItem.id, {
-                          ...selectedItem.announcement,
-                          startDate: e.target.value
-                        })
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      onFocus={(e) => e.stopPropagation()}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-black bg-white"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      End Date
-                    </label>
-                    <input
-                      type="date"
-                      value={selectedItem.announcement?.endDate || (() => {
-                        const now = new Date()
-                        const year = now.getFullYear()
-                        const month = String(now.getMonth() + 1).padStart(2, '0')
-                        const day = String(now.getDate()).padStart(2, '0')
-                        return `${year}-${month}-${day}`
-                      })()}
-                      onChange={(e) => {
-                        e.stopPropagation()
-                        updateAnnouncement(selectedItem.id, {
-                          ...selectedItem.announcement,
-                          endDate: e.target.value
-                        })
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      onFocus={(e) => e.stopPropagation()}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-black bg-white"
-                    />
-                  </div>
-                </div>
-
-                {/* Time Controls */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Start Time
-                    </label>
-                    <input
-                      type="time"
-                      value={selectedItem.announcement?.startTime || "09:00"}
-                      onChange={(e) => {
-                        e.stopPropagation()
-                        updateAnnouncement(selectedItem.id, {
-                          ...selectedItem.announcement,
-                          startTime: e.target.value
-                        })
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      onFocus={(e) => e.stopPropagation()}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-black bg-white"
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      End Time
-                    </label>
-                    <input
-                      type="time"
-                      value={selectedItem.announcement?.endTime || "17:00"}
-                      onChange={(e) => {
-                        e.stopPropagation()
-                        updateAnnouncement(selectedItem.id, {
-                          ...selectedItem.announcement,
-                          endTime: e.target.value
-                        })
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      onFocus={(e) => e.stopPropagation()}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 text-black bg-white"
-                    />
-                  </div>
-                </div>
-                
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={selectedItem.announcement?.isActive || false}
-                      onChange={(e) => updateAnnouncement(selectedItem.id, {
-                        ...selectedItem.announcement,
-                        isActive: e.target.checked
-                      })}
-                      className="w-4 h-4 text-orange-600 bg-gray-100 border-gray-300 rounded focus:ring-orange-500"
-                    />
-                    <span className="text-sm font-medium text-gray-700">
-                      Enable Announcement
-                    </span>
-                  </label>
-                </div>
-                
-                <div className="bg-gray-50 rounded-lg p-3">
-                  <h5 className="text-sm font-medium text-gray-700 mb-2">Preview</h5>
-                  <div className="text-xs text-gray-600 space-y-1">
-                    <p>
-                      <strong>Text:</strong> {selectedItem.announcement?.text?.substring(0, 50) || "No text"}
-                      {selectedItem.announcement?.text?.length > 50 && "..."}
-                    </p>
-                    <p><strong>Active Period:</strong> {selectedItem.announcement?.startDate || (() => {
-                        const now = new Date()
-                        const year = now.getFullYear()
-                        const month = String(now.getMonth() + 1).padStart(2, '0')
-                        const day = String(now.getDate()).padStart(2, '0')
-                        return `${year}-${month}-${day}`
-                      })()} {selectedItem.announcement?.startTime || "09:00"} - {selectedItem.announcement?.endDate || (() => {
-                        const now = new Date()
-                        const year = now.getFullYear()
-                        const month = String(now.getMonth() + 1).padStart(2, '0')
-                        const day = String(now.getDate()).padStart(2, '0')
-                        return `${year}-${month}-${day}`
-                      })()} {selectedItem.announcement?.endTime || "17:00"}</p>
-                    <p><strong>Status:</strong> {selectedItem.announcement?.isActive ? "Active" : "Inactive"}</p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+        {/* Canvas Area */}
+        <CanvasArea
+          canvasRef={canvasRef}
+          canvasSize={canvasSize}
+          backgroundColor={backgroundColor}
+          backgroundImage={backgroundImage}
+          canvasItems={canvasItems}
+          selectedItem={selectedItem}
+          handleCanvasDrop={handleCanvasDrop}
+          handleCanvasClick={handleCanvasClick}
+          handleDragStart={handleDragStart}
+          setSelectedItem={setSelectedItem}
+          handleResizeStart={handleResizeStart}
+          addToSlideshow={addToSlideshow}
+          uploadedFiles={uploadedFiles}
+          handleUpdateDuration={handleUpdateDuration}
+        />
+      </ResponsiveLayout>
     </div>
   )
 }
