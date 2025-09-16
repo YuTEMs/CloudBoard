@@ -73,7 +73,7 @@ const getWeatherColors = (condition: string, hour: number): string => {
 const WeatherWidget: React.FC<WidgetProps> = memo(function WeatherWidget(props) {
   const { width, height, item } = props
   const [weatherData, setWeatherData] = useState<WeatherInfo[]>([])
-  const [isLoading, setIsLoading] = useState(true)
+  const [isLoading, setIsLoading] = useState(false)
   const [currentLocationIndex, setCurrentLocationIndex] = useState(0)
 
   // Get locations from the item prop and filter out empty ones
