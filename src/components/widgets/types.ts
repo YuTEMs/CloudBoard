@@ -28,6 +28,12 @@ export interface WeatherData {
   humidity: number
 }
 
+export interface LocationData {
+  name: string
+  lat: string | number
+  lng: string | number
+}
+
 export interface AnnouncementData {
   text?: string
   isActive?: boolean

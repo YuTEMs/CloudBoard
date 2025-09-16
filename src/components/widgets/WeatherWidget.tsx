@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, memo } from 'react'
 import { BaseWidget } from './BaseWidget'
-import { WidgetProps } from './types'
+import { WidgetProps, LocationData } from './types'
 import { fetchWeatherData, WeatherInfo } from '../../lib/weather-api'
 
 const getWeatherEmoji = (condition: string): string => {
@@ -77,12 +77,12 @@ const WeatherWidget: React.FC<WidgetProps> = memo(function WeatherWidget(props) 
   const [currentLocationIndex, setCurrentLocationIndex] = useState(0)
 
   // Get locations from the item prop and filter out empty ones
-  const locations = (item?.locations || []).filter(location => {
+  const locations = (item?.locations || []).filter((location: LocationData) => {
     return location.name && location.name.trim() &&
       location.lat !== '' && location.lng !== '' &&
       !isNaN(Number(location.lat)) && !isNaN(Number(location.lng)) &&
       Number(location.lat) !== 0 && Number(location.lng) !== 0;
-  }).map(location => ({
+  }).map((location: LocationData) => ({
     ...location,
     lat: Number(location.lat),
     lng: Number(location.lng)
