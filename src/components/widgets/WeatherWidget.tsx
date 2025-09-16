@@ -71,30 +71,57 @@ const getWeatherColors = (condition: string, hour: number): string => {
 }
 
 const WeatherWidget: React.FC<WidgetProps> = memo(function WeatherWidget(props) {
-  const { width, height } = props
+  const { width, height, item } = props
   const [weatherData, setWeatherData] = useState<WeatherInfo[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [currentLocationIndex, setCurrentLocationIndex] = useState(0)
 
-  const loadWeatherData = async () => {
-    try {
-      setIsLoading(true)
-      const data = await fetchWeatherData()
-      setWeatherData(data)
-    } catch (error) {
-      console.error('Failed to load weather data:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
+  // Get locations from the item prop and filter out empty ones
+  const locations = (item?.locations || []).filter(location => {
+    return location.name && location.name.trim() &&
+      location.lat !== '' && location.lng !== '' &&
+      !isNaN(Number(location.lat)) && !isNaN(Number(location.lng)) &&
+      Number(location.lat) !== 0 && Number(location.lng) !== 0;
+  }).map(location => ({
+    ...location,
+    lat: Number(location.lat),
+    lng: Number(location.lng)
+  }))
 
   useEffect(() => {
+    const loadWeatherData = async () => {
+      try {
+        setIsLoading(true)
+
+        // If no custom locations, don't fetch weather data
+        if (locations.length === 0) {
+          setWeatherData([{
+            location: 'No location',
+            temperature: 0,
+            condition: 'Configure locations in properties',
+            precipitationProbability: 0
+          }])
+          setIsLoading(false)
+          return
+        }
+
+        const data = await fetchWeatherData(locations)
+        setWeatherData(data)
+      } catch (error) {
+        console.error('Failed to load weather data:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
     loadWeatherData()
-    
-    const refreshInterval = setInterval(loadWeatherData, 5 * 60 * 1000)
-    
-    return () => clearInterval(refreshInterval)
-  }, [])
+
+    // Only set interval if we have locations
+    if (locations.length > 0) {
+      const refreshInterval = setInterval(loadWeatherData, 5 * 60 * 1000)
+      return () => clearInterval(refreshInterval)
+    }
+  }, [locations])
 
   useEffect(() => {
     if (weatherData.length > 1) {
@@ -113,6 +140,16 @@ const WeatherWidget: React.FC<WidgetProps> = memo(function WeatherWidget(props) 
     precipitationProbability: 0
   }
 
+  // Stable font sizes to prevent glitching
+  const fontSizes = {
+    location: Math.max(12, Math.min(width * 0.08, height * 0.2, 24)),
+    temperature: Math.max(16, Math.min(width * 0.12, height * 0.3, 36)),
+    condition: Math.max(10, Math.min(width * 0.05, height * 0.13, 16)),
+    precipitation: Math.max(9, Math.min(width * 0.045, height * 0.12, 14)),
+    counter: Math.max(8, Math.min(width * 0.03, height * 0.08, 12)),
+    emoji: Math.max(20, Math.min(width * 0.12, height * 0.3, 40))
+  }
+
   const currentHour = new Date().getHours()
   const weatherColors = getWeatherColors(currentWeather.condition, currentHour)
 
@@ -123,26 +160,26 @@ const WeatherWidget: React.FC<WidgetProps> = memo(function WeatherWidget(props) 
     >
       <div className="flex items-center justify-between h-full">
         <div className="flex-1">
-          <div style={{ fontSize: Math.min(width * 0.08, height * 0.2) }} className="font-medium opacity-90 mb-1">
+          <div style={{ fontSize: `${fontSizes.location}px` }} className="font-medium opacity-90 mb-1">
             {currentWeather.location}
           </div>
-          <div style={{ fontSize: Math.min(width * 0.12, height * 0.3) }} className="font-black mb-1">
-            {isLoading ? '--' : currentWeather.temperature}°C
+          <div style={{ fontSize: `${fontSizes.temperature}px` }} className="font-black mb-1">
+            {isLoading ? '--' : `${currentWeather.temperature}`}°C
           </div>
-          <div style={{ fontSize: Math.min(width * 0.05, height * 0.13) }} className="font-medium opacity-90 mb-1">
+          <div style={{ fontSize: `${fontSizes.condition}px` }} className="font-medium opacity-90 mb-1">
             {currentWeather.condition}
           </div>
-          <div style={{ fontSize: Math.min(width * 0.045, height * 0.12) }} className="opacity-85 font-medium">
+          <div style={{ fontSize: `${fontSizes.precipitation}px` }} className="opacity-85 font-medium">
             🌧️ {currentWeather.precipitationProbability}%
           </div>
           {weatherData.length > 1 && (
-            <div style={{ fontSize: Math.min(width * 0.03, height * 0.08) }} className="opacity-60 mt-1">
+            <div style={{ fontSize: `${fontSizes.counter}px` }} className="opacity-60 mt-1">
               {currentLocationIndex + 1}/{weatherData.length}
             </div>
           )}
         </div>
         <div className="flex-shrink-0 ml-4">
-          <div style={{ fontSize: Math.min(width * 0.12, height * 0.3) }}>
+          <div style={{ fontSize: `${fontSizes.emoji}px` }}>
             {getWeatherEmoji(currentWeather.condition)}
           </div>
         </div>

@@ -626,7 +626,7 @@ function OrganizePageContent() {
     else if (type === 'weather') widgetName = 'Weather';
     else if (type === 'slideshow') widgetName = 'Slideshow';
     else if (type === 'announcement') widgetName = 'Announcement';
-    
+
     const widget = {
       type: 'widget',
       widgetType: type,
@@ -638,6 +638,7 @@ function OrganizePageContent() {
         backgroundColor !== null ? backgroundColor : (timeType === 'analog' ? 'transparent' : '#1e293b')
       ) : undefined,
       playlist: type === 'slideshow' ? [] : undefined,
+      locations: type === 'weather' ? [] : undefined,
       announcement: type === 'announcement' ? {
         text: "",
         startDate: getCurrentDate(),
@@ -648,7 +649,7 @@ function OrganizePageContent() {
       } : undefined
     }
     addToCanvas(widget)
-    
+
     // Reset expanded state after adding widget
     if (type === 'time') {
       setExpandedTimeWidget(false)

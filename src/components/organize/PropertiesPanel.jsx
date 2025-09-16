@@ -1,7 +1,7 @@
 "use client"
 
 import { Button, Input } from "@heroui/react"
-import { Settings, Trash2, Play, Move, Layers, ImageIcon, Video, Upload, Plus, ChevronUp, ChevronDown } from "lucide-react"
+import { Settings, Trash2, Play, Move, Layers, ImageIcon, Video, Upload, Plus, ChevronUp, ChevronDown, MapPin, X, Globe, Navigation } from "lucide-react"
 
 export function PropertiesPanel({
   selectedItem,
@@ -568,6 +568,179 @@ export function PropertiesPanel({
             )}
           </div>
         </>
+      )}
+
+      {/* Weather widget-specific properties */}
+      {selectedItem.type === 'widget' && selectedItem.widgetType === 'weather' && (
+        <div className="bg-white/70 backdrop-blur-sm rounded-xl p-4 border border-slate-200/50 mb-6">
+          <h4 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <Globe className="w-4 h-4 text-blue-500" />
+            Weather Locations ({(selectedItem.locations || []).length}/4)
+          </h4>
+
+          <div className="space-y-3">
+            {/* Quick Setup - Preset Locations */}
+            {(!selectedItem.locations || selectedItem.locations.length === 0) && (
+              <div className="bg-blue-50 rounded-lg p-3 mb-4">
+                <h5 className="text-sm font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                  <Navigation className="w-4 h-4" />
+                  Quick Setup - Malaysia Cities
+                </h5>
+                <div className="grid grid-cols-1 gap-2">
+                  {[
+                    { name: 'Kuala Lumpur', lat: 3.1390, lng: 101.6869 },
+                    { name: 'Subang Jaya', lat: 3.0356, lng: 101.5819 },
+                    { name: 'Petaling Jaya', lat: 3.1073, lng: 101.6067 },
+                    { name: 'Shah Alam', lat: 3.0733, lng: 101.5185 }
+                  ].map((preset, index) => (
+                    <Button
+                      key={index}
+                      size="sm"
+                      variant="flat"
+                      color="primary"
+                      className="justify-start text-left h-8"
+                      onPress={() => {
+                        const currentLocations = selectedItem.locations || []
+                        if (currentLocations.length < 4) {
+                          updateItemProperty('locations', [...currentLocations, preset])
+                        }
+                      }}
+                    >
+                      <MapPin className="w-3 h-3 mr-2" />
+                      Add {preset.name}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Current locations */}
+            {(selectedItem.locations || []).map((location, index) => (
+              <div key={index} className="relative bg-slate-50 rounded-lg p-4 space-y-3 border border-slate-200">
+                <div className="flex items-center justify-center">
+                  <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
+                    <MapPin className="w-4 h-4 text-blue-500" />
+                    Location {index + 1}
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="solid"
+                    isIconOnly
+                    color="danger"
+                    onPress={() => {
+                      const newLocations = selectedItem.locations.filter((_, i) => i !== index)
+                      updateItemProperty('locations', newLocations)
+                    }}
+                    className="absolute top-2 right-2 min-w-6 h-6 bg-red-500 hover:bg-red-600 text-white shadow-md rounded-full flex items-center justify-center"
+                  >
+                    <X className="w-3 h-3 font-bold" />
+                  </Button>
+                </div>
+
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-xs text-slate-600 font-medium block mb-1">City Name</label>
+                    <Input
+                      size="sm"
+                      value={location.name}
+                      onChange={(e) => {
+                        const newLocations = [...selectedItem.locations]
+                        newLocations[index] = { ...location, name: e.target.value }
+                        updateItemProperty('locations', newLocations)
+                      }}
+                      onClick={(e) => e.stopPropagation()}
+                      onFocus={(e) => e.stopPropagation()}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      placeholder="Enter city name"
+                      classNames={{
+                        input: "text-slate-900",
+                        inputWrapper: "bg-white border-slate-200"
+                      }}
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-slate-600 font-medium block mb-1">Latitude</label>
+                      <Input
+                        size="sm"
+                        type="number"
+                        step="0.0001"
+                        value={location.lat}
+                        onChange={(e) => {
+                          const newLocations = [...selectedItem.locations]
+                          newLocations[index] = { ...location, lat: e.target.value === '' ? '' : parseFloat(e.target.value) || '' }
+                          updateItemProperty('locations', newLocations)
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        onFocus={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        placeholder="3.0000"
+                        classNames={{
+                          input: "text-slate-900",
+                          inputWrapper: "bg-white border-slate-200"
+                        }}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs text-slate-600 font-medium block mb-1">Longitude</label>
+                      <Input
+                        size="sm"
+                        type="number"
+                        step="0.0001"
+                        value={location.lng}
+                        onChange={(e) => {
+                          const newLocations = [...selectedItem.locations]
+                          newLocations[index] = { ...location, lng: e.target.value === '' ? '' : parseFloat(e.target.value) || '' }
+                          updateItemProperty('locations', newLocations)
+                        }}
+                        onClick={(e) => e.stopPropagation()}
+                        onFocus={(e) => e.stopPropagation()}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        placeholder="101.0000"
+                        classNames={{
+                          input: "text-slate-900",
+                          inputWrapper: "bg-white border-slate-200"
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+
+            {/* Add location button */}
+            {(!selectedItem.locations || selectedItem.locations.length < 4) && (
+              <Button
+                size="sm"
+                variant="bordered"
+                className="w-full border-2 border-dashed border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-700 font-semibold flex items-center justify-center gap-2"
+                onPress={() => {
+                  const currentLocations = selectedItem.locations || []
+                  const newLocation = { name: '', lat: '', lng: '' }
+                  updateItemProperty('locations', [...currentLocations, newLocation])
+                }}
+              >
+                <Plus className="w-4 h-4" />
+                Add New Location
+              </Button>
+            )}
+
+            {/* Info */}
+            <div className="bg-blue-50 rounded-lg p-3">
+              <div className="text-sm text-blue-900 font-medium mb-1 flex items-center gap-2">
+                <Globe className="w-4 h-4" />
+                Weather Display Settings
+              </div>
+              <div className="space-y-1 text-xs text-blue-700">
+                <p>• Auto-cycles every 10 seconds between locations</p>
+                <p>• Updates weather data every 5 minutes</p>
+                <p>• Use decimal coordinates (e.g., 3.0356, 101.5819)</p>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
     </div>

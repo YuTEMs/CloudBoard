@@ -25,6 +25,16 @@ const LOCATIONS: WeatherLocation[] = [
   { name: 'Damansara', lat: 3.1651, lng: 101.5900 }
 ];
 
+// Cache for weather data
+interface CachedWeatherData {
+  data: WeatherInfo[];
+  timestamp: number;
+  locationsKey: string;
+}
+
+const weatherCache = new Map<string, CachedWeatherData>();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+
 const getWeatherCondition = (weatherCode: number): string => {
   const conditions: { [key: number]: string } = {
     0: 'Clear sky',
@@ -61,31 +71,70 @@ const getWeatherCondition = (weatherCode: number): string => {
 };
 
 const fetchWeatherForLocation = async (location: WeatherLocation): Promise<WeatherInfo> => {
-  const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lng}&current=temperature_2m,precipitation_probability,weather_code&timezone=Asia/Kuala_Lumpur`;
-  
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${location.lat}&longitude=${location.lng}&current=temperature_2m,weather_code&hourly=precipitation_probability&timezone=Asia/Kuala_Lumpur&forecast_days=1`;
+
   const response = await fetch(url);
+
   if (!response.ok) {
-    throw new Error(`Weather API error: ${response.status}`);
+    const errorText = await response.text();
+    throw new Error(`Weather API error: ${response.status} - ${errorText}`);
   }
-  
-  const data: OpenMeteoResponse = await response.json();
-  
+
+  const data: any = await response.json();
+
+  // Get current hour precipitation probability from hourly data
+  const currentHour = new Date().getHours();
+  const precipitationProbability = data.hourly?.precipitation_probability?.[currentHour] || 0;
+
   return {
     location: location.name,
     temperature: Math.round(data.current.temperature_2m),
     condition: getWeatherCondition(data.current.weather_code),
-    precipitationProbability: data.current.precipitation_probability || 0
+    precipitationProbability: precipitationProbability
   };
 };
 
-export const fetchWeatherData = async (): Promise<WeatherInfo[]> => {
+// Helper function to create a cache key from locations
+const createLocationsCacheKey = (locations: WeatherLocation[]): string => {
+  return locations
+    .map(loc => `${loc.name}-${loc.lat}-${loc.lng}`)
+    .sort()
+    .join('|');
+};
+
+export const fetchWeatherData = async (customLocations: WeatherLocation[]): Promise<WeatherInfo[]> => {
+  const locationsToUse = customLocations;
+  const cacheKey = createLocationsCacheKey(locationsToUse);
+  const now = Date.now();
+
+  // Check if we have cached data that's still valid
+  const cachedData = weatherCache.get(cacheKey);
+  if (cachedData && (now - cachedData.timestamp) < CACHE_DURATION) {
+    return cachedData.data;
+  }
+
   try {
-    const weatherPromises = LOCATIONS.map(location => fetchWeatherForLocation(location));
+    const weatherPromises = locationsToUse.map(location => fetchWeatherForLocation(location));
     const weatherData = await Promise.all(weatherPromises);
+
+    // Cache the successful result
+    weatherCache.set(cacheKey, {
+      data: weatherData,
+      timestamp: now,
+      locationsKey: cacheKey
+    });
+
     return weatherData;
   } catch (error) {
-    console.error('Error fetching weather data:', error);
-    return LOCATIONS.map(location => ({
+    console.error('Weather API error:', error);
+
+    // Try to return stale cached data if available
+    if (cachedData) {
+      return cachedData.data;
+    }
+
+    // Last resort: return fallback data
+    return locationsToUse.map(location => ({
       location: location.name,
       temperature: 25,
       condition: 'Unknown',
@@ -94,4 +143,5 @@ export const fetchWeatherData = async (): Promise<WeatherInfo[]> => {
   }
 };
 
-export type { WeatherInfo };
+export type { WeatherInfo, WeatherLocation };
+export { LOCATIONS as DEFAULT_WEATHER_LOCATIONS };
