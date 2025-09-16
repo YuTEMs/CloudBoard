@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, memo } from 'react'
+import React, { useState, useEffect, memo, useMemo } from 'react'
 import { BaseWidget } from './BaseWidget'
 import { WidgetProps, LocationData } from './types'
 import { fetchWeatherData, WeatherInfo } from '../../lib/weather-api'
@@ -73,20 +73,22 @@ const getWeatherColors = (condition: string, hour: number): string => {
 const WeatherWidget: React.FC<WidgetProps> = memo(function WeatherWidget(props) {
   const { width, height, item } = props
   const [weatherData, setWeatherData] = useState<WeatherInfo[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
   const [currentLocationIndex, setCurrentLocationIndex] = useState(0)
 
   // Get locations from the item prop and filter out empty ones
-  const locations = (item?.locations || []).filter((location: LocationData) => {
+  const locations = useMemo(() => {
+    return (item?.locations || []).filter((location: LocationData) => {
     return location.name && location.name.trim() &&
       location.lat !== '' && location.lng !== '' &&
       !isNaN(Number(location.lat)) && !isNaN(Number(location.lng)) &&
       Number(location.lat) !== 0 && Number(location.lng) !== 0;
-  }).map((location: LocationData) => ({
-    ...location,
-    lat: Number(location.lat),
-    lng: Number(location.lng)
-  }))
+      }).map((location: LocationData) => ({
+        ...location,
+        lat: Number(location.lat),
+        lng: Number(location.lng)
+      }))
+    }, [item?.locations])
 
   useEffect(() => {
     const loadWeatherData = async () => {
