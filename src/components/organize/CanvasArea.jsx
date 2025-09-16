@@ -102,6 +102,21 @@ export function CanvasArea({
                     <span className="text-white text-xs ml-2">{item.name}</span>
                   </div>
                 )}
+                {item.type === 'text' && (
+                  <div
+                    className="w-full h-full flex items-center justify-center p-2 pointer-events-none"
+                    style={{
+                      color: item.color || '#000000',
+                      fontSize: `${(item.fontSize || 24) * 0.6}px`,
+                      fontFamily: item.fontFamily || 'Arial',
+                      fontWeight: item.fontWeight || 'normal',
+                      textAlign: item.textAlign || 'center',
+                      backgroundColor: item.backgroundColor || 'transparent'
+                    }}
+                  >
+                    {item.content}
+                  </div>
+                )}
 
                 {/* Selection handles */}
                 {selectedItem?.id === item.id && (
