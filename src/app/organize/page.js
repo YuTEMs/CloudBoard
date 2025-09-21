@@ -367,25 +367,14 @@ function OrganizePageContent() {
     }
   }, [isResizing, handleResizeMove, handleResizeEnd])
 
-  // Keyboard deletion
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      // Don't delete if user is typing in input fields
-      const isTypingInInput = e.target.tagName === 'INPUT' || 
-                             e.target.tagName === 'TEXTAREA' || 
-                             e.target.contentEditable === 'true' ||
-                             e.target.closest('[data-announcement-panel]') ||
-                             e.target.closest('[data-slideshow-panel]')
-      
-      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedItem && !isTypingInInput) {
-        e.preventDefault()
-        deleteSelectedItem()
-      }
+  // Delete selected item
+  const deleteSelectedItem = useCallback(() => {
+    if (selectedItem) {
+      setCanvasItems(items => items.filter(item => item.id !== selectedItem.id))
+      setSelectedItem(null)
     }
-
-    document.addEventListener('keydown', handleKeyDown)
-    return () => document.removeEventListener('keydown', handleKeyDown)
   }, [selectedItem])
+
 
   // Handle file upload
   const handleFileUpload = async (files, type) => {
@@ -507,11 +496,16 @@ function OrganizePageContent() {
 
   // Handle clicks outside slideshow to deselect
   const handlePageClick = (e) => {
+    const path = typeof e.composedPath === 'function' ? e.composedPath() : []
+    const clickedInsidePropertiesPanel = path.some(
+      (node) => node instanceof HTMLElement && node.hasAttribute('data-properties-panel')
+    )
+
     // Only deselect if clicking outside the main canvas area, panels, and sidebars
     const isCanvasArea = canvasRef.current?.contains(e.target)
     const isSlideshowPanel = e.target.closest('[data-slideshow-panel]')
     const isAnnouncementPanel = e.target.closest('[data-announcement-panel]')
-    const isPropertiesPanel = e.target.closest('[data-properties-panel]')
+    const isPropertiesPanel = clickedInsidePropertiesPanel || e.target.closest('[data-properties-panel]')
     const isToolsPanel = e.target.closest('[data-tools-panel]')
     const isSidebar = e.target.closest('.w-72') || e.target.closest('.w-80')
 
@@ -537,13 +531,6 @@ function OrganizePageContent() {
     }
   }, [canvasItems, selectedItem])
 
-  // Delete selected item
-  const deleteSelectedItem = () => {
-    if (selectedItem) {
-      setCanvasItems(items => items.filter(item => item.id !== selectedItem.id))
-      setSelectedItem(null)
-    }
-  }
 
   // Update item properties
   const updateItemProperty = (property, value) => {

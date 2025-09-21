@@ -1,7 +1,9 @@
 "use client"
 
 import { Button, Input } from "@heroui/react"
-import { Settings, Trash2, Play, Move, Layers, ImageIcon, Video, Upload, Plus, ChevronUp, ChevronDown, MapPin, X, Globe, Navigation } from "lucide-react"
+import { Settings, Trash2, Play, Move, Layers, ImageIcon, Video, Upload, Plus, ChevronUp, ChevronDown, MapPin, X, Globe, Search } from "lucide-react"
+import { useState, useCallback, useRef, useEffect } from "react"
+import { searchLocations, convertToLocationData } from "../../lib/geocoding-api"
 
 export function PropertiesPanel({
   selectedItem,
@@ -19,10 +21,96 @@ export function PropertiesPanel({
   makeFileDraggable,
   moveSlide
 }) {
+  // Location search state
+  const [locationSearchQuery, setLocationSearchQuery] = useState("")
+  const [searchResults, setSearchResults] = useState([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [showSearchResults, setShowSearchResults] = useState(false)
+  const searchInputRef = useRef(null)
+
+  const weatherInputWrapperClass = "w-full min-h-[2.5rem] bg-white border border-slate-200 hover:border-blue-300 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 rounded-lg transition-all px-3"
+  const weatherInputClass = "text-slate-900"
+  const weatherInputCenteredClass = "text-slate-900 text-center"
+
   // Prevent deselection when clicking anywhere in the properties panel
   const handlePropertiesPanelClick = (e) => {
     e.stopPropagation()
   }
+
+
+  // Handle search input change (no auto-search)
+  const handleLocationSearchChange = useCallback((e) => {
+    const query = e.target.value
+    setLocationSearchQuery(query)
+
+    // Clear results when user is typing
+    if (searchResults.length > 0) {
+      setSearchResults([])
+      setShowSearchResults(false)
+    }
+  }, [searchResults.length])
+
+  // Handle manual search when Find button is clicked
+  const handleSearchSubmit = useCallback(async () => {
+    if (!locationSearchQuery.trim() || locationSearchQuery.length < 2) {
+      return
+    }
+
+    setIsSearching(true)
+    try {
+      const results = await searchLocations(locationSearchQuery, 8)
+      setSearchResults(results)
+      setShowSearchResults(results.length > 0)
+    } catch (error) {
+      console.error('Location search error:', error)
+      setSearchResults([])
+      setShowSearchResults(false)
+    } finally {
+      setIsSearching(false)
+    }
+  }, [locationSearchQuery])
+
+  // Handle location selection from search results
+  const handleLocationSelect = useCallback((location) => {
+    if (!selectedItem) return
+
+    const currentLocations = selectedItem.locations || []
+    if (currentLocations.length < 4) {
+      const locationData = convertToLocationData(location)
+      updateItemProperty('locations', [...currentLocations, locationData])
+    }
+
+    // Clear search
+    setLocationSearchQuery("")
+    setSearchResults([])
+    setShowSearchResults(false)
+    // Only blur after a short delay to allow the selection to complete
+    setTimeout(() => {
+      if (searchInputRef.current) {
+        searchInputRef.current.blur()
+      }
+    }, 100)
+  }, [selectedItem?.locations, updateItemProperty, selectedItem])
+
+
+  // Close search results when clicking outside (disabled to prevent focus issues)
+  // Results will close on blur instead
+  /*
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      // Check if click is outside both the search input container and search results dropdown
+      if (searchInputRef.current &&
+          !searchInputRef.current.contains(event.target) &&
+          !event.target.closest('[data-search-results]')) {
+        setShowSearchResults(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+  */
+
   if (!selectedItem) {
     return (
       <div className="w-80 bg-gradient-to-b from-slate-100 to-white border-l border-slate-200 p-4 overflow-y-auto shadow-lg" data-properties-panel onClick={handlePropertiesPanelClick}>
@@ -68,12 +156,25 @@ export function PropertiesPanel({
 
       {/* Item Info */}
       <div className="bg-white/70 backdrop-blur-sm rounded-xl p-4 border border-slate-200/50 mb-6">
-        <h4 className="font-semibold text-slate-900 mb-3 flex items-center gap-2">
-          {selectedItem.type === 'widget' && <Settings className="w-4 h-4 text-indigo-500" />}
-          {selectedItem.type === 'image' && <div className="w-4 h-4 bg-blue-500 rounded"></div>}
-          {selectedItem.type === 'video' && <div className="w-4 h-4 bg-purple-500 rounded"></div>}
-          Selected Item
-        </h4>
+        <div className="flex items-center justify-between mb-3">
+          <h4 className="font-semibold text-slate-900 flex items-center gap-2">
+            {selectedItem.type === 'widget' && <Settings className="w-4 h-4 text-indigo-500" />}
+            {selectedItem.type === 'image' && <div className="w-4 h-4 bg-blue-500 rounded"></div>}
+            {selectedItem.type === 'video' && <div className="w-4 h-4 bg-purple-500 rounded"></div>}
+            Selected Item
+          </h4>
+          <Button
+            size="sm"
+            variant="solid"
+            color="danger"
+            isIconOnly
+            onPress={() => deleteSelectedItem()}
+            className="min-w-8 h-8 bg-red-500 hover:bg-red-600 text-white shadow-md rounded-lg"
+            title="Remove item"
+          >
+            <Trash2 className="w-4 h-4" />
+          </Button>
+        </div>
         <div className="space-y-2 text-sm">
           <p className="text-slate-600">
             <strong>Type:</strong> {selectedItem.type === 'widget' ? selectedItem.widgetType : selectedItem.type}
@@ -578,50 +679,126 @@ export function PropertiesPanel({
             Weather Locations ({(selectedItem.locations || []).length}/4)
           </h4>
 
-          <div className="space-y-3">
-            {/* Quick Setup - Preset Locations */}
-            {(!selectedItem.locations || selectedItem.locations.length === 0) && (
-              <div className="bg-blue-50 rounded-lg p-3 mb-4">
-                <h5 className="text-sm font-semibold text-blue-900 mb-2 flex items-center gap-2">
-                  <Navigation className="w-4 h-4" />
-                  Quick Setup - Malaysia Cities
-                </h5>
-                <div className="grid grid-cols-1 gap-2">
-                  {[
-                    { name: 'Kuala Lumpur', lat: 3.1390, lng: 101.6869 },
-                    { name: 'Subang Jaya', lat: 3.0356, lng: 101.5819 },
-                    { name: 'Petaling Jaya', lat: 3.1073, lng: 101.6067 },
-                    { name: 'Shah Alam', lat: 3.0733, lng: 101.5185 }
-                  ].map((preset, index) => (
-                    <Button
-                      key={index}
-                      size="sm"
-                      variant="flat"
-                      color="primary"
-                      className="justify-start text-left h-8"
-                      onPress={() => {
-                        const currentLocations = selectedItem.locations || []
-                        if (currentLocations.length < 4) {
-                          updateItemProperty('locations', [...currentLocations, preset])
-                        }
-                      }}
-                    >
-                      <MapPin className="w-3 h-3 mr-2" />
-                      Add {preset.name}
-                    </Button>
-                  ))}
+          <div className="space-y-4">
+            {/* Add Location Section */}
+            {(!selectedItem.locations || selectedItem.locations.length < 4) && (
+              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                {/* Header with title and Find button */}
+                <div className="flex items-center justify-between mb-3">
+                  <h5 className="text-sm font-semibold text-blue-900 flex items-center gap-2">
+                    <Plus className="w-4 h-4" />
+                    Add Location
+                  </h5>
+                  <Button
+                    size="sm"
+                    variant="solid"
+                    color="primary"
+                    onPress={handleSearchSubmit}
+                    isDisabled={!locationSearchQuery.trim() || locationSearchQuery.length < 2 || isSearching}
+                    isLoading={isSearching}
+                    className="px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white font-medium rounded-lg text-sm whitespace-nowrap"
+                  >
+                    Find
+                  </Button>
+                </div>
+
+                <div className="space-y-3">
+                  <div className="relative" ref={searchInputRef}>
+                    <div className={`${weatherInputWrapperClass} border-blue-200 flex items-center`}>
+                      <Search className="w-4 h-4 text-slate-400 ml-2 flex-shrink-0" />
+                      <input
+                        type="text"
+                        placeholder="Enter city name..."
+                        value={locationSearchQuery}
+                        onChange={handleLocationSearchChange}
+                        disabled={isSearching}
+                        onClick={(e) => e.stopPropagation()}
+                        onFocus={(e) => {
+                          e.stopPropagation()
+                          if (searchResults.length > 0 && locationSearchQuery.trim()) {
+                            setShowSearchResults(true)
+                          }
+                        }}
+                        onBlur={(e) => {
+                          e.stopPropagation()
+                          // Only hide results if not clicking on a search result
+                          setTimeout(() => {
+                            if (!document.querySelector('[data-search-results]:hover')) {
+                              setShowSearchResults(false)
+                            }
+                          }, 150)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            handleSearchSubmit()
+                          }
+                        }}
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onMouseUp={(e) => e.stopPropagation()}
+                        className="flex-1 bg-transparent border-none outline-none px-2 py-2 text-sm text-slate-900 placeholder-slate-500"
+                      />
+                    </div>
+
+                    {/* Search Results Dropdown */}
+                    {showSearchResults && searchResults.length > 0 && (
+                      <div
+                        data-search-results
+                        className="absolute z-50 mt-2 w-full bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto left-0"
+                        onMouseDown={(e) => e.stopPropagation()}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {searchResults.map((location) => (
+                          <div
+                            key={location.id}
+                            className="p-3 hover:bg-blue-50 cursor-pointer border-b border-slate-100 last:border-b-0 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleLocationSelect(location)
+                            }}
+                            onMouseDown={(e) => {
+                              e.stopPropagation()
+                              e.preventDefault() // Prevent input from losing focus
+                            }}
+                          >
+                            <div className="flex items-center gap-2">
+                              <MapPin className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="text-sm font-medium text-slate-900 truncate">
+                                  {location.name}
+                                </div>
+                                <div className="text-xs text-slate-600 truncate">
+                                  {[location.admin1, location.country].filter(Boolean).join(', ')}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Search Help Text */}
+                  <div className="text-xs text-blue-600 bg-blue-50 rounded px-2 py-1">
+                    <p className="flex items-center gap-1">
+                      <Search className="w-3 h-3 flex-shrink-0" />
+                      Type city name and click Find
+                    </p>
+                  </div>
                 </div>
               </div>
             )}
 
             {/* Current locations */}
             {(selectedItem.locations || []).map((location, index) => (
-              <div key={index} className="relative bg-slate-50 rounded-lg p-4 space-y-3 border border-slate-200">
-                <div className="flex items-center justify-center">
-                  <span className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                    <MapPin className="w-4 h-4 text-blue-500" />
-                    Location {index + 1}
-                  </span>
+              <div key={index} className="relative bg-slate-50 rounded-lg p-3 border border-slate-200">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <MapPin className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                    <span className="text-sm font-medium text-slate-800 truncate">
+                      {location.name}
+                    </span>
+                  </div>
                   <Button
                     size="sm"
                     variant="solid"
@@ -631,101 +808,13 @@ export function PropertiesPanel({
                       const newLocations = selectedItem.locations.filter((_, i) => i !== index)
                       updateItemProperty('locations', newLocations)
                     }}
-                    className="absolute top-2 right-2 min-w-6 h-6 bg-red-500 hover:bg-red-600 text-white shadow-md rounded-full flex items-center justify-center"
+                    className="min-w-6 h-6 bg-red-500 hover:bg-red-600 text-white shadow-md rounded-full flex-shrink-0"
                   >
                     <X className="w-3 h-3 font-bold" />
                   </Button>
                 </div>
-
-                <div className="space-y-2">
-                  <div>
-                    <label className="text-xs text-slate-600 font-medium block mb-1">City Name</label>
-                    <Input
-                      size="sm"
-                      value={location.name}
-                      onChange={(e) => {
-                        const newLocations = [...selectedItem.locations]
-                        newLocations[index] = { ...location, name: e.target.value }
-                        updateItemProperty('locations', newLocations)
-                      }}
-                      onClick={(e) => e.stopPropagation()}
-                      onFocus={(e) => e.stopPropagation()}
-                      onMouseDown={(e) => e.stopPropagation()}
-                      placeholder="Enter city name"
-                      classNames={{
-                        input: "text-slate-900",
-                        inputWrapper: "bg-white border-slate-200"
-                      }}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <label className="text-xs text-slate-600 font-medium block mb-1">Latitude</label>
-                      <Input
-                        size="sm"
-                        type="number"
-                        step="0.0001"
-                        value={location.lat}
-                        onChange={(e) => {
-                          const newLocations = [...selectedItem.locations]
-                          newLocations[index] = { ...location, lat: e.target.value === '' ? '' : parseFloat(e.target.value) || '' }
-                          updateItemProperty('locations', newLocations)
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        onFocus={(e) => e.stopPropagation()}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        placeholder="3.0000"
-                        classNames={{
-                          input: "text-slate-900",
-                          inputWrapper: "bg-white border-slate-200"
-                        }}
-                      />
-                    </div>
-
-                    <div>
-                      <label className="text-xs text-slate-600 font-medium block mb-1">Longitude</label>
-                      <Input
-                        size="sm"
-                        type="number"
-                        step="0.0001"
-                        value={location.lng}
-                        onChange={(e) => {
-                          const newLocations = [...selectedItem.locations]
-                          newLocations[index] = { ...location, lng: e.target.value === '' ? '' : parseFloat(e.target.value) || '' }
-                          updateItemProperty('locations', newLocations)
-                        }}
-                        onClick={(e) => e.stopPropagation()}
-                        onFocus={(e) => e.stopPropagation()}
-                        onMouseDown={(e) => e.stopPropagation()}
-                        placeholder="101.0000"
-                        classNames={{
-                          input: "text-slate-900",
-                          inputWrapper: "bg-white border-slate-200"
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
               </div>
             ))}
-
-            {/* Add location button */}
-            {(!selectedItem.locations || selectedItem.locations.length < 4) && (
-              <Button
-                size="sm"
-                variant="bordered"
-                className="w-full border-2 border-dashed border-slate-300 hover:border-slate-400 hover:bg-slate-50 text-slate-700 font-semibold flex items-center justify-center gap-2"
-                onPress={() => {
-                  const currentLocations = selectedItem.locations || []
-                  const newLocation = { name: '', lat: '', lng: '' }
-                  updateItemProperty('locations', [...currentLocations, newLocation])
-                }}
-              >
-                <Plus className="w-4 h-4" />
-                Add New Location
-              </Button>
-            )}
 
             {/* Info */}
             <div className="bg-blue-50 rounded-lg p-3">
