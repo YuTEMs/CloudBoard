@@ -5,7 +5,7 @@ import { Save, Settings } from "lucide-react"
 import { ClipboardList } from "lucide-react"
 import { useState, useRef, useEffect, useCallback, Suspense, memo, useMemo } from "react"
 import { useSession } from 'next-auth/react'
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
 import { AppHeader } from "../../components/layout/app-hearder"
 import { useRealtimeBoards } from "../../hooks/useRealtimeBoards"
 import { useBoardSave } from "../../hooks/useBoardSave"
@@ -24,10 +24,15 @@ function OrganizePageContent() {
   const boardId = searchParams.get('board')
   const { data: session } = useSession()
   const userIdForPath = session?.user?.id || 'anonymous'
+  const router = useRouter()
   
   // Use real-time boards hook
   const { boards, updateBoard } = useRealtimeBoards()
   const currentBoard = boards.find(board => board.id === boardId)
+  
+  // Check user permissions - only allow edit access for owners and editors
+  const userRole = currentBoard?.userRole
+  const hasWriteAccess = userRole === 'owner' || userRole === 'editor'
   
   // Canvas and board state
   const [canvasItems, setCanvasItems] = useState([])
@@ -71,6 +76,15 @@ function OrganizePageContent() {
 
   // Use save-based board management
   const { saveBoard: saveBoardToDb, saving, lastSaved, error: saveError } = useBoardSave()
+
+  // Check permission and redirect if user only has viewer access
+  useEffect(() => {
+    if (currentBoard && userRole && !hasWriteAccess) {
+      // Redirect viewers to display page
+      router.push(`/display?board=${boardId}`)
+      return
+    }
+  }, [currentBoard, userRole, hasWriteAccess, boardId, router])
 
   // Load board data from real-time hook - only if no unsaved changes
   useEffect(() => {
@@ -724,6 +738,43 @@ function OrganizePageContent() {
     )
   )
 }
+
+  // Show loading while checking permissions
+  if (currentBoard && userRole && !hasWriteAccess) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center">
+            <ClipboardList className="w-7 h-7 text-white" />
+          </div>
+          <div className="spinner mx-auto mb-4"></div>
+          <p className="text-xl font-semibold text-gray-900 mb-2">Redirecting to Display Mode</p>
+          <p className="text-gray-600">You have view-only access to this board</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Show access denied if no board access at all
+  if (currentBoard && userRole === null) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-red-50 flex items-center justify-center">
+        <div className="text-center p-8">
+          <div className="w-16 h-16 mx-auto mb-6 bg-gradient-to-br from-red-500 to-red-600 rounded-2xl flex items-center justify-center">
+            <span className="text-white font-bold text-2xl">!</span>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-4">Access Denied</h1>
+          <p className="text-gray-600 mb-6">You don't have permission to edit this board.</p>
+          <Button
+            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 font-medium transition-all duration-300 hover:shadow-lg hover:scale-105 rounded-xl"
+            onPress={() => router.push('/dashboard')}
+          >
+            Back to Dashboard
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
