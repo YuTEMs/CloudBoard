@@ -67,47 +67,83 @@ export function useRealtimeBoards() {
   }, [userId])
 
   // Handle real-time updates
-  const handleRealtimeUpdate = useCallback((payload) => {
-    const { eventType, new: newBoard, old: oldBoard } = payload
+  const handleRealtimeUpdate = useCallback((updateData) => {
+    const { type, payload } = updateData
+    const { eventType, new: newData, old: oldData } = payload
 
-    setBoards(currentBoards => {
+    if (type === 'membership') {
+      // Handle board membership changes (when user is added/removed from boards)
       switch (eventType) {
         case 'INSERT':
-          // Add new board if it doesn't already exist
-          if (!currentBoards.find(b => b.id === newBoard.id)) {
-            return [...currentBoards, newBoard].sort((a, b) => 
-              new Date(b.updated_at) - new Date(a.updated_at)
+          // User was added to a board, fetch the board details
+          if (newData.user_id === userId) {
+            loadBoards(true) // Silent reload to get the new board
+          }
+          break
+        case 'DELETE':
+          // User was removed from a board
+          if (oldData.user_id === userId) {
+            setBoards(currentBoards =>
+              currentBoards.filter(board => board.id !== oldData.board_id)
             )
           }
-          return currentBoards
-
+          break
         case 'UPDATE':
-          // Update existing board
-          return currentBoards.map(board => 
-            board.id === newBoard.id ? { ...board, ...newBoard } : board
-          ).sort((a, b) => 
-            new Date(b.updated_at) - new Date(a.updated_at)
-          )
-
-        case 'DELETE':
-          // Remove deleted board
-          return currentBoards.filter(board => board.id !== oldBoard.id)
-
-        default:
-          return currentBoards
+          // User's role/permissions changed
+          if (newData.user_id === userId) {
+            setBoards(currentBoards =>
+              currentBoards.map(board =>
+                board.id === newData.board_id
+                  ? {
+                      ...board,
+                      userRole: newData.role,
+                      userPermissions: newData.permissions
+                    }
+                  : board
+              )
+            )
+          }
+          break
       }
-    })
-  }, [])
+    } else if (type === 'board') {
+      // Handle board content changes
+      setBoards(currentBoards => {
+        switch (eventType) {
+          case 'INSERT':
+            // A new board was created - check if user has access
+            // This will be handled by membership changes instead
+            return currentBoards
+
+          case 'UPDATE':
+            // Update existing board content
+            return currentBoards.map(board =>
+              board.id === newData.id
+                ? { ...board, ...newData, updated_at: newData.updated_at }
+                : board
+            ).sort((a, b) =>
+              new Date(b.updated_at) - new Date(a.updated_at)
+            )
+
+          case 'DELETE':
+            // Remove deleted board
+            return currentBoards.filter(board => board.id !== oldData.id)
+
+          default:
+            return currentBoards
+        }
+      })
+    }
+  }, [userId, loadBoards])
 
   // Set up real-time subscription
   useEffect(() => {
     if (!userId) return
 
-    let channel = null
+    let channels = null
 
     const setupRealtimeSubscription = async () => {
       try {
-        channel = boardService.subscribeToUserBoards(userId, handleRealtimeUpdate)
+        channels = boardService.subscribeToUserBoards(userId, handleRealtimeUpdate)
       } catch (err) {
         console.error('Error setting up real-time subscription:', err)
       }
@@ -116,8 +152,14 @@ export function useRealtimeBoards() {
     setupRealtimeSubscription()
 
     return () => {
-      if (channel) {
-        channel.unsubscribe()
+      if (channels) {
+        // Unsubscribe from both channels
+        if (channels.membershipChannel) {
+          channels.membershipChannel.unsubscribe()
+        }
+        if (channels.boardChannel) {
+          channels.boardChannel.unsubscribe()
+        }
       }
     }
   }, [userId, handleRealtimeUpdate])

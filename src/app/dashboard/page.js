@@ -1,13 +1,14 @@
 "use client"
 
 import { Button, Card, CardBody, Input, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure, Textarea } from "@heroui/react"
-import { Search, Plus, Copy, Edit, ExternalLink, Trash2 } from "lucide-react"
+import { Search, Plus, Copy, Edit, ExternalLink, Trash2, Share2 } from "lucide-react"
 import Link from "next/link"
 import { useState, useEffect } from "react"
 import { AppHeader } from "../../components/layout/app-hearder"
 import { generateRoomId } from "../../lib/utils"
 import ProtectedRoute from "../../components/auth/ProtectedRoute"
 import { useRealtimeBoards } from "../../hooks/useRealtimeBoards"
+import ShareBoardModal from "../../components/board/ShareBoardModal"
 
 function DashboardContent() {
   const [copiedItem, setCopiedItem] = useState(null)
@@ -16,7 +17,9 @@ function DashboardContent() {
   const [newBoardDescription, setNewBoardDescription] = useState("")
   const { isOpen, onOpen, onOpenChange } = useDisclosure()
   const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onOpenChange: onDeleteOpenChange } = useDisclosure()
+  const { isOpen: isShareOpen, onOpen: onShareOpen, onOpenChange: onShareOpenChange } = useDisclosure()
   const [boardToDelete, setBoardToDelete] = useState(null)
+  const [boardToShare, setBoardToShare] = useState(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [deletingBoards, setDeletingBoards] = useState(new Set())
   const [deletionError, setDeletionError] = useState(null)
@@ -159,7 +162,7 @@ function DashboardContent() {
           <div className="flex items-center justify-between mb-8">
             <div className="flex-1">
               <h2 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-blue-800 to-purple-800 bg-clip-text text-transparent mb-3">My Boards</h2>
-              <p className="text-gray-600 text-lg">Manage and organize your bulletin boards</p>
+              <p className="text-gray-600 text-lg">Boards you own and boards shared with you</p>
             </div>
             <div className="bg-gradient-to-r from-blue-100 to-purple-100 px-6 py-3 rounded-2xl border border-blue-200/50 shadow-sm">
               <span className="text-blue-800 font-bold text-lg">{boards.length} {boards.length === 1 ? 'Board' : 'Boards'}</span>
@@ -295,13 +298,23 @@ function DashboardContent() {
                       variant="flat"
                       onPress={() => copyBoardUrl(board)}
                       className={`w-full font-medium rounded-xl transition-all duration-300 flex items-center justify-center gap-2 h-12 ${
-                        copiedItem === board.id 
-                          ? "bg-green-500/10 text-green-700 border-green-200 shadow-sm" 
+                        copiedItem === board.id
+                          ? "bg-green-500/10 text-green-700 border-green-200 shadow-sm"
                           : "bg-gray-100/80 text-gray-700 hover:bg-green-100 hover:text-green-700 hover:shadow-md hover:scale-[1.02]"
                       }`}
                     >
                       <Copy className="w-4 h-4 flex-shrink-0" />
                       <span className="flex-1 text-center">{copiedItem === board.id ? "Copied!" : "Copy Display URL"}</span>
+                    </Button>
+
+                    <Button
+                      size="md"
+                      variant="flat"
+                      onPress={() => { setBoardToShare(board); onShareOpen() }}
+                      className="w-full bg-blue-100/80 text-blue-700 hover:bg-blue-200 hover:text-blue-800 font-medium rounded-xl transition-all duration-300 hover:shadow-md hover:scale-[1.02] flex items-center justify-center gap-2 h-12"
+                    >
+                      <Share2 className="w-4 h-4 flex-shrink-0" />
+                      <span className="flex-1 text-center">Share Board</span>
                     </Button>
 
                     <div className="flex gap-3">
@@ -534,6 +547,13 @@ function DashboardContent() {
           )}
         </ModalContent>
       </Modal>
+
+      {/* Share Board Modal */}
+      <ShareBoardModal
+        isOpen={isShareOpen}
+        onClose={onShareOpenChange}
+        board={boardToShare}
+      />
     </div>
   )
 }
