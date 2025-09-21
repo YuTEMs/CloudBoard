@@ -233,6 +233,9 @@ function DashboardContent() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredBoards.map((board, index) => {
             const isBeingDeleted = deletingBoards.has(board.id)
+            const userRole = board.userRole
+            const hasWriteAccess = userRole === 'owner' || userRole === 'editor'
+            const canDelete = userRole === 'owner'
             return (
               <div
               key={board.id}
@@ -318,15 +321,28 @@ function DashboardContent() {
                     </Button>
 
                     <div className="flex gap-3">
-                      <Link href={`/organize?board=${board.id}`} className="flex-1">
-                        <Button
-                          size="md"
-                          className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 font-medium rounded-xl transition-all duration-300 hover:shadow-lg hover:scale-[1.02] flex items-center justify-center gap-2 h-12"
-                        >
-                          <Edit className="w-4 h-4 flex-shrink-0" />
-                          <span>Edit</span>
-                        </Button>
-                      </Link>
+                      {hasWriteAccess ? (
+                        <Link href={`/organize?board=${board.id}`} className="flex-1">
+                          <Button
+                            size="md"
+                            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 font-medium rounded-xl transition-all duration-300 hover:shadow-lg hover:scale-[1.02] flex items-center justify-center gap-2 h-12"
+                          >
+                            <Edit className="w-4 h-4 flex-shrink-0" />
+                            <span>Edit</span>
+                          </Button>
+                        </Link>
+                      ) : (
+                        <div className="flex-1">
+                          <Button
+                            size="md"
+                            isDisabled
+                            className="w-full bg-gray-100 text-gray-400 font-medium rounded-xl flex items-center justify-center gap-2 h-12 cursor-not-allowed"
+                          >
+                            <Edit className="w-4 h-4 flex-shrink-0" />
+                            <span>View Only</span>
+                          </Button>
+                        </div>
+                      )}
                       <Link href={`/display?board=${board.id}`} target="_blank" className="flex-1">
                         <Button
                           variant="bordered"
@@ -339,16 +355,18 @@ function DashboardContent() {
                       </Link>
                     </div>
 
-                    <Button
-                      size="sm"
-                      variant="light"
-                      onClick={() => { setBoardToDelete(board); onDeleteOpen() }}
-                      className="w-full text-red-600 hover:bg-red-50/80 font-medium rounded-xl transition-all duration-300 hover:shadow-sm flex items-center justify-center gap-2 h-10"
-                      isDisabled={isBeingDeleted}
-                    >
-                      <Trash2 className="w-4 h-4 flex-shrink-0" />
-                      <span>{isBeingDeleted ? 'Deleting...' : 'Delete Board'}</span>
-                    </Button>
+                    {canDelete && (
+                      <Button
+                        size="sm"
+                        variant="light"
+                        onClick={() => { setBoardToDelete(board); onDeleteOpen() }}
+                        className="w-full text-red-600 hover:bg-red-50/80 font-medium rounded-xl transition-all duration-300 hover:shadow-sm flex items-center justify-center gap-2 h-10"
+                        isDisabled={isBeingDeleted}
+                      >
+                        <Trash2 className="w-4 h-4 flex-shrink-0" />
+                        <span>{isBeingDeleted ? 'Deleting...' : 'Delete Board'}</span>
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
