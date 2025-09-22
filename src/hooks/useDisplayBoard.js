@@ -28,8 +28,8 @@ export function useDisplayBoard(boardId) {
       if (boardData) {
         setBoard(prevBoard => {
           // Only update if data actually changed
-          if (!prevBoard || prevBoard.updated_at !== boardData.updated_at) {
-            setLastUpdated(new Date(boardData.updated_at))
+          if (!prevBoard || prevBoard.updatedAt !== boardData.updatedAt) {
+            setLastUpdated(new Date(boardData.updatedAt))
             return boardData
           }
           return prevBoard

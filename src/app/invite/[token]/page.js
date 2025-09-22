@@ -237,7 +237,7 @@ export default function InvitePage({ params }) {
             <span className="font-medium">
               {isExpired ?
                 'Expired' :
-                `Expires ${new Date(invitation.expiresAt).toLocaleDateString()}`
+                `Expires ${new Date(invitation.expiresAt).toLocaleString()}`
               }
             </span>
           </div>

@@ -274,7 +274,13 @@ export const boardService = {
       console.log('✅ Board membership created automatically via trigger')
     }
 
-    return boardResult[0]
+    // Map database snake_case to frontend camelCase
+    const board = boardResult[0]
+    return {
+      ...board,
+      createdAt: board.created_at,
+      updatedAt: board.updated_at
+    }
   },
 
   // Get all boards accessible to a user (owned + shared)
@@ -330,6 +336,9 @@ export const boardService = {
     // Transform data to include user's role and permissions
     return (data || []).map(board => ({
       ...board,
+      // Map database snake_case to frontend camelCase
+      createdAt: board.created_at,
+      updatedAt: board.updated_at,
       userRole: board.board_members[0]?.role,
       userPermissions: board.board_members[0]?.permissions,
       joinedAt: board.board_members[0]?.joined_at
@@ -359,6 +368,9 @@ export const boardService = {
 
     return (data || []).map(board => ({
       ...board,
+      // Map database snake_case to frontend camelCase
+      createdAt: board.created_at,
+      updatedAt: board.updated_at,
       userRole: board.board_members[0]?.role,
       userPermissions: board.board_members[0]?.permissions,
       joinedAt: board.board_members[0]?.joined_at
@@ -378,6 +390,15 @@ export const boardService = {
     if (error && error.code !== 'PGRST116') {
       console.error('Error fetching board:', error)
       throw error
+    }
+
+    // Map database snake_case to frontend camelCase for consistency
+    if (data) {
+      return {
+        ...data,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at
+      }
     }
 
     return data
@@ -420,6 +441,9 @@ export const boardService = {
 
     return {
       ...data,
+      // Map database snake_case to frontend camelCase
+      createdAt: data.created_at,
+      updatedAt: data.updated_at,
       userRole: userAccess?.role || null,
       userPermissions: userAccess?.permissions || null,
       members: data.board_members || []
@@ -468,7 +492,14 @@ export const boardService = {
     }
 
     console.log('✅ Board updated successfully:', data)
-    return data[0]
+    
+    // Map database snake_case to frontend camelCase
+    const board = data[0]
+    return {
+      ...board,
+      createdAt: board.created_at,
+      updatedAt: board.updated_at
+    }
   },
 
   // Delete a board (only owners can delete)

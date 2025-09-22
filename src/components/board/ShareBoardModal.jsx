@@ -141,7 +141,7 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
   }
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString()
+    return new Date(dateString).toLocaleString()
   }
 
   const isExpired = (dateString) => {

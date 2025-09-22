@@ -285,11 +285,11 @@ function DashboardContent() {
                     <div className="space-y-2 text-xs text-gray-500">
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-gray-600">Created</span>
-                        <span className="bg-white/80 px-2 py-1 rounded-lg">{new Date(board.createdAt).toLocaleDateString()}</span>
+                        <span className="bg-white/80 px-2 py-1 rounded-lg">{new Date(board.createdAt).toLocaleString()}</span>
                       </div>
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-gray-600">Updated</span>
-                        <span className="bg-white/80 px-2 py-1 rounded-lg">{new Date(board.updatedAt).toLocaleDateString()}</span>
+                        <span className="bg-white/80 px-2 py-1 rounded-lg">{new Date(board.updatedAt).toLocaleString()}</span>
                       </div>
                     </div>
                   </div>

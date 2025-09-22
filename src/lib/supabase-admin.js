@@ -147,7 +147,13 @@ export const adminBoardService = {
       console.log('✅ [ADMIN] Board membership created automatically via trigger')
     }
 
-    return boardResult[0]
+    // Map database snake_case to frontend camelCase
+    const board = boardResult[0]
+    return {
+      ...board,
+      createdAt: board.created_at,
+      updatedAt: board.updated_at
+    }
   },
 
   // Get all boards accessible to a user (owned + shared)
@@ -288,7 +294,13 @@ export const adminBoardService = {
       throw new Error('Board not found')
     }
 
-    return data[0]
+    // Map database snake_case to frontend camelCase
+    const board = data[0]
+    return {
+      ...board,
+      createdAt: board.created_at,
+      updatedAt: board.updated_at
+    }
   },
 
   // Delete a board (only owners can delete)
