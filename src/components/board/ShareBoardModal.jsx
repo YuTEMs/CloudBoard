@@ -27,8 +27,7 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
   const [creating, setCreating] = useState(false)
   const [newInvite, setNewInvite] = useState({
     role: 'viewer',
-    expiresInDays: 7,
-    maxUses: null
+    expiresInDays: 7
   })
   const [copied, setCopied] = useState(null)
 
@@ -78,8 +77,7 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
         // Reset form
         setNewInvite({
           role: 'viewer',
-          expiresInDays: 7,
-          maxUses: null
+          expiresInDays: 7
         })
       } else {
         const error = await response.json()
@@ -364,28 +362,6 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
                       </div>
                     </div>
 
-                    <div className="space-y-3">
-                      <label className="text-sm font-medium text-gray-900">Usage Limit (Optional)</label>
-                      <Input
-                        placeholder="Unlimited uses"
-                        type="number"
-                        min="1"
-                        value={newInvite.maxUses || ''}
-                        onChange={(e) => setNewInvite(prev => ({
-                          ...prev,
-                          maxUses: e.target.value ? parseInt(e.target.value) : null
-                        }))}
-                        description="Leave empty for unlimited uses"
-                        classNames={{
-                          input: "font-medium text-gray-900 text-sm",
-                          inputWrapper: "bg-white/90 border border-gray-200 hover:border-blue-300 data-[focus=true]:border-blue-400 shadow-sm rounded-lg h-12 transition-all duration-200",
-                          label: "text-gray-900 font-medium",
-                          description: "text-gray-600 text-xs"
-                        }}
-                        variant="bordered"
-                        size="md"
-                      />
-                    </div>
 
                     <Button
                       size="lg"
@@ -470,10 +446,6 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
                               <span className="flex items-center gap-1">
                                 <Clock size={12} />
                                 Expires: {formatDate(invitation.expires_at)}
-                              </span>
-                              <span>
-                                Used: {invitation.used_count}
-                                {invitation.max_uses && ` / ${invitation.max_uses}`}
                               </span>
                             </div>
                           </div>

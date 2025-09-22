@@ -35,7 +35,7 @@ export async function GET(request, { params }) {
       expiresAt: invitation.expires_at,
       isActive: invitation.is_active,
       isExpired: new Date(invitation.expires_at) < new Date(),
-      canUse: invitation.max_uses === null || invitation.used_count < invitation.max_uses
+      canUse: true
     })
   } catch (error) {
     console.error('Error fetching invitation:', error)
@@ -90,12 +90,6 @@ export async function POST(request, { params }) {
       )
     }
 
-    if (error.message.includes('already used')) {
-      return NextResponse.json(
-        { error: 'This invitation has reached its usage limit' },
-        { status: 410 }
-      )
-    }
 
     if (error.message.includes('already a member')) {
       return NextResponse.json(

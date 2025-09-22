@@ -17,7 +17,7 @@ export async function POST(request, { params }) {
     }
 
     const { boardId } = await params
-    const { role = 'viewer', maxUses = null, expiresInDays = 7 } = await request.json()
+    const { role = 'viewer', expiresInDays = 7 } = await request.json()
 
     if (!boardId) {
       return NextResponse.json(
@@ -50,7 +50,6 @@ export async function POST(request, { params }) {
       boardId,
       invitedBy: userId,
       role,
-      maxUses,
       expiresInDays
     })
 

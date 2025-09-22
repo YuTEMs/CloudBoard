@@ -694,7 +694,7 @@ export const invitationService = {
   },
 
   // Create a new board invitation
-  async createInvitation(boardId, invitedBy, role = 'viewer', expiresInDays = 7, maxUses = null) {
+  async createInvitation(boardId, invitedBy, role = 'viewer', expiresInDays = 7) {
     const token = this.generateInviteToken()
     const expiresAt = new Date()
     expiresAt.setDate(expiresAt.getDate() + expiresInDays)
@@ -707,8 +707,6 @@ export const invitationService = {
         role,
         token,
         expires_at: expiresAt.toISOString(),
-        max_uses: maxUses,
-        used_count: 0,
         is_active: true
       })
       .select()
@@ -766,10 +764,6 @@ export const invitationService = {
       throw new Error('Invitation has expired')
     }
 
-    if (invitation.max_uses && invitation.used_count >= invitation.max_uses) {
-      throw new Error('Invitation has reached maximum usage limit')
-    }
-
     // Check if user is already a member
     const existingMember = await supabase
       .from('board_members')
@@ -790,11 +784,10 @@ export const invitationService = {
       invitation.invited_by
     )
 
-    // Update invitation usage count
+    // Update invitation last used timestamp
     await supabase
       .from('board_invitations')
       .update({
-        used_count: invitation.used_count + 1,
         updated_at: new Date().toISOString()
       })
       .eq('id', invitation.id)
