@@ -88,8 +88,8 @@ export default function InvitePage({ params }) {
   const getRoleIcon = (role) => {
     switch (role) {
       case 'owner': return <Crown size={20} className="text-yellow-500" />
-      case 'editor': return <Edit size={20} className="text-blue-500" />
-      case 'viewer': return <Eye size={20} className="text-gray-500" />
+      case 'editor': return <Edit size={20} className="text-black-500" />
+      case 'viewer': return <Eye size={20} className="text-black-500" />
       default: return null
     }
   }
