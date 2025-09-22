@@ -156,10 +156,11 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
       scrollBehavior="inside"
       classNames={{
         backdrop: "bg-gradient-to-t from-black/80 via-black/40 to-black/60",
-        wrapper: "z-[9999]"
+        wrapper: "z-[9999]",
+        closeButton: "hidden"
       }}
     >
-      <ModalContent className="bg-gradient-to-br from-white via-blue-50/30 to-purple-50/30 border border-white/40 shadow-2xl backdrop-blur-lg">
+      <ModalContent className="bg-white border border-gray-200 shadow-2xl rounded-3xl">
         {(onClose) => (
           <>
             <ModalHeader className="p-8 pb-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-t-3xl">
@@ -174,7 +175,7 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
                 <Button
                   isIconOnly
                   variant="light"
-                  className="text-white hover:bg-white/20"
+                  className="flex items-center text-white hover:bg-white/20"
                   onPress={onClose}
                 >
                   <X size={20} />
@@ -253,18 +254,23 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
                   <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-6">
                       <div className="space-y-3">
-                        <label className="text-sm font-medium text-gray-900">Role Permission</label>
+                        <label className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                          <Eye size={14} className="text-gray-500" />
+                          Role Permission
+                        </label>
                         <Select
                           placeholder="Select role"
                           selectedKeys={[newInvite.role]}
-                          onSelectionChange={(keys) => setNewInvite(prev => ({ ...prev, role: Array.from(keys)[0] }))}
+                          onSelectionChange={(keys) =>
+                            setNewInvite(prev => ({ ...prev, role: Array.from(keys)[0] }))
+                          }
                           startContent={getRoleIcon(newInvite.role)}
                           classNames={{
                             trigger: "bg-white/90 border border-gray-200 hover:border-blue-300 data-[focus=true]:border-blue-400 shadow-sm rounded-lg h-12 transition-all duration-200",
                             value: "font-medium text-gray-900 text-sm",
                             listbox: "bg-white",
                             popoverContent: "bg-white border border-gray-100 shadow-lg rounded-lg",
-                            innerWrapper: "text-gray-900",
+                            innerWrapper: "flex items-center text-gray-900",
                             label: "text-gray-900 font-medium"
                           }}
                           variant="bordered"
@@ -296,18 +302,23 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
                       </div>
 
                       <div className="space-y-3">
-                        <label className="text-sm font-medium text-gray-900">Expires In</label>
+                        <label className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                          <Clock size={14} className="text-gray-500" />
+                          Expires In
+                        </label>
                         <Select
                           placeholder="Select expiration"
                           selectedKeys={[newInvite.expiresInDays.toString()]}
-                          onSelectionChange={(keys) => setNewInvite(prev => ({ ...prev, expiresInDays: parseInt(Array.from(keys)[0]) }))}
+                          onSelectionChange={(keys) =>
+                            setNewInvite(prev => ({ ...prev, expiresInDays: parseInt(Array.from(keys)[0]) }))
+                          }
                           startContent={<Clock size={14} className="text-gray-500" />}
                           classNames={{
                             trigger: "bg-white/90 border border-gray-200 hover:border-blue-300 data-[focus=true]:border-blue-400 shadow-sm rounded-lg h-12 transition-all duration-200",
                             value: "font-medium text-gray-900 text-sm",
                             listbox: "bg-white",
                             popoverContent: "bg-white border border-gray-100 shadow-lg rounded-lg",
-                            innerWrapper: "text-gray-900",
+                            innerWrapper: "flex items-center text-gray-900",
                             label: "text-gray-900 font-medium"
                           }}
                           variant="bordered"
@@ -380,8 +391,8 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
                       size="lg"
                       onPress={createInvitation}
                       isLoading={creating}
-                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300"
-                      startContent={!creating && <Link size={20} />}
+                      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold shadow-lg hover:shadow-xl hover:scale-[1.02] transition-all duration-300 flex items-center justify-center gap-2"
+                      startContent={!creating && <Link size={20} className="inline-block" />}
                     >
                       {creating ? 'Creating Link...' : 'Generate Invitation Link'}
                     </Button>
@@ -415,12 +426,12 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
                                   startContent={getRoleIcon(invitation.role)}
                                   color={getRoleColor(invitation.role)}
                                   variant="flat"
-                                  className="font-semibold"
+                                  className="flex items-center font-semibold"
                                 >
                                   {invitation.role.toUpperCase()}
                                 </Chip>
                                 {isExpired(invitation.expires_at) && (
-                                  <Chip color="danger" variant="flat" className="font-semibold">
+                                  <Chip color="danger" variant="flat" className="flex items-center font-semibold">
                                     EXPIRED
                                   </Chip>
                                 )}
@@ -429,7 +440,7 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
                                 isIconOnly
                                 size="sm"
                                 variant="light"
-                                className="text-red-600 hover:bg-red-50"
+                                className="flex items-center text-red-600 hover:bg-red-50"
                                 onPress={() => revokeInvitation(invitation.id)}
                               >
                                 <X size={16} />
@@ -446,11 +457,10 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
                                 isIconOnly
                                 variant="flat"
                                 onPress={() => copyInviteLink(invitation.token)}
-                                className={`shadow-sm transition-all duration-200 ${
-                                  copied === invitation.token
-                                    ? 'bg-green-100 text-green-700 border-green-200'
-                                    : 'bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200'
-                                }`}
+                                className={`flex items-center shadow-sm transition-all duration-200 ${copied === invitation.token
+                                  ? 'flex items-center bg-green-100 text-green-700 border-green-200'
+                                  : 'flex items-center bg-blue-100 text-blue-700 border-blue-200 hover:bg-blue-200'
+                                  }`}
                               >
                                 {copied === invitation.token ? <Check size={16} /> : <Copy size={16} />}
                               </Button>
@@ -474,17 +484,6 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
                 </>
               )}
             </ModalBody>
-
-            <ModalFooter className="p-8 pt-6 bg-gray-50/30 border-t border-gray-100/50 rounded-b-3xl">
-              <Button
-                variant="light"
-                onPress={onClose}
-                className="font-bold text-black hover:bg-gray-100/80 border-2 border-gray-300"
-                size="lg"
-              >
-                Close
-              </Button>
-            </ModalFooter>
           </>
         )}
       </ModalContent>
