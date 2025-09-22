@@ -225,7 +225,7 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
                             startContent={getRoleIcon(member.role)}
                             color={getRoleColor(member.role)}
                             variant="flat"
-                            className="font-semibold shadow-sm"
+                            className="flex items-center font-semibold shadow-sm"
                           >
                             {member.role.toUpperCase()}
                           </Chip>
