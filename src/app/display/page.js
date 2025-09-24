@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { ClipboardList, XCircle, Search as SearchIcon } from 'lucide-react'
 import { useDisplayBoard } from '../../hooks/useDisplayBoard'
 import { RenderWidget } from '../../components/widgets'
+import AdvertisementDisplay from '../../components/AdvertisementDisplay'
 
 // Widget definitions removed - now using shared widgets from ../../components/widgets
 
@@ -17,7 +18,9 @@ function DisplayContent() {
   const { board, loading, error, lastUpdated, connectionStatus } = useDisplayBoard(boardId)
   const [viewportSize, setViewportSize] = useState({ width: 1920, height: 1080 })
   const [scaleFactors, setScaleFactors] = useState({ x: 1, y: 1 })
+  const [showAdvertisement, setShowAdvertisement] = useState(false)
   const displayRef = useRef(null)
+  const adIntervalRef = useRef(null)
 
   // Extract board data from real-time hook
   const canvasItems = board?.configuration?.items || []
@@ -68,6 +71,29 @@ function DisplayContent() {
       // This ensures all components respond to the latest data changes
     }
   }, [lastUpdated, connectionStatus])
+
+  // Advertisement display logic
+  useEffect(() => {
+    if (!boardId || loading || error || !board) return;
+
+    // Show advertisements every 2 minutes
+    const showAds = () => {
+      setShowAdvertisement(true);
+    };
+
+    // Initial delay of 30 seconds after page load, then every 2 minutes
+    const initialTimeout = setTimeout(() => {
+      showAds();
+      adIntervalRef.current = setInterval(showAds, 2 * 60 * 1000); // 2 minutes
+    }, 30 * 1000); // 30 seconds
+
+    return () => {
+      clearTimeout(initialTimeout);
+      if (adIntervalRef.current) {
+        clearInterval(adIntervalRef.current);
+      }
+    };
+  }, [boardId, loading, error, board])
 
   // NOW WE CAN HAVE CONDITIONAL RETURNS AFTER ALL HOOKS
   // Handle loading and error states
@@ -277,6 +303,13 @@ function DisplayContent() {
           </div>
         )}
       </div>
+
+      {/* Advertisement Display Overlay */}
+      <AdvertisementDisplay
+        boardId={boardId}
+        isVisible={showAdvertisement}
+        onClose={() => setShowAdvertisement(false)}
+      />
     </div>
   )
 }
