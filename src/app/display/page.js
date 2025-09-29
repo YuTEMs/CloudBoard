@@ -19,8 +19,10 @@ function DisplayContent() {
   const [viewportSize, setViewportSize] = useState({ width: 1920, height: 1080 })
   const [scaleFactors, setScaleFactors] = useState({ x: 1, y: 1 })
   const [showAdvertisement, setShowAdvertisement] = useState(false)
+  const [currentAdIndex, setCurrentAdIndex] = useState(0)
+  const [advertisements, setAdvertisements] = useState([])
   const displayRef = useRef(null)
-  const adIntervalRef = useRef(null)
+  const alternatingTimerRef = useRef(null)
 
   // Extract board data from real-time hook
   const canvasItems = board?.configuration?.items || []
@@ -72,28 +74,128 @@ function DisplayContent() {
     }
   }, [lastUpdated, connectionStatus])
 
-  // Advertisement display logic
+  // Fetch advertisements for alternating display
+  const fetchAdvertisements = useCallback(async () => {
+    if (!boardId) return;
+
+    try {
+      const response = await fetch(`/api/advertisements?boardId=${boardId}`);
+      if (!response.ok) return;
+
+      const ads = await response.json();
+
+      // Filter active ads
+      const activeAds = ads.filter(ad => {
+        if (!ad.is_active) return false;
+
+        const now = new Date();
+        if (ad.start_date && new Date(ad.start_date) > now) return false;
+        if (ad.end_date && new Date(ad.end_date) < now) return false;
+
+        return true;
+      }).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+      setAdvertisements(activeAds);
+    } catch (error) {
+      console.error('Error fetching advertisements:', error);
+      setAdvertisements([]);
+    }
+  }, [boardId]);
+
+  // Alternating page/ad display logic
   useEffect(() => {
     if (!boardId || loading || error || !board) return;
 
-    // Show advertisements every 2 minutes
-    const showAds = () => {
-      setShowAdvertisement(true);
-    };
+    // Fetch advertisements on mount
+    fetchAdvertisements();
 
-    // Initial delay of 30 seconds after page load, then every 2 minutes
-    const initialTimeout = setTimeout(() => {
-      showAds();
-      adIntervalRef.current = setInterval(showAds, 2 * 60 * 1000); // 2 minutes
-    }, 30 * 1000); // 30 seconds
+    // Setup Server-Sent Events for real-time advertisement updates
+    let eventSource = null;
+    try {
+      eventSource = new EventSource(`/api/stream?boardId=${boardId}`);
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'advertisements_updated') {
+            console.log('🎯 Real-time advertisement update received');
+            fetchAdvertisements();
+          }
+        } catch (err) {
+          console.error('Error parsing SSE message:', err);
+        }
+      };
+    } catch (error) {
+      console.error('Failed to setup SSE connection:', error);
+    }
 
     return () => {
-      clearTimeout(initialTimeout);
-      if (adIntervalRef.current) {
-        clearInterval(adIntervalRef.current);
+      if (eventSource) {
+        eventSource.close();
+      }
+      if (alternatingTimerRef.current) {
+        clearTimeout(alternatingTimerRef.current);
       }
     };
-  }, [boardId, loading, error, board])
+  }, [boardId, loading, error, board, fetchAdvertisements]);
+
+  // Start alternating cycle when advertisements are loaded
+  useEffect(() => {
+    if (!advertisements.length || loading || error) return;
+
+    const startAlternatingCycle = () => {
+      // Start with 1 minute of main page content
+      console.log('🔄 Starting alternating cycle - showing main page for 1 minute');
+      setShowAdvertisement(false);
+
+      const showNextAd = () => {
+        if (advertisements.length === 0) {
+          // No ads available, schedule next check
+          alternatingTimerRef.current = setTimeout(startAlternatingCycle, 60 * 1000);
+          return;
+        }
+
+        console.log(`🎯 Showing ad ${currentAdIndex + 1}/${advertisements.length}`);
+        setShowAdvertisement(true);
+      };
+
+      // After 1 minute, show the current ad
+      alternatingTimerRef.current = setTimeout(showNextAd, 60 * 1000); // 1 minute for main page
+    };
+
+    // Initial delay, then start cycle
+    alternatingTimerRef.current = setTimeout(startAlternatingCycle, 5 * 1000); // 5 second initial delay
+
+    return () => {
+      if (alternatingTimerRef.current) {
+        clearTimeout(alternatingTimerRef.current);
+      }
+    };
+  }, [advertisements, currentAdIndex, loading, error]);
+
+  // Handle ad completion and cycle to next
+  const handleAdComplete = useCallback(() => {
+    console.log('🎯 Ad completed, cycling to next');
+    setShowAdvertisement(false);
+
+    // Move to next ad
+    setCurrentAdIndex(prevIndex => {
+      const nextIndex = prevIndex + 1;
+      if (nextIndex >= advertisements.length) {
+        console.log('🔄 Completed all ads, restarting from first ad');
+        return 0; // Loop back to first ad
+      }
+      return nextIndex;
+    });
+
+    // Show main page for 1 minute before next ad
+    console.log('🔄 Showing main page for 1 minute before next ad');
+    alternatingTimerRef.current = setTimeout(() => {
+      if (advertisements.length > 0) {
+        console.log(`🎯 Showing next ad after main page break`);
+        setShowAdvertisement(true);
+      }
+    }, 60 * 1000); // 1 minute break
+  }, [advertisements.length])
 
   // NOW WE CAN HAVE CONDITIONAL RETURNS AFTER ALL HOOKS
   // Handle loading and error states
@@ -308,7 +410,9 @@ function DisplayContent() {
       <AdvertisementDisplay
         boardId={boardId}
         isVisible={showAdvertisement}
-        onClose={() => setShowAdvertisement(false)}
+        currentAdIndex={currentAdIndex}
+        advertisements={advertisements}
+        onAdComplete={handleAdComplete}
       />
     </div>
   )

@@ -158,6 +158,27 @@ export async function POST(request) {
     }
 
     console.log('✅ Advertisement created successfully:', advertisement.id);
+
+    // Broadcast advertisement creation immediately for real-time updates
+    try {
+      const { broadcastToBoard } = await import('@/lib/stream-manager')
+
+      console.log('📡 Broadcasting new advertisement for board:', boardId)
+      const clientsNotified = broadcastToBoard(boardId, {
+        type: 'advertisements_updated',
+        boardId: boardId,
+        advertisementId: advertisement.id,
+        webhookType: 'INSERT',
+        timestamp: new Date().toISOString(),
+        data: advertisement
+      })
+
+      console.log('✅ New advertisement broadcasted to', clientsNotified, 'clients')
+    } catch (broadcastError) {
+      console.error('⚠️ Failed to broadcast new advertisement:', broadcastError)
+      // Don't fail the request if broadcast fails
+    }
+
     return NextResponse.json(advertisement);
   } catch (error) {
     console.error('Error creating advertisement:', error);
@@ -183,10 +204,10 @@ export async function PUT(request) {
       return NextResponse.json({ error: 'Advertisement ID is required' }, { status: 400 });
     }
 
-    // Verify user owns the advertisement and get media type
+    // Verify user owns the advertisement and get media type + board_id
     const { data: ad, error: adError } = await supabaseAdmin
       .from('advertisements')
-      .select('created_by, media_type')
+      .select('created_by, media_type, board_id')
       .eq('id', id)
       .single();
 
@@ -220,6 +241,26 @@ export async function PUT(request) {
       throw error;
     }
 
+    // Broadcast advertisement update immediately for real-time updates
+    try {
+      const { broadcastToBoard } = await import('@/lib/stream-manager')
+
+      console.log('📡 Broadcasting advertisement update for board:', ad.board_id)
+      const clientsNotified = broadcastToBoard(ad.board_id, {
+        type: 'advertisements_updated',
+        boardId: ad.board_id,
+        advertisementId: advertisement.id,
+        webhookType: 'UPDATE',
+        timestamp: new Date().toISOString(),
+        data: advertisement
+      })
+
+      console.log('✅ Advertisement update broadcasted to', clientsNotified, 'clients')
+    } catch (broadcastError) {
+      console.error('⚠️ Failed to broadcast advertisement update:', broadcastError)
+      // Don't fail the request if broadcast fails
+    }
+
     return NextResponse.json(advertisement);
   } catch (error) {
     console.error('Error updating advertisement:', error);
@@ -244,7 +285,7 @@ export async function DELETE(request) {
     // Get advertisement details and verify ownership
     const { data: ad, error: adError } = await supabaseAdmin
       .from('advertisements')
-      .select('created_by, media_url')
+      .select('created_by, media_url, board_id')
       .eq('id', id)
       .single();
 
@@ -269,6 +310,26 @@ export async function DELETE(request) {
     }
 
     // TODO: Delete media file from storage if needed
+
+    // Broadcast advertisement deletion immediately for real-time updates
+    try {
+      const { broadcastToBoard } = await import('@/lib/stream-manager')
+
+      console.log('📡 Broadcasting advertisement deletion for board:', ad.board_id)
+      const clientsNotified = broadcastToBoard(ad.board_id, {
+        type: 'advertisements_updated',
+        boardId: ad.board_id,
+        advertisementId: id,
+        webhookType: 'DELETE',
+        timestamp: new Date().toISOString(),
+        data: ad
+      })
+
+      console.log('✅ Advertisement deletion broadcasted to', clientsNotified, 'clients')
+    } catch (broadcastError) {
+      console.error('⚠️ Failed to broadcast advertisement deletion:', broadcastError)
+      // Don't fail the request if broadcast fails
+    }
 
     return NextResponse.json({ success: true });
   } catch (error) {
