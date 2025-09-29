@@ -320,39 +320,56 @@ function DashboardContent() {
                       <span className="flex-1 text-center">Share Board</span>
                     </Button>
 
-                    <div className="flex gap-3">
-                      {hasWriteAccess ? (
-                        <Link href={`/organize?board=${board.id}`} className="flex-1">
+                    <div className="space-y-3">
+                      <div className="flex gap-3">
+                        {hasWriteAccess ? (
+                          <Link href={`/organize?board=${board.id}`} className="flex-1">
+                            <Button
+                              size="md"
+                              className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 font-medium rounded-xl transition-all duration-300 hover:shadow-lg hover:scale-[1.02] flex items-center justify-center gap-2 h-12"
+                            >
+                              <Edit className="w-4 h-4 flex-shrink-0" />
+                              <span>Edit</span>
+                            </Button>
+                          </Link>
+                        ) : (
+                          <div className="flex-1">
+                            <Button
+                              size="md"
+                              isDisabled
+                              className="w-full bg-gray-100 text-gray-400 font-medium rounded-xl flex items-center justify-center gap-2 h-12 cursor-not-allowed"
+                            >
+                              <Edit className="w-4 h-4 flex-shrink-0" />
+                              <span>View Only</span>
+                            </Button>
+                          </div>
+                        )}
+                        <Link href={`/display?board=${board.id}`} target="_blank" className="flex-1">
                           <Button
+                            variant="bordered"
                             size="md"
-                            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 font-medium rounded-xl transition-all duration-300 hover:shadow-lg hover:scale-[1.02] flex items-center justify-center gap-2 h-12"
+                            className="w-full border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 font-medium rounded-xl transition-all duration-300 hover:shadow-md hover:scale-[1.02] flex items-center justify-center gap-2 h-12"
                           >
-                            <Edit className="w-4 h-4 flex-shrink-0" />
-                            <span>Edit</span>
+                            <ExternalLink className="w-4 h-4 flex-shrink-0" />
+                            <span>Preview</span>
                           </Button>
                         </Link>
-                      ) : (
-                        <div className="flex-1">
+                      </div>
+
+                      {hasWriteAccess && (
+                        <Link href={`/dashboard/${board.id}/advertisements`} className="flex-1">
                           <Button
                             size="md"
-                            isDisabled
-                            className="w-full bg-gray-100 text-gray-400 font-medium rounded-xl flex items-center justify-center gap-2 h-12 cursor-not-allowed"
+                            variant="bordered"
+                            className="w-full border-orange-300 text-orange-600 hover:bg-orange-50 hover:border-orange-400 font-medium rounded-xl transition-all duration-300 hover:shadow-lg hover:scale-[1.02] flex items-center justify-center gap-2 h-12"
                           >
-                            <Edit className="w-4 h-4 flex-shrink-0" />
-                            <span>View Only</span>
+                            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                            </svg>
+                            <span>Manage Ads</span>
                           </Button>
-                        </div>
+                        </Link>
                       )}
-                      <Link href={`/display?board=${board.id}`} target="_blank" className="flex-1">
-                        <Button
-                          variant="bordered"
-                          size="md"
-                          className="w-full border-gray-200 text-gray-700 hover:bg-blue-50 hover:border-blue-400 hover:text-blue-700 font-medium rounded-xl transition-all duration-300 hover:shadow-md hover:scale-[1.02] flex items-center justify-center gap-2 h-12"
-                        >
-                          <ExternalLink className="w-4 h-4 flex-shrink-0" />
-                          <span>Preview</span>
-                        </Button>
-                      </Link>
                     </div>
 
                     {canDelete && (
