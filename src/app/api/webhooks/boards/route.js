@@ -10,42 +10,29 @@ export async function GET(request) {
   })
 }
 
-// Webhook handler for board updates
+// Webhook handler for board updates - DISABLED to prevent duplicate broadcasts
+// All broadcasting is now handled directly in the API route for immediate response
 export async function POST(request) {
   try {
     const payload = await request.json()
-    
+
     // Extract board update information
     const { type, table, record } = payload
-    
-    // Only handle boards table updates
-    if (table !== 'boards' || type !== 'UPDATE') {
-      return NextResponse.json({ 
-        received: true, 
-        ignored: true, 
-        reason: `Not a boards UPDATE event`,
-        table,
-        type 
-      })
-    }
 
-    // Broadcast to all connected display clients
-    const clientsNotified = broadcastToBoard(record?.id, {
-      type: 'board_updated',
-      boardId: record?.id,
-      userId: record?.user_id,
-      data: record,
-      timestamp: new Date().toISOString()
+    console.log(`[Webhook] Received ${type} event for table ${table}, record ${record?.id}`)
+
+    // Log but don't broadcast - API route handles this now
+    return NextResponse.json({
+      received: true,
+      ignored: true,
+      reason: `Webhook disabled - API route handles broadcasting directly`,
+      table,
+      type,
+      message: "Broadcasting is handled by API route to ensure immediate response"
     })
-    
-    return NextResponse.json({ 
-      success: true,
-      message: `Board update sent to ${clientsNotified} displays`,
-      boardId: record?.id,
-      clientsNotified
-    })
-    
+
   } catch (error) {
+    console.error('[Webhook] Processing failed:', error.message)
     return NextResponse.json(
       { error: 'Webhook processing failed', details: error.message },
       { status: 500 }

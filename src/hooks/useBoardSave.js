@@ -42,38 +42,14 @@ export function useBoardSave() {
 
       const updatedBoard = await response.json()
       setLastSaved(new Date())
-      
-      // Also save to localStorage as backup
-      try {
-        const localBoards = JSON.parse(localStorage.getItem('smartBoards') || '[]')
-        const boardIndex = localBoards.findIndex(board => board.id === boardId)
-        if (boardIndex >= 0) {
-          localBoards[boardIndex].configuration = configuration
-          localBoards[boardIndex].updatedAt = new Date().toISOString()
-          localStorage.setItem('smartBoards', JSON.stringify(localBoards))
-        }
-      } catch (localError) {
-        // Silent fail
-      }
 
       return updatedBoard
     } catch (err) {
       setError(err.message)
-      
-      // Fallback: save to localStorage only
-      try {
-        const localBoards = JSON.parse(localStorage.getItem('smartBoards') || '[]')
-        const boardIndex = localBoards.findIndex(board => board.id === boardId)
-        if (boardIndex >= 0) {
-          localBoards[boardIndex].configuration = configuration
-          localBoards[boardIndex].updatedAt = new Date().toISOString()
-          localStorage.setItem('smartBoards', JSON.stringify(localBoards))
-        }
-      } catch (localError) {
-        // Silent fail
-      }
-      
-      throw err
+      console.error(`[useBoardSave] Failed to save board ${boardId}:`, err.message)
+
+      // No fallback - fail fast when Supabase is not working
+      throw new Error(`Supabase is not working right now. Please try again later.`);
     } finally {
       setSaving(false)
     }

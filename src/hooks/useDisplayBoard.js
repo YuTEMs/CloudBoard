@@ -36,37 +36,12 @@ export function useDisplayBoard(boardId) {
           return prevBoard
         })
       } else {
-        // Fallback to localStorage for backwards compatibility
-        const localBoards = localStorage.getItem('smartBoards')
-        if (localBoards) {
-          const boards = JSON.parse(localBoards)
-          const localBoard = boards.find(b => b.id === boardId)
-          if (localBoard) {
-            setBoard(localBoard)
-            setLastUpdated(new Date(localBoard.updatedAt || localBoard.updated_at))
-          } else {
-            setError('Board not found')
-          }
-        } else {
-          setError('Board not found')
-        }
+        setError('Board not found')
       }
     } catch (err) {
-      setError(err.message)
-
-      // Fallback to localStorage
-      try {
-        const localBoards = localStorage.getItem('smartBoards')
-        if (localBoards) {
-          const boards = JSON.parse(localBoards)
-          const localBoard = boards.find(b => b.id === boardId)
-          if (localBoard) {
-            setBoard(localBoard)
-            setLastUpdated(new Date(localBoard.updatedAt || localBoard.updated_at))
-          }
-        }
-      } catch (localError) {
-      }
+      console.error(`[useDisplayBoard] Failed to load board ${boardId}:`, err.message)
+      // No fallback - fail fast when Supabase is not working
+      setError('Supabase is not working right now')
     } finally {
       setLoading(false)
     }
@@ -104,6 +79,7 @@ export function useDisplayBoard(boardId) {
 
               switch (data.type) {
                 case 'connected':
+                  console.log(`[useDisplayBoard] Connected to board ${boardId} via SSE`)
                   setConnectionStatus('connected')
                   break
 
@@ -113,6 +89,8 @@ export function useDisplayBoard(boardId) {
                   break
 
                 case 'board_updated':
+                  console.log(`[useDisplayBoard] Received board update for ${boardId}`)
+
                   // Update board data reactively without page refresh
                   if (data.data) {
                     // Parse configuration if it's a string
@@ -131,8 +109,11 @@ export function useDisplayBoard(boardId) {
                     // Show a brief update indicator
                     setConnectionStatus('updated')
                     setTimeout(() => setConnectionStatus('connected'), 2000)
+
+                    console.log(`[useDisplayBoard] Board ${boardId} updated successfully via SSE`)
                   } else {
                     // If no data provided, reload from database
+                    console.log(`[useDisplayBoard] Board ${boardId} update received, reloading from database`)
                     setConnectionStatus('updated')
                     loadBoard()
                   }
@@ -141,6 +122,14 @@ export function useDisplayBoard(boardId) {
                 case 'advertisements_updated':
                   // Signal that advertisements have been updated
                   setConnectionStatus('advertisements_updated')
+                  setTimeout(() => setConnectionStatus('connected'), 1000)
+                  break
+
+                case 'advertisement_settings_updated':
+                  console.log(`[useDisplayBoard] Received advertisement settings update for ${boardId}`)
+                  // Signal to re-fetch advertisement settings
+                  setConnectionStatus('advertisement_settings_updated')
+                  // Reset status after a brief moment
                   setTimeout(() => setConnectionStatus('connected'), 1000)
                   break
 

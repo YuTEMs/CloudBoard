@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { addConnection, removeConnection } from '@/lib/stream-manager'
+import { addConnection, removeConnection, updateConnectionPing } from '@/lib/stream-manager'
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
@@ -12,13 +12,14 @@ export async function GET(request) {
   // Create Server-Sent Events stream
   const stream = new ReadableStream({
     start(controller) {
-      // Store this connection
-      addConnection(boardId, controller)
-      
+      // Store this connection with tracking
+      const connectionId = addConnection(boardId, controller)
+
       // Send initial connection message
       const connectMessage = JSON.stringify({
         type: 'connected',
         boardId,
+        connectionId,
         timestamp: new Date().toISOString()
       })
       controller.enqueue(`data: ${connectMessage}\n\n`)
@@ -26,12 +27,14 @@ export async function GET(request) {
       // Keep connection alive with periodic pings
       const pingInterval = setInterval(() => {
         try {
+          updateConnectionPing(boardId, controller)
           const pingMessage = JSON.stringify({
             type: 'ping',
             timestamp: new Date().toISOString()
           })
           controller.enqueue(`data: ${pingMessage}\n\n`)
         } catch (error) {
+          console.error(`[SSE] Ping failed for connection ${connectionId}:`, error.message)
           clearInterval(pingInterval)
           removeConnection(boardId, controller)
         }
@@ -39,6 +42,7 @@ export async function GET(request) {
 
       // Clean up on close
       request.signal?.addEventListener('abort', () => {
+        console.log(`[SSE] Connection ${connectionId} aborted`)
         clearInterval(pingInterval)
         removeConnection(boardId, controller)
       })

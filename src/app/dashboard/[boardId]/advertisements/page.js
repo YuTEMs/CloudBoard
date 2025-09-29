@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useParams, useRouter } from 'next/navigation';
 import {
@@ -18,7 +18,7 @@ import {
   Slider,
   Divider
 } from '@heroui/react';
-import { Upload, Calendar, Image, Video, Trash2, Edit, Plus, ArrowLeft } from 'lucide-react';
+import { Upload, Calendar, Image, Video, Trash2, Edit, Plus, ArrowLeft, Wifi, WifiOff } from 'lucide-react';
 import { uploadMedia } from '../../../../lib/storage';
 
 export default function AdvertisementsPage() { 
@@ -33,6 +33,28 @@ export default function AdvertisementsPage() {
   const [uploading, setUploading] = useState(false);
   const [editingAd, setEditingAd] = useState(null);
 
+  // SSE Real-time connection state
+  const [connectionStatus, setConnectionStatus] = useState('disconnected'); // 'disconnected', 'connecting', 'connected', 'error'
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const eventSourceRef = useRef(null);
+  const reconnectTimeoutRef = useRef(null);
+  const reconnectAttemptsRef = useRef(0);
+
+  // Local configuration state for batch saving
+  const [localAdConfig, setLocalAdConfig] = useState({});
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // General advertisement settings
+  const [adSettings, setAdSettings] = useState({
+    timeBetweenAds: 60, // seconds
+    initialDelay: 5, // seconds
+    adDisplayDuration: null // null for auto-duration based on content
+  });
+  const [localAdSettings, setLocalAdSettings] = useState({});
+  const [hasUnsavedSettings, setHasUnsavedSettings] = useState(false);
+  const [savingSettings, setSavingSettings] = useState(false);
+
   const [formData, setFormData] = useState({
     title: '',
     file: null,
@@ -42,12 +64,122 @@ export default function AdvertisementsPage() {
     displayDuration: 10000 // Default 10 seconds for images
   });
 
+  // SSE Connection Management
+  const connectToSSE = useCallback(() => {
+    if (!boardId) return;
+
+    console.log(`[Ads Page] Connecting to SSE for board ${boardId}`);
+    setConnectionStatus('connecting');
+
+    // Close existing connection
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+    }
+
+    try {
+      const eventSource = new EventSource(`/api/stream?boardId=${boardId}`);
+      eventSourceRef.current = eventSource;
+
+      eventSource.onopen = () => {
+        console.log(`[Ads Page] SSE connected for board ${boardId}`);
+        setConnectionStatus('connected');
+        reconnectAttemptsRef.current = 0;
+      };
+
+      eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          console.log(`[Ads Page] SSE message received:`, data);
+
+          if (data.type === 'connected') {
+            console.log(`[Ads Page] Connection confirmed for board ${boardId}`);
+          } else if (data.type === 'advertisements_updated') {
+            console.log(`[Ads Page] Advertisement update received:`, data);
+            setLastUpdate(new Date());
+            
+            // Refresh advertisements list when any advertisement changes
+            fetchAdvertisements();
+            
+            // Show brief visual feedback
+            if (data.changeType === 'ACTIVE_STATUS_CHANGE') {
+              console.log(`[Ads Page] Active status changed for ad: ${data.advertisementId}`);
+            }
+            
+            // Note: fetchAdvertisements() will reset localAdConfig to match server state
+            // This ensures we don't have conflicts with changes from other users
+          } else if (data.type === 'ping') {
+            // Handle ping silently
+          }
+        } catch (error) {
+          console.error(`[Ads Page] Error parsing SSE message:`, error);
+        }
+      };
+
+      eventSource.onerror = (error) => {
+        console.error(`[Ads Page] SSE error:`, error);
+        setConnectionStatus('error');
+        
+        // Attempt reconnection with exponential backoff
+        const maxAttempts = 5;
+        const baseDelay = 1000;
+        
+        if (reconnectAttemptsRef.current < maxAttempts) {
+          const delay = baseDelay * Math.pow(2, reconnectAttemptsRef.current);
+          console.log(`[Ads Page] Attempting reconnection in ${delay}ms (attempt ${reconnectAttemptsRef.current + 1}/${maxAttempts})`);
+          
+          reconnectTimeoutRef.current = setTimeout(() => {
+            reconnectAttemptsRef.current++;
+            connectToSSE();
+          }, delay);
+        } else {
+          console.log(`[Ads Page] Max reconnection attempts reached`);
+          setConnectionStatus('disconnected');
+        }
+      };
+
+    } catch (error) {
+      console.error(`[Ads Page] Failed to create SSE connection:`, error);
+      setConnectionStatus('error');
+    }
+  }, [boardId]);
+
+  const disconnectSSE = useCallback(() => {
+    console.log(`[Ads Page] Disconnecting SSE`);
+    
+    if (eventSourceRef.current) {
+      eventSourceRef.current.close();
+      eventSourceRef.current = null;
+    }
+    
+    if (reconnectTimeoutRef.current) {
+      clearTimeout(reconnectTimeoutRef.current);
+      reconnectTimeoutRef.current = null;
+    }
+    
+    setConnectionStatus('disconnected');
+    reconnectAttemptsRef.current = 0;
+  }, []);
+
+  // Setup SSE connection when board loads
   useEffect(() => {
     if (session?.user?.id && boardId) {
       fetchBoardInfo();
       fetchAdvertisements();
+      fetchAdSettings();
+      connectToSSE();
     }
-  }, [session, boardId]);
+
+    return () => {
+      disconnectSSE();
+    };
+  }, [session, boardId, connectToSSE, disconnectSSE]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      disconnectSSE();
+    };
+  }, [disconnectSSE]);
 
   const fetchBoardInfo = async () => {
     try {
@@ -69,12 +201,41 @@ export default function AdvertisementsPage() {
     }
   };
 
+  const fetchAdSettings = async () => {
+    try {
+      console.log(`[Ads Page] Fetching advertisement settings for board ${boardId}`);
+      const response = await fetch(`/api/advertisements/settings?boardId=${boardId}`);
+      if (response.ok) {
+        const settings = await response.json();
+        console.log(`[Ads Page] Received ad settings:`, settings);
+        setAdSettings(settings);
+        setLocalAdSettings(settings);
+        setHasUnsavedSettings(false);
+      } else {
+        // Use default settings if none exist
+        console.log(`[Ads Page] No settings found, using defaults`);
+        setLocalAdSettings(adSettings);
+      }
+    } catch (error) {
+      console.error('[Ads Page] Error fetching advertisement settings:', error);
+      setLocalAdSettings(adSettings);
+    }
+  };
+
   const fetchAdvertisements = async () => {
     try {
       const response = await fetch(`/api/advertisements?boardId=${boardId}`);
       if (response.ok) {
         const ads = await response.json();
         setAdvertisements(ads);
+        
+        // Initialize local configuration with current active states
+        const initialConfig = {};
+        ads.forEach(ad => {
+          initialConfig[ad.id] = ad.is_active;
+        });
+        setLocalAdConfig(initialConfig);
+        setHasUnsavedChanges(false);
       }
     } catch (error) {
     } finally {
@@ -202,22 +363,174 @@ export default function AdvertisementsPage() {
     }
   };
 
-  const toggleActive = async (ad) => {
+  // Local toggle for batch saving
+  const toggleActiveLocal = (ad) => {
+    const currentLocalState = localAdConfig[ad.id] ?? ad.is_active;
+    const newActiveState = !currentLocalState;
+    
+    console.log(`[Ads Page] Local toggle for ad "${ad.title}": ${currentLocalState} -> ${newActiveState}`);
+    
+    setLocalAdConfig(prev => ({
+      ...prev,
+      [ad.id]: newActiveState
+    }));
+    
+    // Check if this creates unsaved changes
+    const hasChanges = Object.keys({ ...localAdConfig, [ad.id]: newActiveState }).some(adId => {
+      const ad = advertisements.find(a => a.id === adId);
+      const localState = adId === ad.id ? newActiveState : localAdConfig[adId];
+      return ad && localState !== ad.is_active;
+    });
+    
+    setHasUnsavedChanges(hasChanges);
+  };
+
+  // Save all configuration changes
+  const saveAdConfiguration = async () => {
+    console.log('[Ads Page] Saving advertisement configuration changes');
+    setSaving(true);
+    
     try {
-      const response = await fetch('/api/advertisements', {
-        method: 'PUT',
+      // Find all advertisements that have changed
+      const changedAds = advertisements.filter(ad => {
+        const localState = localAdConfig[ad.id];
+        return localState !== undefined && localState !== ad.is_active;
+      });
+      
+      console.log(`[Ads Page] Found ${changedAds.length} advertisements with changes:`, 
+        changedAds.map(ad => ({ 
+          id: ad.id, 
+          title: ad.title, 
+          current: ad.is_active, 
+          new: localAdConfig[ad.id] 
+        }))
+      );
+
+      if (changedAds.length === 0) {
+        console.log('[Ads Page] No changes to save');
+        setSaving(false);
+        return;
+      }
+
+      // Send all updates in parallel
+      const updatePromises = changedAds.map(ad => 
+        fetch('/api/advertisements', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: ad.id,
+            isActive: localAdConfig[ad.id]
+          })
+        }).then(response => {
+          if (!response.ok) {
+            throw new Error(`Failed to update ${ad.title}: ${response.status}`);
+          }
+          return response.json();
+        })
+      );
+
+      // Wait for all updates to complete
+      const results = await Promise.all(updatePromises);
+      console.log(`[Ads Page] Successfully updated ${results.length} advertisements`);
+
+      // Refresh the advertisements list to get the latest state
+      await fetchAdvertisements();
+      
+      // Show success feedback with real-time update info
+      const adNames = changedAds.map(ad => `"${ad.title}"`).join(', ');
+      alert(
+        `✅ Configuration Saved Successfully!\n\n` +
+        `Updated ${changedAds.length} advertisement${changedAds.length === 1 ? '' : 's'}: ${adNames}\n\n` +
+        `📡 Changes have been broadcasted to all display screens in real-time.`
+      );
+      
+    } catch (error) {
+      console.error('[Ads Page] Error saving configuration:', error);
+      alert(`Failed to save changes: ${error.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Reset local changes to match server state
+  const resetAdConfiguration = () => {
+    console.log('[Ads Page] Resetting local configuration');
+    const initialConfig = {};
+    advertisements.forEach(ad => {
+      initialConfig[ad.id] = ad.is_active;
+    });
+    setLocalAdConfig(initialConfig);
+    setHasUnsavedChanges(false);
+  };
+
+  // Update local advertisement settings
+  const updateAdSetting = (key, value) => {
+    console.log(`[Ads Page] Updating ad setting ${key}: ${value}`);
+    
+    const newSettings = {
+      ...localAdSettings,
+      [key]: value
+    };
+    
+    setLocalAdSettings(newSettings);
+    
+    // Check if this creates unsaved changes
+    const hasChanges = Object.keys(newSettings).some(settingKey => {
+      return newSettings[settingKey] !== adSettings[settingKey];
+    });
+    
+    setHasUnsavedSettings(hasChanges);
+  };
+
+  // Save advertisement settings
+  const saveAdSettings = async () => {
+    console.log('[Ads Page] Saving advertisement settings changes');
+    setSavingSettings(true);
+    
+    try {
+      const response = await fetch('/api/advertisements/settings', {
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          id: ad.id,
-          isActive: !ad.is_active
+          boardId,
+          ...localAdSettings
         })
       });
 
-      if (response.ok) {
-        await fetchAdvertisements();
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || `Failed to save settings: ${response.status}`);
       }
+
+      const savedSettings = await response.json();
+      console.log(`[Ads Page] Successfully saved advertisement settings:`, savedSettings);
+
+      // Update the local state to match saved settings
+      setAdSettings(savedSettings);
+      setLocalAdSettings(savedSettings);
+      setHasUnsavedSettings(false);
+      
+      // Show success feedback
+      alert(
+        `✅ Advertisement Settings Saved!\n\n` +
+        `📺 Time between ads: ${savedSettings.timeBetweenAds} seconds\n` +
+        `⏱️ Initial delay: ${savedSettings.initialDelay} seconds\n\n` +
+        `📡 Settings have been broadcasted to all display screens.`
+      );
+      
     } catch (error) {
+      console.error('[Ads Page] Error saving advertisement settings:', error);
+      alert(`Failed to save settings: ${error.message}`);
+    } finally {
+      setSavingSettings(false);
     }
+  };
+
+  // Reset advertisement settings to match server state
+  const resetAdSettings = () => {
+    console.log('[Ads Page] Resetting advertisement settings');
+    setLocalAdSettings(adSettings);
+    setHasUnsavedSettings(false);
   };
 
   const resetForm = () => {
@@ -276,8 +589,61 @@ export default function AdvertisementsPage() {
               </h1>
               <p className="text-gray-600 text-lg mt-2">Manage advertisements for "{boardName}"</p>
             </div>
-            <div className="bg-gradient-to-r from-orange-100 to-purple-100 px-6 py-3 rounded-2xl border border-orange-200/50 shadow-sm">
-              <span className="text-orange-800 font-bold text-lg">{advertisements.length} {advertisements.length === 1 ? 'Ad' : 'Ads'}</span>
+            <div className="flex items-center gap-4">
+              <div className="bg-gradient-to-r from-orange-100 to-purple-100 px-6 py-3 rounded-2xl border border-orange-200/50 shadow-sm">
+                <span className="text-orange-800 font-bold text-lg">{advertisements.length} {advertisements.length === 1 ? 'Ad' : 'Ads'}</span>
+              </div>
+              
+              {/* Unsaved Changes Indicator */}
+              {hasUnsavedChanges && (
+                <div className="flex items-center gap-2 px-4 py-2 rounded-xl border bg-yellow-50 border-yellow-200 text-yellow-700 transition-all duration-300">
+                  <div className="w-4 h-4 border-2 border-yellow-600 border-t-transparent rounded-full animate-spin"></div>
+                  <span className="text-sm font-medium">
+                    {Object.keys(localAdConfig).filter(adId => {
+                      const ad = advertisements.find(a => a.id === adId);
+                      return ad && localAdConfig[adId] !== ad.is_active;
+                    }).length} Unsaved Changes
+                  </span>
+                </div>
+              )}
+
+              {/* Real-time Connection Status */}
+              <div className={`flex items-center gap-2 px-4 py-2 rounded-xl border transition-all duration-300 ${
+                connectionStatus === 'connected' 
+                  ? 'bg-green-50 border-green-200 text-green-700' 
+                  : connectionStatus === 'connecting'
+                  ? 'bg-yellow-50 border-yellow-200 text-yellow-700'
+                  : connectionStatus === 'error'
+                  ? 'bg-red-50 border-red-200 text-red-700'
+                  : 'bg-gray-50 border-gray-200 text-gray-600'
+              }`}>
+                {connectionStatus === 'connected' ? (
+                  <>
+                    <Wifi className="w-4 h-4" />
+                    <span className="text-sm font-medium">Live</span>
+                  </>
+                ) : connectionStatus === 'connecting' ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-yellow-600 border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-sm font-medium">Connecting</span>
+                  </>
+                ) : connectionStatus === 'error' ? (
+                  <>
+                    <WifiOff className="w-4 h-4" />
+                    <span className="text-sm font-medium">Error</span>
+                  </>
+                ) : (
+                  <>
+                    <WifiOff className="w-4 h-4" />
+                    <span className="text-sm font-medium">Offline</span>
+                  </>
+                )}
+                {lastUpdate && connectionStatus === 'connected' && (
+                  <span className="text-xs opacity-75">
+                    {lastUpdate.toLocaleTimeString()}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 
@@ -293,6 +659,38 @@ export default function AdvertisementsPage() {
               <Plus className="w-5 h-5 flex-shrink-0" />
               <span>Add Advertisement</span>
             </Button>
+
+            {/* Save Configuration Button */}
+            {hasUnsavedChanges && (
+              <Button
+                size="lg"
+                onPress={saveAdConfiguration}
+                isLoading={saving}
+                className="bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 font-semibold transition-all duration-300 hover:shadow-xl hover:scale-105 px-8 rounded-2xl flex items-center justify-center gap-3 h-14"
+              >
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>{saving ? 'Saving...' : 'Save Configuration'}</span>
+              </Button>
+            )}
+
+            {/* Reset Button (only show when there are unsaved changes) */}
+            {hasUnsavedChanges && (
+              <Button
+                size="lg"
+                variant="bordered"
+                onPress={resetAdConfiguration}
+                disabled={saving}
+                className="border-gray-300 hover:border-gray-400 hover:bg-gray-50 font-semibold text-gray-700 transition-all duration-300 hover:shadow-lg px-6 rounded-2xl flex items-center justify-center gap-3 h-14 bg-white/80 backdrop-blur-sm"
+              >
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <span>Reset</span>
+              </Button>
+            )}
+
             <Button
               size="lg"
               variant="bordered"
@@ -307,6 +705,197 @@ export default function AdvertisementsPage() {
           </div>
         </div>
 
+        {/* Advertisement Settings Panel */}
+        <div className="mb-8 bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-3xl shadow-lg overflow-hidden">
+          <div className="p-8 pb-6 bg-gradient-to-r from-blue-50/50 to-purple-50/50 border-b border-gray-100/50">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
+                <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 100 4m0-4v2m0-6V4" />
+                </svg>
+              </div>
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                Advertisement Settings
+              </h2>
+              {hasUnsavedSettings && (
+                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-100 border border-yellow-300">
+                  <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
+                  <span className="text-xs font-medium text-yellow-700">Unsaved</span>
+                </div>
+              )}
+            </div>
+            <p className="text-gray-600 ml-11">Configure how advertisements are displayed on your board</p>
+          </div>
+
+          <div className="p-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Time Between Ads */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-6 h-6 bg-gradient-to-br from-green-500 to-emerald-500 rounded-lg flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <label className="text-lg font-semibold text-gray-800">Time Between Ads</label>
+                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                  How long to show the main display content between advertisements
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700">
+                      Duration: {localAdSettings.timeBetweenAds || 60} seconds
+                    </span>
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">
+                      {(localAdSettings.timeBetweenAds || 60) < 30 ? 'Very Fast' :
+                       (localAdSettings.timeBetweenAds || 60) <= 60 ? 'Normal' :
+                       (localAdSettings.timeBetweenAds || 60) <= 120 ? 'Slow' : 'Very Slow'}
+                    </span>
+                  </div>
+                  <Slider
+                    value={localAdSettings.timeBetweenAds || 60}
+                    onChange={(value) => updateAdSetting('timeBetweenAds', value)}
+                    minValue={10}
+                    maxValue={300}
+                    step={5}
+                    className="w-full"
+                    classNames={{
+                      track: "bg-gray-200",
+                      filler: "bg-gradient-to-r from-green-500 to-emerald-500"
+                    }}
+                  />
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>10s (Very Fast)</span>
+                    <span>300s (Very Slow)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Initial Delay */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-6 h-6 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h1m4 0h1m-6 4h6m2 5H7a2 2 0 01-2-2V9a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                  </div>
+                  <label className="text-lg font-semibold text-gray-800">Initial Delay</label>
+                </div>
+                <p className="text-sm text-gray-600 mb-4">
+                  How long to wait before starting the advertisement cycle when the display loads
+                </p>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700">
+                      Delay: {localAdSettings.initialDelay || 5} seconds
+                    </span>
+                    <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">
+                      {(localAdSettings.initialDelay || 5) <= 3 ? 'Immediate' :
+                       (localAdSettings.initialDelay || 5) <= 10 ? 'Quick' : 'Delayed'}
+                    </span>
+                  </div>
+                  <Slider
+                    value={localAdSettings.initialDelay || 5}
+                    onChange={(value) => updateAdSetting('initialDelay', value)}
+                    minValue={1}
+                    maxValue={30}
+                    step={1}
+                    className="w-full"
+                    classNames={{
+                      track: "bg-gray-200",
+                      filler: "bg-gradient-to-r from-orange-500 to-red-500"
+                    }}
+                  />
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>1s (Immediate)</span>
+                    <span>30s (Delayed)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Save Settings Section */}
+            {hasUnsavedSettings && (
+              <div className="mt-8 pt-6 border-t border-gray-200/50">
+                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl border border-blue-200/50">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-blue-800">Settings Changed</h4>
+                      <p className="text-sm text-blue-700">Save your changes to apply them to all display screens</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-3">
+                    <Button
+                      variant="bordered"
+                      onPress={resetAdSettings}
+                      disabled={savingSettings}
+                      className="border-blue-300 text-blue-700 hover:bg-blue-100 font-medium transition-all duration-300 rounded-xl"
+                    >
+                      Reset
+                    </Button>
+                    <Button
+                      onPress={saveAdSettings}
+                      isLoading={savingSettings}
+                      className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 font-semibold transition-all duration-300 hover:shadow-lg rounded-xl"
+                    >
+                      {savingSettings ? 'Saving...' : 'Save Settings'}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Unsaved Changes Banner */}
+        {hasUnsavedChanges && (
+          <div className="mb-8 p-6 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200/50 rounded-3xl shadow-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg">
+                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-yellow-800 mb-1">
+                    You have {Object.keys(localAdConfig).filter(adId => {
+                      const ad = advertisements.find(a => a.id === adId);
+                      return ad && localAdConfig[adId] !== ad.is_active;
+                    }).length} unsaved changes
+                  </h3>
+                  <p className="text-yellow-700 text-sm">
+                    Click "Save Configuration" to apply your changes to the display board, or "Reset" to discard them.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <Button
+                  variant="bordered"
+                  onPress={resetAdConfiguration}
+                  disabled={saving}
+                  className="border-yellow-400 text-yellow-700 hover:bg-yellow-100 font-medium transition-all duration-300 rounded-xl"
+                >
+                  Reset
+                </Button>
+                <Button
+                  onPress={saveAdConfiguration}
+                  isLoading={saving}
+                  className="bg-gradient-to-r from-yellow-600 to-orange-600 text-white hover:from-yellow-700 hover:to-orange-700 font-semibold transition-all duration-300 hover:shadow-lg rounded-xl"
+                >
+                  {saving ? 'Saving...' : 'Save Configuration'}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {advertisements.map((ad) => (
             <div
@@ -315,17 +904,51 @@ export default function AdvertisementsPage() {
             >
               {/* Status indicator */}
               <div className="absolute top-4 right-4 flex items-center gap-2">
-                {ad.is_active && isDateActive(ad.start_date, ad.end_date) ? (
-                  <>
-                    <div className="w-2.5 h-2.5 bg-green-500 rounded-full shadow-sm animate-pulse"></div>
-                    <span className="text-xs font-medium text-green-700 bg-green-100/80 px-2 py-1 rounded-full">Active</span>
-                  </>
-                ) : (
-                  <>
-                    <div className="w-2.5 h-2.5 bg-gray-400 rounded-full shadow-sm"></div>
-                    <span className="text-xs font-medium text-gray-600 bg-gray-100/80 px-2 py-1 rounded-full">Inactive</span>
-                  </>
-                )}
+                {(() => {
+                  const currentServerState = ad.is_active && isDateActive(ad.start_date, ad.end_date);
+                  const pendingLocalState = (localAdConfig[ad.id] ?? ad.is_active) && isDateActive(ad.start_date, ad.end_date);
+                  const hasUnsavedChange = localAdConfig[ad.id] !== undefined && localAdConfig[ad.id] !== ad.is_active;
+                  
+                  if (hasUnsavedChange) {
+                    // Show pending state with unsaved indicator
+                    if (pendingLocalState) {
+                      return (
+                        <>
+                          <div className="w-2.5 h-2.5 bg-yellow-500 rounded-full shadow-sm animate-pulse"></div>
+                          <span className="text-xs font-medium text-yellow-700 bg-yellow-100/80 px-2 py-1 rounded-full">
+                            Pending Active
+                          </span>
+                        </>
+                      );
+                    } else {
+                      return (
+                        <>
+                          <div className="w-2.5 h-2.5 bg-orange-500 rounded-full shadow-sm animate-pulse"></div>
+                          <span className="text-xs font-medium text-orange-700 bg-orange-100/80 px-2 py-1 rounded-full">
+                            Pending Inactive
+                          </span>
+                        </>
+                      );
+                    }
+                  } else {
+                    // Show current server state
+                    if (currentServerState) {
+                      return (
+                        <>
+                          <div className="w-2.5 h-2.5 bg-green-500 rounded-full shadow-sm animate-pulse"></div>
+                          <span className="text-xs font-medium text-green-700 bg-green-100/80 px-2 py-1 rounded-full">Active</span>
+                        </>
+                      );
+                    } else {
+                      return (
+                        <>
+                          <div className="w-2.5 h-2.5 bg-gray-400 rounded-full shadow-sm"></div>
+                          <span className="text-xs font-medium text-gray-600 bg-gray-100/80 px-2 py-1 rounded-full">Inactive</span>
+                        </>
+                      );
+                    }
+                  }
+                })()}
               </div>
 
               <div className="relative z-10">
@@ -406,26 +1029,32 @@ export default function AdvertisementsPage() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium text-gray-700">Active Status</span>
-                    <Checkbox
-                      isSelected={ad.is_active}
-                      onValueChange={() => toggleActive(ad)}
-                      size="sm"
-                      classNames={{
-                        wrapper: [
-                          "group-data-[selected=true]:bg-gradient-to-r",
-                          "group-data-[selected=true]:from-orange-500",
-                          "group-data-[selected=true]:to-purple-500",
-                          "group-data-[selected=true]:border-transparent",
-                          "border-0",
-                          "bg-gray-200",
-                          "hover:bg-gray-300",
-                          "transition-all duration-300",
-                          "w-4 h-4"
-                        ],
-                        icon: "text-white text-xs",
-                        base: "transition-all duration-200"
-                      }}
-                    />
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        isSelected={localAdConfig[ad.id] ?? ad.is_active}
+                        onValueChange={() => toggleActiveLocal(ad)}
+                        size="sm"
+                        classNames={{
+                          wrapper: [
+                            "group-data-[selected=true]:bg-gradient-to-r",
+                            "group-data-[selected=true]:from-orange-500",
+                            "group-data-[selected=true]:to-purple-500",
+                            "group-data-[selected=true]:border-transparent",
+                            "border-0",
+                            "bg-gray-200",
+                            "hover:bg-gray-300",
+                            "transition-all duration-300",
+                            "w-4 h-4"
+                          ],
+                          icon: "text-white text-xs",
+                          base: "transition-all duration-200"
+                        }}
+                      />
+                      {/* Show unsaved indicator for this ad */}
+                      {localAdConfig[ad.id] !== undefined && localAdConfig[ad.id] !== ad.is_active && (
+                        <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse" title="Unsaved changes"></div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex gap-3">
