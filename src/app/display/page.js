@@ -22,6 +22,11 @@ function DisplayContent() {
   const [showAdvertisement, setShowAdvertisement] = useState(false)
   const [currentAdIndex, setCurrentAdIndex] = useState(0)
   const [advertisements, setAdvertisements] = useState([])
+  const [adSettings, setAdSettings] = useState({
+    timeBetweenAds: 60,
+    initialDelay: 5,
+    adDisplayDuration: null
+  })
   const displayRef = useRef(null)
   const alternatingTimerRef = useRef(null)
 
@@ -77,23 +82,74 @@ function DisplayContent() {
 
   // Fetch advertisements for alternating display
   const fetchAdvertisements = useCallback(async () => {
-    if (!boardId) return;
+    if (!boardId) {
+      console.log('[Display] No boardId provided for advertisement fetch');
+      return;
+    }
+
+    console.log(`[Display] Fetching advertisements for board: ${boardId}`);
 
     try {
       // Use public endpoint for display mode (no authentication required)
       const response = await fetch(`/api/advertisements/public?boardId=${boardId}`);
+      
+      console.log(`[Display] Public API response status: ${response.status} ${response.statusText}`);
+      
       if (!response.ok) {
-          return;
+        const errorText = await response.text();
+        console.error(`[Display] Public API error:`, errorText);
+        setAdvertisements([]);
+        return;
       }
 
       const activeAds = await response.json();
+      console.log(`[Display] Received ${activeAds?.length || 0} advertisements:`, activeAds);
+
+      if (!Array.isArray(activeAds)) {
+        console.error('[Display] Invalid response format - expected array:', activeAds);
+        setAdvertisements([]);
+        return;
+      }
 
       // Sort by creation date for consistent ordering
       const sortedAds = activeAds.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      console.log(`[Display] Setting ${sortedAds.length} advertisements for display`);
 
       setAdvertisements(sortedAds);
     } catch (error) {
+      console.error('[Display] Error fetching advertisements:', error);
       setAdvertisements([]);
+    }
+  }, [boardId]);
+
+  // Fetch advertisement settings
+  const fetchAdSettings = useCallback(async () => {
+    if (!boardId) {
+      console.log('[Display] No boardId provided for settings fetch');
+      return;
+    }
+
+    console.log(`[Display] Fetching advertisement settings for board: ${boardId}`);
+
+    try {
+      const response = await fetch(`/api/advertisements/settings?boardId=${boardId}`);
+      
+      console.log(`[Display] Settings API response status: ${response.status} ${response.statusText}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[Display] Settings API error:`, errorText);
+        // Use default settings on error
+        return;
+      }
+
+      const settings = await response.json();
+      console.log(`[Display] Received advertisement settings:`, settings);
+
+      setAdSettings(settings);
+    } catch (error) {
+      console.error('[Display] Error fetching advertisement settings:', error);
+      // Keep default settings on error
     }
   }, [boardId]);
 
@@ -101,15 +157,16 @@ function DisplayContent() {
   useEffect(() => {
     if (!boardId || loading || error || !board) return;
 
-    // Fetch advertisements on mount
+    // Fetch advertisements and settings on mount
     fetchAdvertisements();
+    fetchAdSettings();
 
     return () => {
       if (alternatingTimerRef.current) {
         clearTimeout(alternatingTimerRef.current);
       }
     };
-  }, [boardId, loading, error, board, fetchAdvertisements]);
+  }, [boardId, loading, error, board, fetchAdvertisements, fetchAdSettings]);
 
   // Listen for real-time updates via the existing SSE connection
   useEffect(() => {
@@ -118,47 +175,65 @@ function DisplayContent() {
     } else if (connectionStatus === 'advertisements_updated') {
       // Advertisements were updated - refetch advertisement list
       fetchAdvertisements();
+    } else if (connectionStatus === 'advertisement_settings_updated') {
+      // Advertisement settings were updated - refetch settings
+      console.log('[Display] Advertisement settings updated, refetching settings');
+      fetchAdSettings();
     }
-  }, [connectionStatus, fetchAdvertisements]);
+  }, [connectionStatus, fetchAdvertisements, fetchAdSettings]);
 
   // Start alternating cycle when board is loaded (regardless of ads)
   useEffect(() => {
     if (loading || error) {
+      console.log(`[Display] Not starting ad cycle - loading: ${loading}, error: ${error}`);
       return;
     }
 
     if (!board) {
+      console.log('[Display] Not starting ad cycle - no board data');
       return;
     }
 
+    console.log(`[Display] Starting advertisement alternating cycle for board: ${board.name} (${board.id})`);
+    console.log(`[Display] Current advertisements count: ${advertisements.length}`);
 
     const startAlternatingCycle = () => {
+      console.log('[Display] Starting new alternating cycle - showing main content first');
       // Start with 1 minute of main page content
       setShowAdvertisement(false);
 
       const showNextAd = () => {
+        console.log(`[Display] Time to show ad - available ads: ${advertisements.length}`);
         if (advertisements.length === 0) {
+          const retryTime = (adSettings.timeBetweenAds || 60) * 1000;
+          console.log(`[Display] No ads available, scheduling next check in ${retryTime / 1000} seconds (from settings: ${adSettings.timeBetweenAds}s)`);
           // No ads available, schedule next check
-          alternatingTimerRef.current = setTimeout(startAlternatingCycle, 60 * 1000);
+          alternatingTimerRef.current = setTimeout(startAlternatingCycle, retryTime);
           return;
         }
 
+        console.log(`[Display] Showing advertisement ${currentAdIndex + 1} of ${advertisements.length}`);
         setShowAdvertisement(true);
       };
 
-      // After 1 minute, show the current ad
-      alternatingTimerRef.current = setTimeout(showNextAd, 60 * 1000); // 1 minute for main page
+      // Use dynamic settings for main content time
+      const mainContentTime = (adSettings.timeBetweenAds || 60) * 1000;
+      console.log(`[Display] Scheduling ad display in ${mainContentTime / 1000} seconds (from settings: ${adSettings.timeBetweenAds}s)`);
+      alternatingTimerRef.current = setTimeout(showNextAd, mainContentTime);
     };
 
-    // Initial delay, then start cycle
-    alternatingTimerRef.current = setTimeout(startAlternatingCycle, 5 * 1000); // 5 second initial delay
+    // Use dynamic settings for initial delay
+    const initialDelay = (adSettings.initialDelay || 5) * 1000;
+    console.log(`[Display] Starting initial cycle in ${initialDelay / 1000} seconds (from settings: ${adSettings.initialDelay}s)`);
+    alternatingTimerRef.current = setTimeout(startAlternatingCycle, initialDelay);
 
     return () => {
+      console.log('[Display] Cleaning up alternating cycle');
       if (alternatingTimerRef.current) {
         clearTimeout(alternatingTimerRef.current);
       }
     };
-  }, [board, loading, error]); // Start when board loads, not when ads change
+  }, [board, loading, error, advertisements.length, currentAdIndex, adSettings]); // Include ads length, current index, and settings
 
   // Handle ad completion and cycle to next
   const handleAdComplete = useCallback(() => {
@@ -172,12 +247,14 @@ function DisplayContent() {
       }
       return nextIndex;
     });
+    const breakTime = (adSettings.timeBetweenAds || 60) * 1000;
+    console.log(`[Display] Scheduling next ad in ${breakTime / 1000} seconds (break time from settings: ${adSettings.timeBetweenAds}s)`);
     alternatingTimerRef.current = setTimeout(() => {
       if (advertisements.length > 0) {
         setShowAdvertisement(true);
       }
-    }, 60 * 1000); // 1 minute break
-  }, [advertisements.length])
+    }, breakTime);
+  }, [advertisements.length, adSettings])
 
   // NOW WE CAN HAVE CONDITIONAL RETURNS AFTER ALL HOOKS
   // Handle loading and error states
