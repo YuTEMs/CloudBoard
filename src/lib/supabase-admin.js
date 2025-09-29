@@ -19,7 +19,6 @@ export const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
 export const adminBoardService = {
   // Create a new board
   async createBoard(boardData, userId) {
-    console.log('📝 [ADMIN] Creating board:', { boardData, userId })
 
     if (!userId) {
       throw new Error('User ID is required to create a board')
@@ -33,12 +32,10 @@ export const adminBoardService = {
       .single()
 
     if (userCheckError && userCheckError.code !== 'PGRST116') { // PGRST116 = not found
-      console.error('❌ [ADMIN] Error checking user existence:', userCheckError)
       throw new Error(`Failed to verify user: ${userCheckError.message}`)
     }
 
     if (!existingUser) {
-      console.log('👤 [ADMIN] User not found in users table, attempting to create user...')
 
       // Try to create the user first using admin client
       try {
@@ -50,7 +47,6 @@ export const adminBoardService = {
           provider: 'unknown'
         }
 
-        console.log('👤 [ADMIN] Creating missing user:', basicUserData)
 
         const { data: createdUser, error: createUserError } = await supabaseAdmin
           .from('users')
@@ -60,10 +56,7 @@ export const adminBoardService = {
         if (createUserError) {
           throw createUserError
         }
-
-        console.log('✅ [ADMIN] User created successfully:', createdUser)
       } catch (userCreateError) {
-        console.error('❌ [ADMIN] Failed to create user:', userCreateError)
         throw new Error(`Cannot create board: User ${userId} does not exist and could not be created. Please sign out and sign in again.`)
       }
     }
@@ -83,7 +76,6 @@ export const adminBoardService = {
       }
     }
 
-    console.log('🔧 [ADMIN] Creating board with data:', boardToCreate)
 
     const { data: boardResult, error: boardError } = await supabaseAdmin
       .from('boards')
@@ -91,13 +83,6 @@ export const adminBoardService = {
       .select()
 
     if (boardError) {
-      console.error('❌ [ADMIN] Error creating board:', {
-        error: boardError,
-        message: boardError.message,
-        code: boardError.code,
-        details: boardError.details,
-        hint: boardError.hint
-      })
 
       // Provide helpful error messages
       if (boardError.code === '23503') {
@@ -107,7 +92,6 @@ export const adminBoardService = {
       throw new Error(`Failed to create board: ${boardError.message}`)
     }
 
-    console.log('✅ [ADMIN] Board created successfully:', boardResult)
 
     // Check if trigger created the membership automatically
     const { data: membershipCheck, error: membershipError } = await supabaseAdmin
@@ -118,7 +102,6 @@ export const adminBoardService = {
       .single()
 
     if (membershipError || !membershipCheck) {
-      console.log('⚠️ [ADMIN] Automatic membership creation via trigger failed, creating manually...')
 
       // Manual fallback - create membership manually
       const { error: memberError } = await supabaseAdmin
@@ -136,15 +119,11 @@ export const adminBoardService = {
         })
 
       if (memberError) {
-        console.error('❌ [ADMIN] Error creating board membership:', memberError)
         // Cleanup: delete the board if membership creation failed
         await supabaseAdmin.from('boards').delete().eq('id', boardData.id)
         throw new Error(`Failed to create board membership: ${memberError.message}`)
       }
 
-      console.log('✅ [ADMIN] Board membership created manually')
-    } else {
-      console.log('✅ [ADMIN] Board membership created automatically via trigger')
     }
 
     // Map database snake_case to frontend camelCase
@@ -158,7 +137,6 @@ export const adminBoardService = {
 
   // Get all boards accessible to a user (owned + shared)
   async getUserBoards(userId) {
-    console.log('🔍 [ADMIN] Fetching boards for userId:', userId)
 
     // First check if tables exist by doing a simple test query
     try {
@@ -168,11 +146,9 @@ export const adminBoardService = {
         .limit(1)
 
       if (testQuery.error) {
-        console.error('❌ [ADMIN] board_members table does not exist:', testQuery.error)
         throw new Error('Database tables not set up. Please run the fresh database setup script.')
       }
     } catch (err) {
-      console.error('❌ [ADMIN] Database connectivity issue:', err)
       throw err
     }
 
@@ -190,13 +166,6 @@ export const adminBoardService = {
       .order('updated_at', { ascending: false })
 
     if (error) {
-      console.error('❌ [ADMIN] Error fetching user boards:', {
-        error,
-        userId,
-        errorMessage: error.message,
-        errorCode: error.code,
-        errorDetails: error.details
-      })
       throw error
     }
 
@@ -349,7 +318,6 @@ export const adminBoardService = {
       .select()
 
     if (error) {
-      console.error('❌ Error creating invitation:', error)
       throw error
     }
 
@@ -378,7 +346,6 @@ export const adminBoardService = {
       .single()
 
     if (error && error.code !== 'PGRST116') {
-      console.error('❌ Error fetching invitation:', error)
       throw error
     }
 
@@ -402,7 +369,6 @@ export const adminBoardService = {
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('❌ Error fetching board invitations:', error)
       throw error
     }
 
@@ -444,7 +410,6 @@ export const adminBoardService = {
       }
 
       if (!existingUser) {
-        console.log('👤 User not found in users table, attempting to create user...')
         
         // Try to create the user first using admin client
         try {
@@ -456,7 +421,6 @@ export const adminBoardService = {
             provider: 'unknown'
           }
 
-          console.log('👤 Creating missing user:', basicUserData)
 
           const { data: createdUser, error: createUserError } = await supabaseAdmin
             .from('users')
@@ -467,9 +431,7 @@ export const adminBoardService = {
             throw createUserError
           }
 
-          console.log('✅ User created successfully:', createdUser)
         } catch (userCreateError) {
-          console.error('❌ Failed to create user:', userCreateError)
           throw new Error(`Cannot accept invitation: User ${userId} does not exist and could not be created. Please sign out and sign in again.`)
         }
       }
@@ -491,7 +453,6 @@ export const adminBoardService = {
         })
 
       if (memberError) {
-        console.error('❌ Error adding board member:', memberError)
         throw memberError
       }
 
@@ -504,7 +465,6 @@ export const adminBoardService = {
         .eq('id', invitation.id)
 
       if (updateError) {
-        console.error('❌ Error updating invitation timestamp:', updateError)
         // Don't fail the whole operation for this
       }
 
@@ -518,7 +478,6 @@ export const adminBoardService = {
       }
 
     } catch (error) {
-      console.error('❌ Error accepting invitation:', error)
       throw error
     }
   },
@@ -552,7 +511,6 @@ export const adminBoardService = {
       .eq('id', invitationId)
 
     if (error) {
-      console.error('❌ Error revoking invitation:', error)
       throw error
     }
 
@@ -584,7 +542,6 @@ export const adminBoardMemberService = {
       .order('created_at', { ascending: true })
 
     if (error) {
-      console.error('❌ Error fetching board members:', error)
       throw error
     }
 

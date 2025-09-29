@@ -29,7 +29,6 @@ export function useRealtimeBoards() {
       const localBoards = localStorage.getItem('smartBoards')
       if (localBoards) {
         const parsedLocalBoards = JSON.parse(localBoards)
-        console.log('📦 Found local boards, migrating to Supabase:', parsedLocalBoards.length)
         
         // Migrate each board to Supabase
         for (const board of parsedLocalBoards) {
@@ -40,20 +39,17 @@ export function useRealtimeBoards() {
             }, userId)
           } catch (migrateError) {
             // Board might already exist, ignore the error
-            console.log('Board already exists or migration failed:', board.id)
           }
         }
         
         // Clear localStorage after migration
         localStorage.removeItem('smartBoards')
-        console.log('✅ Migration completed, localStorage cleared')
       }
       
       // Load boards from Supabase
       const userBoards = await boardService.getUserBoards(userId)
       setBoards(userBoards)
     } catch (err) {
-      console.error('Error loading boards:', err)
       setError(err.message)
       
       // Fallback to localStorage if Supabase fails
@@ -145,7 +141,6 @@ export function useRealtimeBoards() {
       try {
         channels = boardService.subscribeToUserBoards(userId, handleRealtimeUpdate)
       } catch (err) {
-        console.error('Error setting up real-time subscription:', err)
       }
     }
 
@@ -192,7 +187,6 @@ export function useRealtimeBoards() {
       // Real-time subscription will handle adding it to state
       return newBoard
     } catch (err) {
-      console.error('Error creating board:', err)
       throw err
     }
   }, [userId])
@@ -205,7 +199,6 @@ export function useRealtimeBoards() {
       // Real-time subscription will handle updating state
       return updatedBoard
     } catch (err) {
-      console.error('Error updating board:', err)
       throw err
     }
   }, [userId])
@@ -227,7 +220,6 @@ export function useRealtimeBoards() {
       setBoards(current => current.filter(b => b.id !== boardId))
       return true
     } catch (err) {
-      console.error('Error deleting board:', err)
       throw err
     }
   }, [userId])

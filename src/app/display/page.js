@@ -12,6 +12,7 @@ import AdvertisementDisplay from '../../components/AdvertisementDisplay'
 function DisplayContent() {
   const searchParams = useSearchParams()
   const boardId = searchParams.get('board')
+
   
   // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   // Use display board hook with save-based updates
@@ -79,72 +80,60 @@ function DisplayContent() {
     if (!boardId) return;
 
     try {
-      const response = await fetch(`/api/advertisements?boardId=${boardId}`);
-      if (!response.ok) return;
+      // Use public endpoint for display mode (no authentication required)
+      const response = await fetch(`/api/advertisements/public?boardId=${boardId}`);
+      if (!response.ok) {
+          return;
+      }
 
-      const ads = await response.json();
+      const activeAds = await response.json();
 
-      // Filter active ads
-      const activeAds = ads.filter(ad => {
-        if (!ad.is_active) return false;
+      // Sort by creation date for consistent ordering
+      const sortedAds = activeAds.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
 
-        const now = new Date();
-        if (ad.start_date && new Date(ad.start_date) > now) return false;
-        if (ad.end_date && new Date(ad.end_date) < now) return false;
-
-        return true;
-      }).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-
-      setAdvertisements(activeAds);
+      setAdvertisements(sortedAds);
     } catch (error) {
-      console.error('Error fetching advertisements:', error);
       setAdvertisements([]);
     }
   }, [boardId]);
 
-  // Alternating page/ad display logic
+  // Fetch advertisements when board loads and setup real-time updates
   useEffect(() => {
     if (!boardId || loading || error || !board) return;
 
     // Fetch advertisements on mount
     fetchAdvertisements();
 
-    // Setup Server-Sent Events for real-time advertisement updates
-    let eventSource = null;
-    try {
-      eventSource = new EventSource(`/api/stream?boardId=${boardId}`);
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'advertisements_updated') {
-            console.log('🎯 Real-time advertisement update received');
-            fetchAdvertisements();
-          }
-        } catch (err) {
-          console.error('Error parsing SSE message:', err);
-        }
-      };
-    } catch (error) {
-      console.error('Failed to setup SSE connection:', error);
-    }
-
     return () => {
-      if (eventSource) {
-        eventSource.close();
-      }
       if (alternatingTimerRef.current) {
         clearTimeout(alternatingTimerRef.current);
       }
     };
   }, [boardId, loading, error, board, fetchAdvertisements]);
 
-  // Start alternating cycle when advertisements are loaded
+  // Listen for real-time updates via the existing SSE connection
   useEffect(() => {
-    if (!advertisements.length || loading || error) return;
+    if (connectionStatus === 'updated') {
+      // Board content was updated - handled by useDisplayBoard hook
+    } else if (connectionStatus === 'advertisements_updated') {
+      // Advertisements were updated - refetch advertisement list
+      fetchAdvertisements();
+    }
+  }, [connectionStatus, fetchAdvertisements]);
+
+  // Start alternating cycle when board is loaded (regardless of ads)
+  useEffect(() => {
+    if (loading || error) {
+      return;
+    }
+
+    if (!board) {
+      return;
+    }
+
 
     const startAlternatingCycle = () => {
       // Start with 1 minute of main page content
-      console.log('🔄 Starting alternating cycle - showing main page for 1 minute');
       setShowAdvertisement(false);
 
       const showNextAd = () => {
@@ -154,7 +143,6 @@ function DisplayContent() {
           return;
         }
 
-        console.log(`🎯 Showing ad ${currentAdIndex + 1}/${advertisements.length}`);
         setShowAdvertisement(true);
       };
 
@@ -170,28 +158,22 @@ function DisplayContent() {
         clearTimeout(alternatingTimerRef.current);
       }
     };
-  }, [advertisements, currentAdIndex, loading, error]);
+  }, [board, loading, error]); // Start when board loads, not when ads change
 
   // Handle ad completion and cycle to next
   const handleAdComplete = useCallback(() => {
-    console.log('🎯 Ad completed, cycling to next');
     setShowAdvertisement(false);
 
     // Move to next ad
     setCurrentAdIndex(prevIndex => {
       const nextIndex = prevIndex + 1;
       if (nextIndex >= advertisements.length) {
-        console.log('🔄 Completed all ads, restarting from first ad');
         return 0; // Loop back to first ad
       }
       return nextIndex;
     });
-
-    // Show main page for 1 minute before next ad
-    console.log('🔄 Showing main page for 1 minute before next ad');
     alternatingTimerRef.current = setTimeout(() => {
       if (advertisements.length > 0) {
-        console.log(`🎯 Showing next ad after main page break`);
         setShowAdvertisement(true);
       }
     }, 60 * 1000); // 1 minute break

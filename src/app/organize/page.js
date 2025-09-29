@@ -163,9 +163,7 @@ function OrganizePageContent() {
         backgroundColor
       })
       
-      console.log('✅ Board configuration saved successfully!')
     } catch (error) {
-      console.error('❌ Error saving board configuration:', error)
     }
   }, [boardId, canvasItems, canvasSize, backgroundImage, backgroundColor, saveBoardToDb])
 
@@ -399,8 +397,7 @@ function OrganizePageContent() {
         if (type === 'video' && !file.type.startsWith('video/')) return null
         if (isTooLarge(file)) {
           const mb = (file.size / (1024 * 1024)).toFixed(1)
-          console.error(`File too large: ${file.name} (${mb}MB)`)
-          alert(`File too large: ${file.name} (${mb}MB). Max allowed is 50MB.`)
+            alert(`File too large: ${file.name} (${mb}MB). Max allowed is 50MB.`)
           return null
         }
         const { publicUrl, bucket, path } = await uploadMedia(file, {
@@ -443,8 +440,7 @@ function OrganizePageContent() {
             (type === 'video' && !file.type.startsWith('video/'))) return null
         if (isTooLarge(file)) {
           const mb = (file.size / (1024 * 1024)).toFixed(1)
-          console.error(`File too large: ${file.name} (${mb}MB)`)
-          alert(`File too large: ${file.name} (${mb}MB). Max allowed is 50MB.`)
+            alert(`File too large: ${file.name} (${mb}MB). Max allowed is 50MB.`)
           return null
         }
         const { publicUrl } = await uploadMedia(file, {
@@ -600,7 +596,6 @@ function OrganizePageContent() {
       })
       setBackgroundImage(publicUrl)
     } catch (err) {
-      console.error('Background upload failed:', err)
       alert(`Failed to upload background: ${err.message || err}`)
     }
   }

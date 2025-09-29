@@ -66,7 +66,6 @@ export default function AdvertisementsPage() {
         }
       }
     } catch (error) {
-      console.error('Error fetching board info:', error);
     }
   };
 
@@ -78,7 +77,6 @@ export default function AdvertisementsPage() {
         setAdvertisements(ads);
       }
     } catch (error) {
-      console.error('Error fetching advertisements:', error);
     } finally {
       setLoading(false);
     }
@@ -114,10 +112,8 @@ export default function AdvertisementsPage() {
           }
 
           mediaType = formData.file.type.startsWith('image/') ? 'image' : 'video';
-          console.log('Upload successful:', { mediaUrl, mediaType });
 
         } catch (uploadError) {
-          console.error('Upload error:', uploadError);
           throw new Error(`Failed to upload file: ${uploadError.message}`);
         }
       }
@@ -133,19 +129,16 @@ export default function AdvertisementsPage() {
         displayDuration: mediaType === 'image' ? formData.displayDuration : null
       };
 
-      console.log('Sending advertisement data:', adData);
 
       let response;
       if (editingAd) {
         const requestData = { id: editingAd.id, ...adData };
-        console.log('PUT request data:', requestData);
         response = await fetch('/api/advertisements', {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestData)
         });
       } else {
-        console.log('POST request data:', adData);
         response = await fetch('/api/advertisements', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -153,18 +146,14 @@ export default function AdvertisementsPage() {
         });
       }
 
-      console.log('Response status:', response.status);
-      console.log('Response headers:', Object.fromEntries(response.headers));
 
       if (response.ok) {
-        console.log('Advertisement saved successfully');
         await fetchAdvertisements();
         resetForm();
         onOpenChange();
       } else {
         // Try to get response text first to see what we're getting
         const responseText = await response.text();
-        console.log('Raw response text:', responseText);
 
         let error;
         try {
@@ -173,12 +162,9 @@ export default function AdvertisementsPage() {
           error = { error: `Server error: ${response.status} ${response.statusText}`, details: responseText };
         }
 
-        console.error('Server error:', error);
-        console.error('Response status:', response.status);
         alert(error.error || error.message || error.details || 'Failed to save advertisement');
       }
     } catch (error) {
-      console.error('Error saving advertisement:', error);
       alert(`Failed to save advertisement: ${error.message}`);
     } finally {
       setUploading(false);
@@ -212,7 +198,6 @@ export default function AdvertisementsPage() {
         alert('Failed to delete advertisement');
       }
     } catch (error) {
-      console.error('Error deleting advertisement:', error);
       alert('Failed to delete advertisement');
     }
   };
@@ -232,7 +217,6 @@ export default function AdvertisementsPage() {
         await fetchAdvertisements();
       }
     } catch (error) {
-      console.error('Error toggling advertisement status:', error);
     }
   };
 

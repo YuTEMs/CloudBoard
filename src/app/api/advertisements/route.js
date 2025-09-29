@@ -41,25 +41,19 @@ export async function GET(request) {
 
     return NextResponse.json(advertisements);
   } catch (error) {
-    console.error('Error fetching advertisements:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 export async function POST(request) {
   try {
-    console.log('🚀 POST /api/advertisements - Starting request');
-
     const session = await getServerSession(authOptions);
-    console.log('📋 Session check:', { hasSession: !!session, userId: session?.user?.id });
 
     if (!session?.user?.id) {
-      console.log('❌ Unauthorized - no session');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const body = await request.json();
-    console.log('📦 Request body:', body);
 
     const { boardId, title, mediaUrl, mediaType, startDate, endDate, isActive, displayDuration } = body;
 
@@ -70,7 +64,6 @@ export async function POST(request) {
     if (!mediaType) missingFields.push('mediaType');
 
     if (missingFields.length > 0) {
-      console.log('❌ Missing required fields:', missingFields);
       return NextResponse.json({
         error: 'Missing required fields',
         missingFields
@@ -78,17 +71,14 @@ export async function POST(request) {
     }
 
     // Verify user owns the board
-    console.log('🔍 Checking board ownership for:', { boardId, userId: session.user.id });
     const { data: board, error: boardError } = await supabaseAdmin
       .from('boards')
       .select('created_by')
       .eq('id', boardId)
       .single();
 
-    console.log('📊 Board query result:', { board, boardError });
 
     if (boardError) {
-      console.log('❌ Board error:', boardError);
       return NextResponse.json({
         error: 'Board not found',
         details: boardError.message
@@ -96,7 +86,6 @@ export async function POST(request) {
     }
 
     if (board?.created_by !== session.user.id) {
-      console.log('❌ Access denied:', { boardOwner: board?.created_by, requestUser: session.user.id });
       return NextResponse.json({ error: 'Access denied - you do not own this board' }, { status: 403 });
     }
 
@@ -107,17 +96,6 @@ export async function POST(request) {
     }
 
     // Create advertisement
-    console.log('📝 Creating advertisement with data:', {
-      board_id: boardId,
-      created_by: session.user.id,
-      title,
-      media_url: mediaUrl,
-      media_type: mediaType,
-      start_date: startDate || new Date().toISOString(),
-      end_date: endDate,
-      is_active: isActive !== undefined ? isActive : true,
-      display_duration: finalDisplayDuration
-    });
 
     const { data: advertisement, error } = await supabaseAdmin
       .from('advertisements')
@@ -135,15 +113,12 @@ export async function POST(request) {
       .select()
       .single();
 
-    console.log('💾 Advertisement insert result:', { advertisement, error });
 
     if (error) {
-      console.log('❌ Advertisement creation error:', error);
       throw error;
     }
 
     // Create analytics entry
-    console.log('📈 Creating analytics entry for advertisement:', advertisement.id);
     const { error: analyticsError } = await supabaseAdmin
       .from('advertisement_analytics')
       .insert({
@@ -153,17 +128,14 @@ export async function POST(request) {
       });
 
     if (analyticsError) {
-      console.log('⚠️ Analytics creation failed (non-critical):', analyticsError);
       // Don't fail the entire request if analytics creation fails
     }
 
-    console.log('✅ Advertisement created successfully:', advertisement.id);
 
     // Broadcast advertisement creation immediately for real-time updates
     try {
       const { broadcastToBoard } = await import('@/lib/stream-manager')
 
-      console.log('📡 Broadcasting new advertisement for board:', boardId)
       const clientsNotified = broadcastToBoard(boardId, {
         type: 'advertisements_updated',
         boardId: boardId,
@@ -172,16 +144,12 @@ export async function POST(request) {
         timestamp: new Date().toISOString(),
         data: advertisement
       })
-
-      console.log('✅ New advertisement broadcasted to', clientsNotified, 'clients')
     } catch (broadcastError) {
-      console.error('⚠️ Failed to broadcast new advertisement:', broadcastError)
       // Don't fail the request if broadcast fails
     }
 
     return NextResponse.json(advertisement);
   } catch (error) {
-    console.error('Error creating advertisement:', error);
     return NextResponse.json({
       error: 'Internal server error',
       details: error.message,
@@ -245,7 +213,6 @@ export async function PUT(request) {
     try {
       const { broadcastToBoard } = await import('@/lib/stream-manager')
 
-      console.log('📡 Broadcasting advertisement update for board:', ad.board_id)
       const clientsNotified = broadcastToBoard(ad.board_id, {
         type: 'advertisements_updated',
         boardId: ad.board_id,
@@ -254,16 +221,12 @@ export async function PUT(request) {
         timestamp: new Date().toISOString(),
         data: advertisement
       })
-
-      console.log('✅ Advertisement update broadcasted to', clientsNotified, 'clients')
     } catch (broadcastError) {
-      console.error('⚠️ Failed to broadcast advertisement update:', broadcastError)
       // Don't fail the request if broadcast fails
     }
 
     return NextResponse.json(advertisement);
   } catch (error) {
-    console.error('Error updating advertisement:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -315,7 +278,6 @@ export async function DELETE(request) {
     try {
       const { broadcastToBoard } = await import('@/lib/stream-manager')
 
-      console.log('📡 Broadcasting advertisement deletion for board:', ad.board_id)
       const clientsNotified = broadcastToBoard(ad.board_id, {
         type: 'advertisements_updated',
         boardId: ad.board_id,
@@ -324,16 +286,12 @@ export async function DELETE(request) {
         timestamp: new Date().toISOString(),
         data: ad
       })
-
-      console.log('✅ Advertisement deletion broadcasted to', clientsNotified, 'clients')
     } catch (broadcastError) {
-      console.error('⚠️ Failed to broadcast advertisement deletion:', broadcastError)
       // Don't fail the request if broadcast fails
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting advertisement:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

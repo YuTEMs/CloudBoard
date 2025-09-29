@@ -43,7 +43,6 @@ export async function GET(request) {
       })
     }
   } catch (error) {
-    console.error('Error fetching boards:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -78,7 +77,6 @@ export async function POST(request) {
     
     return NextResponse.json(newBoard, { status: 201 })
   } catch (error) {
-    console.error('Error creating board:', error)
     
     if (error.code === '23505') { // Unique constraint violation
       return NextResponse.json(
@@ -122,7 +120,6 @@ export async function PUT(request) {
     try {
       const { broadcastToBoard } = await import('@/lib/stream-manager')
       
-      console.log('🔍 DEBUG: About to broadcast update for board:', boardId)
       const clientsNotified = broadcastToBoard(boardId, {
         type: 'board_updated',
         boardId: boardId,
@@ -131,16 +128,7 @@ export async function PUT(request) {
         timestamp: new Date().toISOString()
       })
       
-      console.log('🔍 DEBUG: Broadcast result - clients notified:', clientsNotified)
-      
-      if (clientsNotified === 0) {
-        console.log('⚠️ WARNING: No display clients connected to receive update!')
-      } else {
-        console.log('✅ SUCCESS: Update sent to', clientsNotified, 'display(s)')
-      }
-      
     } catch (broadcastError) {
-      console.error('❌ ERROR: Broadcast failed:', broadcastError)
     }
     
     return NextResponse.json(updatedBoard)
@@ -220,7 +208,6 @@ export async function DELETE(request) {
 
     return NextResponse.json({ success: true, storage })
   } catch (error) {
-    console.error('Error deleting board:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

@@ -13,7 +13,6 @@ export const supabase = createClient(supabaseUrl, supabaseKey)
 export const userService = {
   // Create or update user profile
   async upsertUser(userData) {
-    console.log('📝 Supabase upsertUser called with:', userData)
 
     // Build payload and only include password_hash if provided to avoid overwriting
     const payload = {
@@ -36,14 +35,9 @@ export const userService = {
       .select()
 
     if (error) {
-      console.error('❌ Supabase upsert error:', error)
-      console.error('Error code:', error.code)
-      console.error('Error message:', error.message)
-      console.error('Error details:', error.details)
       throw error
     }
     
-    console.log('✅ Supabase upsert successful:', data)
     return data[0]
   },
 
@@ -56,7 +50,6 @@ export const userService = {
       .single()
 
     if (error && error.code !== 'PGRST116') { // PGRST116 is "not found"
-      console.error('Error fetching user:', error)
       throw error
     }
 
@@ -72,7 +65,6 @@ export const userService = {
       .single()
 
     if (error && error.code !== 'PGRST116') {
-      console.error('Error fetching user by email:', error)
       throw error
     }
 
@@ -91,7 +83,6 @@ export const userService = {
       .select()
 
     if (error) {
-      console.error('Error updating user:', error)
       throw error
     }
 
@@ -106,7 +97,6 @@ export const userService = {
       .eq('id', userId)
 
     if (error) {
-      console.error('Error deleting user:', error)
       throw error
     }
 
@@ -118,7 +108,6 @@ export const userService = {
 // Debug function to check database status and user authentication
 export const debugService = {
   async checkDatabaseStatus() {
-    console.log('🔍 Checking database status...')
 
     try {
       // Check if tables exist (using admin call to bypass RLS)
@@ -126,17 +115,9 @@ export const debugService = {
       const membersCheck = await supabase.from('board_members').select('count').limit(1)
       const usersCheck = await supabase.from('users').select('count').limit(1)
 
-      console.log('📊 Database table accessibility:')
-      console.log('  - boards table:', boardsCheck.error ? '❌ ' + boardsCheck.error.message : '✅ accessible')
-      console.log('  - board_members table:', membersCheck.error ? '❌ ' + membersCheck.error.message : '✅ accessible')
-      console.log('  - users table:', usersCheck.error ? '❌ ' + usersCheck.error.message : '✅ accessible')
 
       // Check current user authentication
       const { data: authUser, error: authError } = await supabase.auth.getUser()
-      console.log('🔐 Current auth user:', authUser.user ? authUser.user.id : 'None')
-      if (authError) {
-        console.log('🔐 Auth error:', authError.message)
-      }
 
       return {
         tablesAccessible: !boardsCheck.error && !membersCheck.error && !usersCheck.error,
@@ -144,7 +125,6 @@ export const debugService = {
         authError
       }
     } catch (err) {
-      console.error('❌ Database status check failed:', err)
       return { error: err }
     }
   }
@@ -153,7 +133,6 @@ export const debugService = {
 export const boardService = {
   // Create a new board
   async createBoard(boardData, userId) {
-    console.log('📝 Creating board:', { boardData, userId })
 
     if (!userId) {
       throw new Error('User ID is required to create a board')
@@ -167,12 +146,10 @@ export const boardService = {
       .single()
 
     if (userCheckError && userCheckError.code !== 'PGRST116') { // PGRST116 = not found
-      console.error('❌ Error checking user existence:', userCheckError)
       throw new Error(`Failed to verify user: ${userCheckError.message}`)
     }
 
     if (!existingUser) {
-      console.log('👤 User not found in users table, attempting to create user...')
 
       // Try to create the user first
       try {
@@ -185,11 +162,8 @@ export const boardService = {
           provider: 'unknown'
         }
 
-        console.log('👤 Creating missing user:', basicUserData)
         const createdUser = await userService.upsertUser(basicUserData)
-        console.log('✅ User created successfully:', createdUser)
       } catch (userCreateError) {
-        console.error('❌ Failed to create user:', userCreateError)
         throw new Error(`Cannot create board: User ${userId} does not exist and could not be created. Please sign out and sign in again.`)
       }
     }
@@ -209,7 +183,6 @@ export const boardService = {
       }
     }
 
-    console.log('🔧 Creating board with data:', boardToCreate)
 
     const { data: boardResult, error: boardError } = await supabase
       .from('boards')
@@ -217,13 +190,6 @@ export const boardService = {
       .select()
 
     if (boardError) {
-      console.error('❌ Error creating board:', {
-        error: boardError,
-        message: boardError.message,
-        code: boardError.code,
-        details: boardError.details,
-        hint: boardError.hint
-      })
 
       // Provide helpful error messages
       if (boardError.code === '23503') {
@@ -233,7 +199,6 @@ export const boardService = {
       throw new Error(`Failed to create board: ${boardError.message}`)
     }
 
-    console.log('✅ Board created successfully:', boardResult)
 
     // The database trigger should automatically create the board_members entry
     // Let's verify it was created
@@ -245,7 +210,6 @@ export const boardService = {
       .single()
 
     if (membershipError || !membershipCheck) {
-      console.log('⚠️ Automatic membership creation via trigger failed, creating manually...')
 
       // Manual fallback - create membership manually
       const { error: memberError } = await supabase
@@ -263,15 +227,11 @@ export const boardService = {
         })
 
       if (memberError) {
-        console.error('❌ Error creating board membership:', memberError)
         // Cleanup: delete the board if membership creation failed
         await supabase.from('boards').delete().eq('id', boardData.id)
         throw new Error(`Failed to create board membership: ${memberError.message}`)
       }
 
-      console.log('✅ Board membership created manually')
-    } else {
-      console.log('✅ Board membership created automatically via trigger')
     }
 
     // Map database snake_case to frontend camelCase
@@ -285,16 +245,13 @@ export const boardService = {
 
   // Get all boards accessible to a user (owned + shared)
   async getUserBoards(userId) {
-    console.log('🔍 Fetching boards for userId:', userId)
 
     if (!userId) {
-      console.error('❌ No userId provided to getUserBoards')
       throw new Error('User ID is required')
     }
 
     // Run diagnostic check on first error
     const diagnostics = await debugService.checkDatabaseStatus()
-    console.log('🔧 Diagnostics:', diagnostics)
 
     // Try to fetch user's boards directly
     const { data, error } = await supabase
@@ -311,14 +268,6 @@ export const boardService = {
       .order('updated_at', { ascending: false })
 
     if (error) {
-      console.error('❌ Error fetching user boards:', {
-        error,
-        userId,
-        errorMessage: error.message,
-        errorCode: error.code,
-        errorDetails: error.details,
-        hint: error.hint
-      })
 
       // If this is a table/column not found error, suggest database setup
       if (error.code === '42P01' || error.message.includes('does not exist')) {
@@ -362,7 +311,6 @@ export const boardService = {
       .order('updated_at', { ascending: false })
 
     if (error) {
-      console.error('Error fetching user owned boards:', error)
       throw error
     }
 
@@ -388,7 +336,6 @@ export const boardService = {
       .single()
 
     if (error && error.code !== 'PGRST116') {
-      console.error('Error fetching board:', error)
       throw error
     }
 
@@ -427,7 +374,6 @@ export const boardService = {
       .single()
 
     if (error && error.code !== 'PGRST116') {
-      console.error('Error fetching board with members:', error)
       throw error
     }
 
@@ -460,7 +406,6 @@ export const boardService = {
       .single()
 
     if (error && error.code !== 'PGRST116') {
-      console.error('Error checking board access:', error)
       throw error
     }
 
@@ -469,7 +414,6 @@ export const boardService = {
 
   // Update board configuration
   async updateBoard(boardId, updates, userId) {
-    console.log('📝 Updating board:', boardId, updates)
 
     // First check if user has write access
     const access = await this.checkBoardAccess(boardId, userId)
@@ -487,11 +431,9 @@ export const boardService = {
       .select()
 
     if (error) {
-      console.error('❌ Error updating board:', error)
       throw error
     }
 
-    console.log('✅ Board updated successfully:', data)
     
     // Map database snake_case to frontend camelCase
     const board = data[0]
@@ -516,7 +458,6 @@ export const boardService = {
       .eq('id', boardId)
 
     if (error) {
-      console.error('Error deleting board:', error)
       throw error
     }
 
@@ -525,7 +466,6 @@ export const boardService = {
 
   // Subscribe to real-time changes for user's accessible boards
   subscribeToUserBoards(userId, callback) {
-    console.log('🔔 Setting up real-time subscription for user:', userId)
 
     // Subscribe to board_members changes for this user
     const membershipChannel = supabase
@@ -539,7 +479,6 @@ export const boardService = {
           filter: `user_id=eq.${userId}`
         },
         (payload) => {
-          console.log('🔄 Real-time membership change detected:', payload)
           callback({ type: 'membership', payload })
         }
       )
@@ -556,7 +495,6 @@ export const boardService = {
           table: 'boards'
         },
         (payload) => {
-          console.log('🔄 Real-time board change detected:', payload)
           callback({ type: 'board', payload })
         }
       )
@@ -567,7 +505,6 @@ export const boardService = {
 
   // Subscribe to changes for a specific board (for display mode)
   subscribeToBoardChanges(boardId, callback) {
-    console.log('🔔 Setting up real-time subscription for board:', boardId)
     
     const channel = supabase
       .channel(`board_${boardId}`)
@@ -580,7 +517,6 @@ export const boardService = {
           filter: `id=eq.${boardId}`
         },
         (payload) => {
-          console.log('🔄 Real-time board update detected:', payload)
           callback(payload)
         }
       )
@@ -609,7 +545,6 @@ export const boardMemberService = {
       .order('created_at', { ascending: true })
 
     if (error) {
-      console.error('Error fetching board members:', error)
       throw error
     }
 
@@ -637,7 +572,6 @@ export const boardMemberService = {
       .select()
 
     if (error) {
-      console.error('Error adding board member:', error)
       throw error
     }
 
@@ -657,7 +591,6 @@ export const boardMemberService = {
       .select()
 
     if (error) {
-      console.error('Error updating board member:', error)
       throw error
     }
 
@@ -673,7 +606,6 @@ export const boardMemberService = {
       .eq('user_id', userId)
 
     if (error) {
-      console.error('Error removing board member:', error)
       throw error
     }
 
@@ -712,7 +644,6 @@ export const invitationService = {
       .select()
 
     if (error) {
-      console.error('Error creating invitation:', error)
       throw error
     }
 
@@ -743,7 +674,6 @@ export const invitationService = {
       .single()
 
     if (error && error.code !== 'PGRST116') {
-      console.error('Error fetching invitation:', error)
       throw error
     }
 
@@ -817,7 +747,6 @@ export const invitationService = {
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('Error fetching board invitations:', error)
       throw error
     }
 
@@ -835,7 +764,6 @@ export const invitationService = {
       .eq('id', invitationId)
 
     if (error) {
-      console.error('Error revoking invitation:', error)
       throw error
     }
 
@@ -854,7 +782,6 @@ export const invitationService = {
       .eq('is_active', true)
 
     if (error) {
-      console.error('Error cleaning up expired invitations:', error)
       throw error
     }
 

@@ -6,7 +6,6 @@ export function addConnection(boardId, controller) {
     boardConnections.set(boardId, new Set())
   }
   boardConnections.get(boardId).add(controller)
-  
 }
 
 export function removeConnection(boardId, controller) {
@@ -21,8 +20,7 @@ export function removeConnection(boardId, controller) {
 
 export function broadcastToBoard(boardId, message) {
   const connections = boardConnections.get(boardId)
-  
-  
+
   if (!connections || connections.size === 0) {
     return 0
   }

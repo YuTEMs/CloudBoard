@@ -26,7 +26,6 @@ export default function AdvertisementDisplay({
 
   // Handle video end event for automatic progression
   const handleVideoEnd = () => {
-    console.log('🎯 Video ad completed naturally');
     onAdComplete();
   };
 
@@ -40,10 +39,8 @@ export default function AdvertisementDisplay({
     // For images, use a fixed duration (you can make this configurable per ad)
     const imageDuration = 10000; // 10 seconds for images
 
-    console.log(`🎯 Image ad will display for ${imageDuration/1000} seconds`);
 
     const timer = setTimeout(() => {
-      console.log('🎯 Image ad duration completed');
       onAdComplete();
     }, imageDuration);
 
@@ -79,7 +76,6 @@ export default function AdvertisementDisplay({
             style={{ objectFit: 'contain' }}
             onLoad={handleMediaLoad}
             onError={(e) => {
-              console.error('Image load error:', e);
               handleMediaLoad(); // Still proceed even if image fails
             }}
           />
@@ -95,7 +91,6 @@ export default function AdvertisementDisplay({
             onLoadedData={handleMediaLoad}
             onEnded={handleVideoEnd}
             onError={(e) => {
-              console.error('Video load error:', e);
               handleMediaLoad(); // Still proceed even if video fails
               // For videos that fail to load, treat as completed after short delay
               setTimeout(onAdComplete, 2000);

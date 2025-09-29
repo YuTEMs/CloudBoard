@@ -40,7 +40,6 @@ export const authOptions = {
           // Generate a unique user ID for Supabase
           const supabaseUserId = `google_${user.id}` || `google_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
           
-          console.log('📝 Attempting to store user in Supabase...')
           
           // Store/update user in Supabase
           const userData = await userService.upsertUser({
@@ -62,7 +61,6 @@ export const authOptions = {
         // Credentials provider has already verified user via authorize
         return true
       } catch (error) {
-        console.error('❌ SignIn callback error:', error)
         // Still allow sign in even if Supabase fails
         return true
       }
