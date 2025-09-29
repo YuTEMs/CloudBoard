@@ -61,7 +61,7 @@ export async function POST(request) {
     const body = await request.json();
     console.log('📦 Request body:', body);
 
-    const { boardId, title, mediaUrl, mediaType, startDate, endDate, isActive } = body;
+    const { boardId, title, mediaUrl, mediaType, startDate, endDate, isActive, displayDuration } = body;
 
     const missingFields = [];
     if (!boardId) missingFields.push('boardId');
@@ -100,6 +100,12 @@ export async function POST(request) {
       return NextResponse.json({ error: 'Access denied - you do not own this board' }, { status: 403 });
     }
 
+    // Determine display duration (only for images)
+    let finalDisplayDuration = null;
+    if (mediaType === 'image') {
+      finalDisplayDuration = displayDuration || 10000; // Default 10 seconds for images
+    }
+
     // Create advertisement
     console.log('📝 Creating advertisement with data:', {
       board_id: boardId,
@@ -109,7 +115,8 @@ export async function POST(request) {
       media_type: mediaType,
       start_date: startDate || new Date().toISOString(),
       end_date: endDate,
-      is_active: isActive !== undefined ? isActive : true
+      is_active: isActive !== undefined ? isActive : true,
+      display_duration: finalDisplayDuration
     });
 
     const { data: advertisement, error } = await supabaseAdmin
@@ -122,7 +129,8 @@ export async function POST(request) {
         media_type: mediaType,
         start_date: startDate || new Date().toISOString(),
         end_date: endDate,
-        is_active: isActive !== undefined ? isActive : true
+        is_active: isActive !== undefined ? isActive : true,
+        display_duration: finalDisplayDuration
       })
       .select()
       .single();
@@ -169,16 +177,16 @@ export async function PUT(request) {
     }
 
     const body = await request.json();
-    const { id, title, startDate, endDate, isActive } = body;
+    const { id, title, startDate, endDate, isActive, displayDuration } = body;
 
     if (!id) {
       return NextResponse.json({ error: 'Advertisement ID is required' }, { status: 400 });
     }
 
-    // Verify user owns the advertisement
+    // Verify user owns the advertisement and get media type
     const { data: ad, error: adError } = await supabaseAdmin
       .from('advertisements')
-      .select('created_by')
+      .select('created_by, media_type')
       .eq('id', id)
       .single();
 
@@ -195,6 +203,11 @@ export async function PUT(request) {
     if (startDate !== undefined) updateData.start_date = startDate;
     if (endDate !== undefined) updateData.end_date = endDate;
     if (isActive !== undefined) updateData.is_active = isActive;
+
+    // Only allow display duration for image advertisements
+    if (displayDuration !== undefined && ad.media_type === 'image') {
+      updateData.display_duration = displayDuration;
+    }
 
     const { data: advertisement, error } = await supabaseAdmin
       .from('advertisements')

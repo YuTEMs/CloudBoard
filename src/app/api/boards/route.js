@@ -4,11 +4,11 @@ import { adminBoardService, supabaseAdmin } from '@/lib/supabase-admin'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
 
-// GET /api/boards - Get all boards for the authenticated user
+// GET /api/boards - Get all boards for the authenticated user, or a specific board
 export async function GET(request) {
   try {
     const session = await getServerSession(authOptions)
-    
+
     if (!session) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -17,13 +17,31 @@ export async function GET(request) {
     }
 
     const userId = session.user.id
-    
-    const boards = await adminBoardService.getUserBoards(userId)
-    
-    return NextResponse.json({
-      boards,
-      total: boards.length
-    })
+    const { searchParams } = new URL(request.url)
+    const boardId = searchParams.get('boardId')
+
+    if (boardId) {
+      // Return specific board
+      const boards = await adminBoardService.getUserBoards(userId)
+      const board = boards.find(b => b.id === boardId)
+
+      if (!board) {
+        return NextResponse.json(
+          { error: 'Board not found' },
+          { status: 404 }
+        )
+      }
+
+      return NextResponse.json(board)
+    } else {
+      // Return all boards
+      const boards = await adminBoardService.getUserBoards(userId)
+
+      return NextResponse.json({
+        boards,
+        total: boards.length
+      })
+    }
   } catch (error) {
     console.error('Error fetching boards:', error)
     return NextResponse.json(

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
-const DISPLAY_DURATION = 10000; // 10 seconds
+const DEFAULT_DISPLAY_DURATION = 10000; // 10 seconds fallback
 
 export default function AdvertisementDisplay({ boardId, isVisible, onClose }) {
   const [advertisements, setAdvertisements] = useState([]);
@@ -11,26 +11,32 @@ export default function AdvertisementDisplay({ boardId, isVisible, onClose }) {
 
   const fetchActiveAdvertisements = useCallback(async () => {
     try {
-      const response = await fetch(`/api/advertisements?boardId=${boardId}`);
-      if (response.ok) {
-        const ads = await response.json();
+      // Fetch advertisements
+      const adsResponse = await fetch(`/api/advertisements?boardId=${boardId}`);
+      if (!adsResponse.ok) {
+        throw new Error('Failed to fetch advertisements');
+      }
+      const ads = await adsResponse.json();
 
-        // Filter active advertisements that are within date range
-        const activeAds = ads.filter(ad => {
-          if (!ad.is_active) return false;
+      // Filter advertisements based on:
+      // 1. Individual ad is_active flag
+      // 2. Date range (start_date/end_date)
+      const activeAds = ads.filter(ad => {
+        // Must be individually active
+        if (!ad.is_active) return false;
 
-          const now = new Date();
-          if (ad.start_date && new Date(ad.start_date) > now) return false;
-          if (ad.end_date && new Date(ad.end_date) < now) return false;
+        // Must be within date range
+        const now = new Date();
+        if (ad.start_date && new Date(ad.start_date) > now) return false;
+        if (ad.end_date && new Date(ad.end_date) < now) return false;
 
-          return true;
-        });
+        return true;
+      });
 
-        setAdvertisements(activeAds);
+      setAdvertisements(activeAds);
 
-        if (activeAds.length === 0) {
-          onClose(); // Hide advertisement overlay if no active ads
-        }
+      if (activeAds.length === 0) {
+        onClose(); // Hide advertisement overlay if no active ads
       }
     } catch (error) {
       console.error('Error fetching advertisements:', error);
@@ -73,6 +79,20 @@ export default function AdvertisementDisplay({ boardId, isVisible, onClose }) {
       recordView(currentAd.id);
     }
 
+    // Determine display duration for current ad
+    let displayDuration = DEFAULT_DISPLAY_DURATION;
+
+    if (currentAd) {
+      if (currentAd.media_type === 'image' && currentAd.display_duration) {
+        // Use custom duration for image ads
+        displayDuration = currentAd.display_duration;
+      } else if (currentAd.media_type === 'video') {
+        // For videos, we'll use a longer default duration
+        // In a more advanced implementation, we could get video duration
+        displayDuration = 30000; // 30 seconds for videos
+      }
+    }
+
     const timer = setTimeout(() => {
       if (advertisements.length > 1) {
         // Move to next advertisement
@@ -81,7 +101,7 @@ export default function AdvertisementDisplay({ boardId, isVisible, onClose }) {
         // Single ad - close after display duration
         onClose();
       }
-    }, DISPLAY_DURATION);
+    }, displayDuration);
 
     return () => clearTimeout(timer);
   }, [currentAdIndex, advertisements, isVisible, recordView, onClose]);
@@ -99,6 +119,14 @@ export default function AdvertisementDisplay({ boardId, isVisible, onClose }) {
 
   const currentAd = advertisements[currentAdIndex];
   if (!currentAd) return null;
+
+  // Calculate current display duration for progress bar
+  let currentDisplayDuration = DEFAULT_DISPLAY_DURATION;
+  if (currentAd.media_type === 'image' && currentAd.display_duration) {
+    currentDisplayDuration = currentAd.display_duration;
+  } else if (currentAd.media_type === 'video') {
+    currentDisplayDuration = 30000; // 30 seconds for videos
+  }
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black bg-opacity-90 flex items-center justify-center">
@@ -159,7 +187,7 @@ export default function AdvertisementDisplay({ boardId, isVisible, onClose }) {
             <div
               className="h-full bg-white rounded-full transition-all duration-300 ease-linear"
               style={{
-                animation: `progressBar ${DISPLAY_DURATION}ms linear forwards`
+                animation: `progressBar ${currentDisplayDuration}ms linear forwards`
               }}
             />
           </div>

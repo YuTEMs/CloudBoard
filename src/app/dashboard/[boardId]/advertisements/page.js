@@ -3,19 +3,25 @@
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useParams, useRouter } from 'next/navigation';
-import { Button } from '@heroui/button';
-import { Card, CardBody, CardHeader } from '@heroui/card';
-import { Input } from '@heroui/input';
-import { Switch } from '@heroui/switch';
-import { Checkbox } from '@heroui/checkbox';
-import { Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, useDisclosure } from '@heroui/modal';
-import { Divider } from '@heroui/divider';
-import { Chip } from '@heroui/chip';
-import { Spinner } from '@heroui/spinner';
+import {
+  Button,
+  Input,
+  Switch,
+  Checkbox,
+  Modal,
+  ModalContent,
+  ModalHeader,
+  ModalBody,
+  ModalFooter,
+  useDisclosure,
+  Spinner,
+  Slider,
+  Divider
+} from '@heroui/react';
 import { Upload, Calendar, Image, Video, Trash2, Edit, Plus, ArrowLeft } from 'lucide-react';
 import { uploadMedia } from '../../../../lib/storage';
 
-export default function AdvertisementsPage() {
+export default function AdvertisementsPage() { 
   const { data: session } = useSession();
   const { boardId } = useParams();
   const router = useRouter();
@@ -32,7 +38,8 @@ export default function AdvertisementsPage() {
     file: null,
     startDate: '',
     endDate: '',
-    isActive: true
+    isActive: true,
+    displayDuration: 10000 // Default 10 seconds for images
   });
 
   useEffect(() => {
@@ -122,7 +129,8 @@ export default function AdvertisementsPage() {
         mediaType,
         startDate: formData.startDate || null,
         endDate: formData.endDate || null,
-        isActive: formData.isActive
+        isActive: formData.isActive,
+        displayDuration: mediaType === 'image' ? formData.displayDuration : null
       };
 
       console.log('Sending advertisement data:', adData);
@@ -184,7 +192,8 @@ export default function AdvertisementsPage() {
       file: null,
       startDate: ad.start_date ? ad.start_date.split('T')[0] : '',
       endDate: ad.end_date ? ad.end_date.split('T')[0] : '',
-      isActive: ad.is_active
+      isActive: ad.is_active,
+      displayDuration: ad.display_duration || 10000
     });
     onOpen();
   };
@@ -233,7 +242,8 @@ export default function AdvertisementsPage() {
       file: null,
       startDate: '',
       endDate: '',
-      isActive: true
+      isActive: true,
+      displayDuration: 10000
     });
     setEditingAd(null);
   };
@@ -393,6 +403,12 @@ export default function AdvertisementsPage() {
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-gray-600">End Date</span>
                         <span className="bg-white/80 px-2 py-1 rounded-lg">{new Date(ad.end_date).toLocaleDateString()}</span>
+                      </div>
+                    )}
+                    {ad.media_type === 'image' && ad.display_duration && (
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium text-gray-600">Display Duration</span>
+                        <span className="bg-white/80 px-2 py-1 rounded-lg">{ad.display_duration / 1000}s</span>
                       </div>
                     )}
                     <div className="flex items-center justify-between">
@@ -570,6 +586,49 @@ export default function AdvertisementsPage() {
                       />
                     </div>
                   </div>
+
+                  {/* Duration Controls - Only for Images */}
+                  {(formData.file?.type?.startsWith('image/') || (editingAd?.media_type === 'image' && !formData.file)) && (
+                    <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50/50 rounded-2xl border border-blue-200/50">
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Calendar className="w-4 h-4 text-blue-600" />
+                          <span className="text-sm font-semibold text-blue-700">Display Duration</span>
+                          <span className="text-xs text-blue-600 bg-blue-100 px-2 py-1 rounded-full">Images Only</span>
+                        </div>
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <label className="text-sm font-medium text-gray-700">
+                              Duration: {formData.displayDuration / 1000}s
+                            </label>
+                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">
+                              {formData.displayDuration < 5000 ? 'Quick' :
+                               formData.displayDuration <= 10000 ? 'Normal' : 'Slow'}
+                            </span>
+                          </div>
+                          <Slider
+                            value={formData.displayDuration}
+                            onChange={(value) => setFormData({ ...formData, displayDuration: value })}
+                            minValue={3000}
+                            maxValue={30000}
+                            step={1000}
+                            className="w-full"
+                            classNames={{
+                              track: "bg-gray-200",
+                              filler: "bg-gradient-to-r from-blue-500 to-purple-500"
+                            }}
+                          />
+                          <div className="flex justify-between text-xs text-gray-500">
+                            <span>3s (Quick)</span>
+                            <span>30s (Slow)</span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-500 bg-gray-50/50 p-2 rounded-lg">
+                          📷 Image advertisements will display for this duration before moving to the next ad.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-orange-50/50 rounded-2xl border border-gray-200/50">
                     <div>
