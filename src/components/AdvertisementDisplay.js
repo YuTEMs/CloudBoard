@@ -104,17 +104,6 @@ export default function AdvertisementDisplay({
         )}
       </div>
 
-      {/* Debug info (remove in production) */}
-      {process.env.NODE_ENV === 'development' && (
-        <div className="absolute top-4 left-4 bg-black/70 text-white p-2 rounded text-sm">
-          <div>Ad {currentAdIndex + 1}/{advertisements.length}</div>
-          <div>Type: {currentAd.media_type}</div>
-          <div>ID: {currentAd.id}</div>
-          {currentAd.media_type === 'video' && videoRef.current && (
-            <div>Duration: {Math.round(videoRef.current.duration || 0)}s</div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
