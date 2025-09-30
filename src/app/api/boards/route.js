@@ -3,6 +3,15 @@ import { boardService } from '@/lib/supabase'
 import { adminBoardService, supabaseAdmin } from '@/lib/supabase-admin'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth-options'
+import {
+  boardsCache,
+  boardCache,
+  withCache,
+  getBoardsCacheKey,
+  getBoardCacheKey,
+  invalidateUserBoards,
+  invalidateBoardCache
+} from '@/lib/cache'
 
 // GET /api/boards - Get all boards for the authenticated user, or a specific board
 export async function GET(request) {
@@ -21,9 +30,17 @@ export async function GET(request) {
     const boardId = searchParams.get('boardId')
 
     if (boardId) {
-      // Return specific board
-      const boards = await adminBoardService.getUserBoards(userId)
-      const board = boards.find(b => b.id === boardId)
+      // Return specific board with caching
+      const cacheKey = getBoardCacheKey(boardId)
+      const board = await withCache(
+        cacheKey,
+        async () => {
+          const boards = await adminBoardService.getUserBoards(userId)
+          return boards.find(b => b.id === boardId)
+        },
+        boardCache,
+        60000 // 1 minute cache
+      )
 
       if (!board) {
         return NextResponse.json(
@@ -34,8 +51,14 @@ export async function GET(request) {
 
       return NextResponse.json(board)
     } else {
-      // Return all boards
-      const boards = await adminBoardService.getUserBoards(userId)
+      // Return all boards with caching
+      const cacheKey = getBoardsCacheKey(userId)
+      const boards = await withCache(
+        cacheKey,
+        async () => await adminBoardService.getUserBoards(userId),
+        boardsCache,
+        30000 // 30 seconds cache for board lists
+      )
 
       return NextResponse.json({
         boards,
@@ -74,7 +97,10 @@ export async function POST(request) {
     }
 
     const newBoard = await adminBoardService.createBoard(boardData, userId)
-    
+
+    // Invalidate user's board cache
+    invalidateUserBoards(userId)
+
     return NextResponse.json(newBoard, { status: 201 })
   } catch (error) {
     
@@ -115,7 +141,11 @@ export async function PUT(request) {
     }
 
     const updatedBoard = await adminBoardService.updateBoard(boardId, updates, userId)
-    
+
+    // Invalidate caches
+    invalidateBoardCache(boardId)
+    invalidateUserBoards(userId)
+
     // ALWAYS broadcast update immediately - don't rely on webhooks
     try {
       const { broadcastToBoard } = await import('@/lib/stream-manager')
@@ -134,7 +164,7 @@ export async function PUT(request) {
       console.error(`[API] Failed to broadcast board ${boardId} update:`, broadcastError)
       // Don't fail the API call if broadcast fails, but log it
     }
-    
+
     return NextResponse.json(updatedBoard)
   } catch (error) {
     return NextResponse.json(
@@ -169,6 +199,10 @@ export async function DELETE(request) {
 
     // First delete the board row
     await adminBoardService.deleteBoard(boardId, userId)
+
+    // Invalidate caches
+    invalidateBoardCache(boardId)
+    invalidateUserBoards(userId)
 
     // Then clean up any storage assets for this board
     async function cleanupBoardStorage(uid, bid) {
