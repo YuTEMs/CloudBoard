@@ -164,15 +164,35 @@ export function useRealtimeBoards() {
     loadBoards(false)
   }, [loadBoards])
 
-  // Refresh on focus/visibility change only (no background polling)
+  // Refresh on focus/visibility change with debouncing to prevent excessive queries
   useEffect(() => {
-    const onFocus = () => loadBoards(true)
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') loadBoards(true)
+    let focusTimeout = null
+    let visibilityTimeout = null
+
+    const onFocus = () => {
+      // Debounce: only refresh if user stays focused for 500ms
+      clearTimeout(focusTimeout)
+      focusTimeout = setTimeout(() => {
+        loadBoards(true)
+      }, 500)
     }
+
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        // Debounce: only refresh if page stays visible for 500ms
+        clearTimeout(visibilityTimeout)
+        visibilityTimeout = setTimeout(() => {
+          loadBoards(true)
+        }, 500)
+      }
+    }
+
     window.addEventListener('focus', onFocus)
     document.addEventListener('visibilitychange', onVisibility)
+
     return () => {
+      clearTimeout(focusTimeout)
+      clearTimeout(visibilityTimeout)
       window.removeEventListener('focus', onFocus)
       document.removeEventListener('visibilitychange', onVisibility)
     }

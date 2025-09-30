@@ -1,4 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
+import {
+  invalidateBoardCache,
+  invalidateUserBoards
+} from './cache'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
 const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -250,6 +254,10 @@ export const boardService = {
       throw new Error('User ID is required')
     }
 
+    // NO CLIENT-SIDE CACHING - only cache on server-side API routes
+    // Client-side caching causes issues with real-time updates in organize page
+    // The API routes still have caching which is sufficient
+
     // Run diagnostic check on first error
     const diagnostics = await debugService.checkDatabaseStatus()
 
@@ -434,7 +442,10 @@ export const boardService = {
       throw error
     }
 
-    
+    // Invalidate caches
+    invalidateBoardCache(boardId)
+    invalidateUserBoards(userId)
+
     // Map database snake_case to frontend camelCase
     const board = data[0]
     return {
@@ -460,6 +471,10 @@ export const boardService = {
     if (error) {
       throw error
     }
+
+    // Invalidate caches
+    invalidateBoardCache(boardId)
+    invalidateUserBoards(userId)
 
     return true
   },
