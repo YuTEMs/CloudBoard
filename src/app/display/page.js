@@ -235,6 +235,29 @@ function DisplayContent() {
     };
   }, [board, loading, error, advertisements.length, currentAdIndex, adSettings]); // Include ads length, current index, and settings
 
+  // Track advertisement view in analytics
+  const trackAdView = useCallback(async (advertisementId) => {
+    try {
+      await fetch('/api/advertisements/analytics', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ advertisementId }),
+      });
+    } catch (error) {
+      // Silently fail - don't disrupt display
+    }
+  }, []);
+
+  // Track when advertisement is shown
+  useEffect(() => {
+    if (showAdvertisement && advertisements.length > 0 && advertisements[currentAdIndex]) {
+      const currentAd = advertisements[currentAdIndex];
+      trackAdView(currentAd.id);
+    }
+  }, [showAdvertisement, currentAdIndex, advertisements, trackAdView]);
+
   // Handle ad completion and cycle to next
   const handleAdComplete = useCallback(() => {
     setShowAdvertisement(false);

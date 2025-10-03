@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@heroui/button';
 import { Card, CardBody, CardHeader } from '@heroui/card';
 import { Spinner } from '@heroui/spinner';
-import { ArrowLeft, BarChart3, Eye, Calendar, TrendingUp } from 'lucide-react';
+import { ArrowLeft, BarChart3, Eye, Calendar, TrendingUp, Image, Video, Users } from 'lucide-react';
 
 export default function AnalyticsPage() {
   const { data: session } = useSession();
@@ -22,6 +22,13 @@ export default function AnalyticsPage() {
     if (session?.user?.id && boardId) {
       fetchBoardInfo();
       fetchAnalytics();
+
+      // Auto-refresh analytics every 5 minutes
+      const refreshInterval = setInterval(() => {
+        fetchAnalytics();
+      }, 5 * 60 * 1000); // 5 minutes
+
+      return () => clearInterval(refreshInterval);
     }
   }, [session, boardId]);
 
@@ -171,6 +178,7 @@ export default function AnalyticsPage() {
                       <th className="text-left py-4 px-6 font-semibold text-gray-700 bg-gray-50/50 rounded-l-xl">Advertisement</th>
                       <th className="text-left py-4 px-6 font-semibold text-gray-700 bg-gray-50/50">Type</th>
                       <th className="text-left py-4 px-6 font-semibold text-gray-700 bg-gray-50/50">Views</th>
+                      <th className="text-left py-4 px-6 font-semibold text-gray-700 bg-gray-50/50">Audience Estimate</th>
                       <th className="text-left py-4 px-6 font-semibold text-gray-700 bg-gray-50/50">Last Viewed</th>
                       <th className="text-left py-4 px-6 font-semibold text-gray-700 bg-gray-50/50 rounded-r-xl">Created</th>
                     </tr>
@@ -201,6 +209,20 @@ export default function AnalyticsPage() {
                         <td className="py-4 px-6">
                           <div className="font-bold text-xl bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                             {(item.view_count || 0).toLocaleString()}
+                          </div>
+                        </td>
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-2">
+                            {item.audience_estimate ? (
+                              <div className="flex items-center gap-2 text-purple-600 bg-purple-50 px-3 py-1 rounded-lg">
+                                <Users className="w-4 h-4" />
+                                <span className="text-sm font-semibold">{item.audience_estimate.toLocaleString()}</span>
+                              </div>
+                            ) : (
+                              <div className="text-sm text-gray-400 bg-gray-50 px-3 py-1 rounded-lg italic">
+                                Pending AI Analysis
+                              </div>
+                            )}
                           </div>
                         </td>
                         <td className="py-4 px-6">
