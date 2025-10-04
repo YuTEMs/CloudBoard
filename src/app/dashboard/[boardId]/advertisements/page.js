@@ -49,7 +49,10 @@ export default function AdvertisementsPage() {
   const [adSettings, setAdSettings] = useState({
     timeBetweenAds: 60, // seconds
     initialDelay: 5, // seconds
-    adDisplayDuration: null // null for auto-duration based on content
+    adDisplayDuration: null, // null for auto-duration based on content
+    enableAI: false, // AI person detection
+    personThreshold: 1, // Number of people to trigger ad
+    detectionDuration: 0 // Seconds person must be detected before showing ad (dwell time)
   });
   const [localAdSettings, setLocalAdSettings] = useState({});
   const [hasUnsavedSettings, setHasUnsavedSettings] = useState(false);
@@ -511,10 +514,15 @@ export default function AdvertisementsPage() {
       setHasUnsavedSettings(false);
       
       // Show success feedback
+      const aiStatus = savedSettings.enableAI
+        ? `✅ AI Detection: Enabled (Threshold: ${savedSettings.personThreshold} ${savedSettings.personThreshold === 1 ? 'person' : 'people'})`
+        : '❌ AI Detection: Disabled';
+
       alert(
         `✅ Advertisement Settings Saved!\n\n` +
         `📺 Time between ads: ${savedSettings.timeBetweenAds} seconds\n` +
-        `⏱️ Initial delay: ${savedSettings.initialDelay} seconds\n\n` +
+        `⏱️ Initial delay: ${savedSettings.initialDelay} seconds\n` +
+        `${aiStatus}\n\n` +
         `📡 Settings have been broadcasted to all display screens.`
       );
       
@@ -813,6 +821,136 @@ export default function AdvertisementsPage() {
                   </div>
                 </div>
               </div>
+            </div>
+
+            <Divider className="my-8" />
+
+            {/* AI Person Detection Section */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-8 h-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl flex items-center justify-center">
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                  </svg>
+                </div>
+                <div className="flex-1">
+                  <h2 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
+                    AI Person Detection
+                  </h2>
+                  <p className="text-gray-600 text-sm mt-1">
+                    Use camera to detect people and trigger ads automatically
+                  </p>
+                </div>
+              </div>
+
+              {/* Enable AI Toggle */}
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-purple-50 to-pink-50 rounded-2xl border border-purple-200/50">
+                <div>
+                  <span className="text-lg font-semibold text-gray-800">Enable AI Detection</span>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Show ads when people are detected by camera (uses TensorFlow.js COCO-SSD)
+                  </p>
+                </div>
+                <Switch
+                  isSelected={localAdSettings.enableAI || false}
+                  onValueChange={(checked) => updateAdSetting('enableAI', checked)}
+                  classNames={{
+                    wrapper: "group-data-[selected=true]:bg-gradient-to-r group-data-[selected=true]:from-purple-500 group-data-[selected=true]:to-pink-500"
+                  }}
+                />
+              </div>
+
+              {/* Person Threshold - Only show when AI is enabled */}
+              {localAdSettings.enableAI && (
+                <div className="space-y-4 p-4 bg-gradient-to-r from-purple-50/50 to-pink-50/50 rounded-2xl border border-purple-200/30">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="w-6 h-6 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                      <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                    </div>
+                    <label className="text-lg font-semibold text-gray-800">Person Count Threshold</label>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-4">
+                    Minimum number of people detected to trigger advertisement display
+                  </p>
+                  <div className="space-y-3">
+                    <Input
+                      type="number"
+                      min="1"
+                      max="50"
+                      step="1"
+                      value={localAdSettings.personThreshold || 1}
+                      onChange={(e) => {
+                        const value = parseInt(e.target.value, 10);
+                        if (!isNaN(value) && value >= 1 && value <= 50) {
+                          updateAdSetting('personThreshold', value);
+                        }
+                      }}
+                      variant="bordered"
+                      label="Number of People"
+                      placeholder="Enter number (1-50)"
+                      classNames={{
+                        input: "text-gray-900 font-medium text-lg",
+                        inputWrapper: "border-purple-200 hover:border-purple-400 focus-within:border-purple-500 bg-white/80 backdrop-blur-sm transition-all duration-300 rounded-xl group-data-[focus=true]:border-purple-500 group-data-[focus=true]:shadow-lg"
+                      }}
+                    />
+                    <p className="text-xs text-gray-500 bg-white/80 p-3 rounded-lg border border-purple-100">
+                      💡 <strong>How it works:</strong> The display page will use your device camera to detect people. When {localAdSettings.personThreshold || 1} or more {(localAdSettings.personThreshold || 1) === 1 ? 'person is' : 'people are'} detected, advertisements will be shown. If camera is unavailable, ads will display on timer as normal.
+                    </p>
+                  </div>
+
+                  {/* Detection Duration (Dwell Time) */}
+                  <div className="space-y-4 mt-4">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-6 h-6 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-lg flex items-center justify-center">
+                        <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                      </div>
+                      <span className="text-base font-semibold text-gray-800">Detection Duration</span>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-4">
+                      How long a person must be detected before showing an advertisement
+                    </p>
+                    <Slider
+                      size="md"
+                      step={1}
+                      minValue={0}
+                      maxValue={30}
+                      value={localAdSettings.detectionDuration || 0}
+                      onChange={(value) => updateAdSetting('detectionDuration', value)}
+                      classNames={{
+                        base: "max-w-full",
+                        track: "bg-gradient-to-r from-blue-100 to-cyan-100 border border-blue-200",
+                        filler: "bg-gradient-to-r from-blue-500 to-cyan-500",
+                        thumb: "bg-white border-4 border-blue-500 shadow-lg hover:shadow-xl transition-shadow"
+                      }}
+                      renderLabel={() => (
+                        <div className="flex justify-between items-center w-full mb-2">
+                          <span className="text-sm font-medium text-gray-700">Duration</span>
+                          <span className="text-lg font-bold text-blue-600">
+                            {(localAdSettings.detectionDuration || 0) === 0
+                              ? 'Instant'
+                              : `${localAdSettings.detectionDuration}s`}
+                          </span>
+                        </div>
+                      )}
+                      renderValue={(value) => (
+                        <span className="text-sm font-medium text-gray-600">
+                          {value === 0 ? '0s (Instant)' : `${value} second${value !== 1 ? 's' : ''}`}
+                        </span>
+                      )}
+                    />
+                    <p className="text-xs text-gray-500 bg-blue-50/50 p-3 rounded-lg border border-blue-100">
+                      ⏱️ <strong>What this does:</strong> {(localAdSettings.detectionDuration || 0) === 0
+                        ? 'Ads show immediately when threshold is met'
+                        : `Person must remain detected for ${localAdSettings.detectionDuration} second${(localAdSettings.detectionDuration || 0) !== 1 ? 's' : ''} before ad appears. If they leave during this time, the timer resets.`}
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Save Settings Section */}

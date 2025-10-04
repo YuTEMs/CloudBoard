@@ -66,15 +66,21 @@ export async function GET(request) {
         time_between_ads: 60,
         initial_delay: 5,
         ad_display_duration: null,
+        enable_ai: false,
+        person_threshold: 1,
+        detection_duration: 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
-      
+
       return NextResponse.json({
         boardId: defaultSettings.board_id,
         timeBetweenAds: defaultSettings.time_between_ads,
         initialDelay: defaultSettings.initial_delay,
-        adDisplayDuration: defaultSettings.ad_display_duration
+        adDisplayDuration: defaultSettings.ad_display_duration,
+        enableAI: defaultSettings.enable_ai,
+        personThreshold: defaultSettings.person_threshold,
+        detectionDuration: defaultSettings.detection_duration
       });
     }
 
@@ -85,7 +91,10 @@ export async function GET(request) {
       boardId: settings.board_id,
       timeBetweenAds: settings.time_between_ads,
       initialDelay: settings.initial_delay,
-      adDisplayDuration: settings.ad_display_duration
+      adDisplayDuration: settings.ad_display_duration,
+      enableAI: settings.enable_ai || false,
+      personThreshold: settings.person_threshold || 1,
+      detectionDuration: settings.detection_duration || 0
     };
 
     return NextResponse.json(apiSettings);
@@ -108,12 +117,15 @@ export async function POST(request) {
     }
 
     const body = await request.json();
-    const { boardId, timeBetweenAds, initialDelay, adDisplayDuration } = body;
+    const { boardId, timeBetweenAds, initialDelay, adDisplayDuration, enableAI, personThreshold, detectionDuration } = body;
 
     console.log(`[Ad Settings API] POST: User ${session.user.id} saving settings for board ${boardId}:`, {
       timeBetweenAds,
       initialDelay,
-      adDisplayDuration
+      adDisplayDuration,
+      enableAI,
+      personThreshold,
+      detectionDuration
     });
 
     if (!boardId) {
@@ -123,14 +135,26 @@ export async function POST(request) {
 
     // Validate settings
     if (timeBetweenAds !== undefined && (timeBetweenAds < 5 || timeBetweenAds > 600)) {
-      return NextResponse.json({ 
-        error: 'Time between ads must be between 5 and 600 seconds' 
+      return NextResponse.json({
+        error: 'Time between ads must be between 5 and 600 seconds'
       }, { status: 400 });
     }
 
     if (initialDelay !== undefined && (initialDelay < 1 || initialDelay > 60)) {
-      return NextResponse.json({ 
-        error: 'Initial delay must be between 1 and 60 seconds' 
+      return NextResponse.json({
+        error: 'Initial delay must be between 1 and 60 seconds'
+      }, { status: 400 });
+    }
+
+    if (personThreshold !== undefined && (!Number.isInteger(personThreshold) || personThreshold < 1 || personThreshold > 50)) {
+      return NextResponse.json({
+        error: 'Person threshold must be an integer between 1 and 50'
+      }, { status: 400 });
+    }
+
+    if (detectionDuration !== undefined && (!Number.isInteger(detectionDuration) || detectionDuration < 0 || detectionDuration > 30)) {
+      return NextResponse.json({
+        error: 'Detection duration must be an integer between 0 and 30 seconds'
       }, { status: 400 });
     }
 
@@ -160,6 +184,9 @@ export async function POST(request) {
       time_between_ads: timeBetweenAds || 60,
       initial_delay: initialDelay || 5,
       ad_display_duration: adDisplayDuration || null,
+      enable_ai: enableAI !== undefined ? enableAI : false,
+      person_threshold: personThreshold || 1,
+      detection_duration: detectionDuration !== undefined ? detectionDuration : 0,
       updated_at: new Date().toISOString()
     };
 
@@ -190,7 +217,10 @@ export async function POST(request) {
       boardId: savedSettings.board_id,
       timeBetweenAds: savedSettings.time_between_ads,
       initialDelay: savedSettings.initial_delay,
-      adDisplayDuration: savedSettings.ad_display_duration
+      adDisplayDuration: savedSettings.ad_display_duration,
+      enableAI: savedSettings.enable_ai || false,
+      personThreshold: savedSettings.person_threshold || 1,
+      detectionDuration: savedSettings.detection_duration || 0
     };
 
     // Broadcast settings update immediately for real-time updates

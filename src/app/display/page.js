@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { ClipboardList, XCircle, Search as SearchIcon } from 'lucide-react'
 import { useDisplayBoard } from '../../hooks/useDisplayBoard'
+import { usePersonDetection } from '../../hooks/usePersonDetection'
 import { RenderWidget } from '../../components/widgets'
 import AdvertisementDisplay from '../../components/AdvertisementDisplay'
 
@@ -25,10 +26,35 @@ function DisplayContent() {
   const [adSettings, setAdSettings] = useState({
     timeBetweenAds: 60,
     initialDelay: 5,
-    adDisplayDuration: null
+    adDisplayDuration: null,
+    enableAI: false,
+    personThreshold: 1,
+    detectionDuration: 0
   })
   const displayRef = useRef(null)
   const alternatingTimerRef = useRef(null)
+  const isAdShowingRef = useRef(false) // Track ad state to avoid stale closures in intervals
+  const currentAdIndexRef = useRef(0) // Track rotation index to avoid stale closures
+  const detectionStartTimeRef = useRef(null) // Track when person detection started (for dwell time)
+
+  // Person detection - only enabled when AI settings are turned on
+  const personDetection = usePersonDetection(adSettings.enableAI)
+
+  // Determine if we should use AI mode or fallback to timer
+  const shouldUseAI = adSettings.enableAI && !loading && !error && board
+  const useAIMode = shouldUseAI && personDetection.cameraAvailable && personDetection.isModelReady
+
+  // Log AI mode status
+  useEffect(() => {
+    if (shouldUseAI) {
+      console.log(`[Display] AI Mode: ${useAIMode ? 'ACTIVE' : 'FALLBACK TO TIMER'}`);
+      console.log(`[Display] Camera Available: ${personDetection.cameraAvailable}`);
+      console.log(`[Display] Model Ready: ${personDetection.isModelReady}`);
+      if (personDetection.error) {
+        console.log(`[Display] Person Detection Error: ${personDetection.error}`);
+      }
+    }
+  }, [shouldUseAI, useAIMode, personDetection.cameraAvailable, personDetection.isModelReady, personDetection.error])
 
   // Extract board data from real-time hook
   const canvasItems = board?.configuration?.items || []
@@ -79,6 +105,15 @@ function DisplayContent() {
       // This ensures all components respond to the latest data changes
     }
   }, [lastUpdated, connectionStatus])
+
+  // Keep refs in sync with state to prevent stale closures
+  useEffect(() => {
+    isAdShowingRef.current = showAdvertisement;
+  }, [showAdvertisement])
+
+  useEffect(() => {
+    currentAdIndexRef.current = currentAdIndex;
+  }, [currentAdIndex])
 
   // Fetch advertisements for alternating display
   const fetchAdvertisements = useCallback(async () => {
@@ -182,7 +217,7 @@ function DisplayContent() {
     }
   }, [connectionStatus, fetchAdvertisements, fetchAdSettings]);
 
-  // Start alternating cycle when board is loaded (regardless of ads)
+  // Start alternating cycle when board is loaded (with AI or timer mode)
   useEffect(() => {
     if (loading || error) {
       console.log(`[Display] Not starting ad cycle - loading: ${loading}, error: ${error}`);
@@ -194,46 +229,141 @@ function DisplayContent() {
       return;
     }
 
-    console.log(`[Display] Starting advertisement alternating cycle for board: ${board.name} (${board.id})`);
+    console.log(`[Display] Starting advertisement cycle for board: ${board.name} (${board.id})`);
+    console.log(`[Display] AI Mode: ${useAIMode ? 'ENABLED' : 'DISABLED'}`);
     console.log(`[Display] Current advertisements count: ${advertisements.length}`);
+
+    // AI MODE: Trigger ads based on person detection
+    if (useAIMode) {
+      console.log(`[Display] Using AI person detection mode (threshold: ${adSettings.personThreshold})`);
+
+      // Don't show ad initially, wait for person detection
+      isAdShowingRef.current = false;
+      setShowAdvertisement(false);
+
+      // Check person count and trigger ad accordingly
+      const checkAndShowAd = () => {
+        if (advertisements.length === 0) {
+          console.log('[Display] AI Mode: No ads available to show');
+          return; // No ads to show
+        }
+
+        const detectedPeople = personDetection.personCount;
+        const threshold = adSettings.personThreshold || 1;
+        const isCurrentlyShowing = isAdShowingRef.current;
+        const rotationIndex = currentAdIndexRef.current;
+        const dwellTime = adSettings.detectionDuration || 0;
+
+        // Check if threshold is met
+        const thresholdMet = detectedPeople >= threshold;
+
+        // Handle dwell time logic
+        if (thresholdMet && !isCurrentlyShowing) {
+          // Person detected and ad not showing
+          if (dwellTime === 0) {
+            // Instant detection - show ad immediately
+            console.log(`[Display] ✅ Threshold met! Showing advertisement ${rotationIndex + 1} of ${advertisements.length} (instant)`);
+            isAdShowingRef.current = true;
+            setCurrentAdIndex(rotationIndex);
+            setShowAdvertisement(true);
+          } else {
+            // Dwell time required
+            if (detectionStartTimeRef.current === null) {
+              // Start dwell timer
+              detectionStartTimeRef.current = Date.now();
+              console.log(`[Display] ⏱️ Detection started, waiting ${dwellTime}s before showing ad...`);
+            } else {
+              // Check elapsed time
+              const elapsedSeconds = (Date.now() - detectionStartTimeRef.current) / 1000;
+
+              if (elapsedSeconds >= dwellTime) {
+                // Dwell time met - show ad
+                console.log(`[Display] ✅ Dwell time met (${elapsedSeconds.toFixed(1)}s/${dwellTime}s)! Showing advertisement ${rotationIndex + 1} of ${advertisements.length}`);
+                isAdShowingRef.current = true;
+                setCurrentAdIndex(rotationIndex);
+                setShowAdvertisement(true);
+                detectionStartTimeRef.current = null; // Reset timer
+              } else {
+                // Still waiting
+                console.log(`[Display] ⏳ Detecting... ${elapsedSeconds.toFixed(1)}s/${dwellTime}s (${detectedPeople} ${detectedPeople === 1 ? 'person' : 'people'})`);
+              }
+            }
+          }
+        }
+        // Person below threshold or left
+        else if (!thresholdMet && !isCurrentlyShowing) {
+          // Reset dwell timer if person left
+          if (detectionStartTimeRef.current !== null) {
+            console.log(`[Display] 🔄 Person left, resetting dwell timer`);
+            detectionStartTimeRef.current = null;
+          } else {
+            console.log(`[Display] ⏳ Waiting for ${threshold} ${threshold === 1 ? 'person' : 'people'} (detected: ${detectedPeople})`);
+          }
+        }
+        // Hide ad if people leave AND ad is currently showing
+        else if (!thresholdMet && isCurrentlyShowing) {
+          console.log(`[Display] ⬇️ Below threshold, hiding advertisement`);
+          isAdShowingRef.current = false;
+          setShowAdvertisement(false);
+          detectionStartTimeRef.current = null; // Reset timer
+        }
+        // Ad already showing and threshold still met - do nothing
+        else if (thresholdMet && isCurrentlyShowing) {
+          console.log(`[Display] ✓ Threshold still met, ad already showing - not re-triggering`);
+        }
+      };
+
+      // Check every second while in AI mode
+      const aiCheckInterval = setInterval(checkAndShowAd, 1000);
+
+      // Run initial check immediately
+      checkAndShowAd();
+
+      return () => {
+        clearInterval(aiCheckInterval);
+      };
+    }
+
+    // TIMER MODE: Use traditional timer-based cycle
+    console.log(`[Display] Using timer-based mode`);
 
     const startAlternatingCycle = () => {
       console.log('[Display] Starting new alternating cycle - showing main content first');
-      // Start with 1 minute of main page content
+      isAdShowingRef.current = false;
       setShowAdvertisement(false);
 
       const showNextAd = () => {
         console.log(`[Display] Time to show ad - available ads: ${advertisements.length}`);
         if (advertisements.length === 0) {
           const retryTime = (adSettings.timeBetweenAds || 60) * 1000;
-          console.log(`[Display] No ads available, scheduling next check in ${retryTime / 1000} seconds (from settings: ${adSettings.timeBetweenAds}s)`);
-          // No ads available, schedule next check
+          console.log(`[Display] No ads available, scheduling next check in ${retryTime / 1000} seconds`);
           alternatingTimerRef.current = setTimeout(startAlternatingCycle, retryTime);
           return;
         }
 
         console.log(`[Display] Showing advertisement ${currentAdIndex + 1} of ${advertisements.length}`);
+        isAdShowingRef.current = true;
         setShowAdvertisement(true);
       };
 
-      // Use dynamic settings for main content time
       const mainContentTime = (adSettings.timeBetweenAds || 60) * 1000;
-      console.log(`[Display] Scheduling ad display in ${mainContentTime / 1000} seconds (from settings: ${adSettings.timeBetweenAds}s)`);
+      console.log(`[Display] Scheduling ad display in ${mainContentTime / 1000} seconds`);
       alternatingTimerRef.current = setTimeout(showNextAd, mainContentTime);
     };
 
-    // Use dynamic settings for initial delay
     const initialDelay = (adSettings.initialDelay || 5) * 1000;
-    console.log(`[Display] Starting initial cycle in ${initialDelay / 1000} seconds (from settings: ${adSettings.initialDelay}s)`);
+    console.log(`[Display] Starting initial cycle in ${initialDelay / 1000} seconds`);
     alternatingTimerRef.current = setTimeout(startAlternatingCycle, initialDelay);
 
     return () => {
-      console.log('[Display] Cleaning up alternating cycle');
+      console.log('[Display] Cleaning up cycle');
       if (alternatingTimerRef.current) {
         clearTimeout(alternatingTimerRef.current);
       }
     };
-  }, [board, loading, error, advertisements.length, currentAdIndex, adSettings]); // Include ads length, current index, and settings
+  }, [board, loading, error, advertisements.length, adSettings, useAIMode])
+  // Removed unstable dependencies: currentAdIndex, personDetection.personCount, showAdvertisement
+  // These are now accessed via refs to prevent constant effect re-runs
 
   // Track advertisement view in analytics
   const trackAdView = useCallback(async (advertisementId) => {
@@ -260,24 +390,36 @@ function DisplayContent() {
 
   // Handle ad completion and cycle to next
   const handleAdComplete = useCallback(() => {
+    console.log(`[Display] Ad completed, hiding advertisement`);
+    isAdShowingRef.current = false;
     setShowAdvertisement(false);
 
-    // Move to next ad
-    setCurrentAdIndex(prevIndex => {
-      const nextIndex = prevIndex + 1;
-      if (nextIndex >= advertisements.length) {
-        return 0; // Loop back to first ad
-      }
-      return nextIndex;
-    });
-    const breakTime = (adSettings.timeBetweenAds || 60) * 1000;
-    console.log(`[Display] Scheduling next ad in ${breakTime / 1000} seconds (break time from settings: ${adSettings.timeBetweenAds}s)`);
-    alternatingTimerRef.current = setTimeout(() => {
-      if (advertisements.length > 0) {
-        setShowAdvertisement(true);
-      }
-    }, breakTime);
-  }, [advertisements.length, adSettings])
+    // Move to next ad in rotation
+    const nextIndex = (currentAdIndexRef.current + 1) % advertisements.length;
+    currentAdIndexRef.current = nextIndex; // Update ref for next rotation
+    setCurrentAdIndex(nextIndex); // Update state for rendering
+
+    if (nextIndex === 0) {
+      console.log(`[Display] Rotation complete, looping back to first ad`);
+    } else {
+      console.log(`[Display] Moving to next ad in rotation: ${nextIndex + 1} of ${advertisements.length}`);
+    }
+
+    // In AI mode, the person detection will handle showing the next ad
+    // In timer mode, schedule the next ad after break time
+    if (!useAIMode) {
+      const breakTime = (adSettings.timeBetweenAds || 60) * 1000;
+      console.log(`[Display] Timer mode: Scheduling next ad in ${breakTime / 1000} seconds`);
+      alternatingTimerRef.current = setTimeout(() => {
+        if (advertisements.length > 0) {
+          isAdShowingRef.current = true;
+          setShowAdvertisement(true);
+        }
+      }, breakTime);
+    } else {
+      console.log(`[Display] AI mode: Person detection will handle next ad display (next will be ad ${nextIndex + 1})`);
+    }
+  }, [advertisements.length, adSettings, useAIMode])
 
   // NOW WE CAN HAVE CONDITIONAL RETURNS AFTER ALL HOOKS
   // Handle loading and error states
@@ -478,6 +620,19 @@ function DisplayContent() {
         })}
 
 
+
+        {/* AI Detection Status Indicator */}
+        {useAIMode && (
+          <div className="absolute top-6 left-6 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-full text-sm font-medium border border-white/20 backdrop-blur-sm z-50 flex items-center gap-2">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            <span>AI: {personDetection.personCount} {personDetection.personCount === 1 ? 'person' : 'people'}</span>
+            {personDetection.personCount >= (adSettings.personThreshold || 1) && (
+              <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+            )}
+          </div>
+        )}
 
         {/* Connection status indicator for production */}
         {connectionStatus === 'updated' && (
