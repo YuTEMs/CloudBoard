@@ -38,7 +38,7 @@ export async function GET(request) {
           clearInterval(pingInterval)
           removeConnection(boardId, controller)
         }
-      }, 15000) // Ping every 15 seconds
+      }, 30000) // Ping every 30 seconds (optimized from 15s)
 
       // Clean up on close
       request.signal?.addEventListener('abort', () => {

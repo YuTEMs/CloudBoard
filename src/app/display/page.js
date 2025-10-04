@@ -1,12 +1,18 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback, Suspense } from 'react'
+import { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react'
+import dynamic from 'next/dynamic'
 import { useSearchParams } from 'next/navigation'
 import { ClipboardList, XCircle, Search as SearchIcon } from 'lucide-react'
 import { useDisplayBoard } from '../../hooks/useDisplayBoard'
 import { usePersonDetection } from '../../hooks/usePersonDetection'
 import { RenderWidget } from '../../components/widgets'
-import AdvertisementDisplay from '../../components/AdvertisementDisplay'
+
+// Lazy load advertisement component (only when advertisements are active)
+const AdvertisementDisplay = dynamic(() => import('../../components/AdvertisementDisplay'), {
+  ssr: false,
+  loading: () => null
+})
 
 // Widget definitions removed - now using shared widgets from ../../components/widgets
 
@@ -56,19 +62,19 @@ function DisplayContent() {
     }
   }, [shouldUseAI, useAIMode, personDetection.cameraAvailable, personDetection.isModelReady, personDetection.error])
 
-  // Extract board data from real-time hook
-  const canvasItems = board?.configuration?.items || []
-  const boardName = board?.name || ""
-  const canvasSize = board?.configuration?.canvasSize || { width: 1920, height: 1080 }
-  const backgroundImage = board?.configuration?.backgroundImage || null
-  const backgroundColor = board?.configuration?.backgroundColor || "#ffffff"
+  // Extract board data from real-time hook with memoization
+  const canvasItems = useMemo(() => board?.configuration?.items || [], [board?.configuration?.items])
+  const boardName = useMemo(() => board?.name || "", [board?.name])
+  const canvasSize = useMemo(() => board?.configuration?.canvasSize || { width: 1920, height: 1080 }, [board?.configuration?.canvasSize])
+  const backgroundImage = useMemo(() => board?.configuration?.backgroundImage || null, [board?.configuration?.backgroundImage])
+  const backgroundColor = useMemo(() => board?.configuration?.backgroundColor || "#ffffff", [board?.configuration?.backgroundColor])
   const isLoading = loading
-  
-  // Create safe canvas size object to avoid mutation
-  const safeCanvasSize = {
+
+  // Create safe canvas size object to avoid mutation (memoized)
+  const safeCanvasSize = useMemo(() => ({
     width: canvasSize?.width || 1920,
     height: canvasSize?.height || 1080
-  }
+  }), [canvasSize?.width, canvasSize?.height])
 
   // Calculate viewport size and scale factors - Hook must be called every render
   const updateViewportSize = useCallback(() => {
