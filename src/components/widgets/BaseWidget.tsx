@@ -1,6 +1,6 @@
 'use client'
 
-import React from 'react'
+import React, { memo } from 'react'
 import { WidgetProps } from './types'
 
 interface BaseWidgetProps extends WidgetProps {
@@ -9,7 +9,7 @@ interface BaseWidgetProps extends WidgetProps {
   style?: React.CSSProperties
 }
 
-export const BaseWidget: React.FC<BaseWidgetProps> = ({
+export const BaseWidget: React.FC<BaseWidgetProps> = memo(function BaseWidget({
   x,
   y,
   width,
@@ -23,7 +23,7 @@ export const BaseWidget: React.FC<BaseWidgetProps> = ({
   children,
   className = '',
   style = {}
-}) => {
+}) {
   const isOrganizeMode = mode === 'organize'
 
   const baseStyle = {
@@ -86,4 +86,4 @@ export const BaseWidget: React.FC<BaseWidgetProps> = ({
       )}
     </div>
   )
-}
+})
