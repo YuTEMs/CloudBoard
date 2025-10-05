@@ -16,9 +16,11 @@ import {
   CardBody,
   Divider,
   Code,
-  Tooltip
+  Tooltip,
 } from '@heroui/react'
 import { Share2, Copy, Check, Users, Clock, Eye, Edit, Crown, X, UserPlus, Link, Globe } from 'lucide-react'
+import { toast } from 'sonner'
+import { useSession } from 'next-auth/react'
 
 export default function ShareBoardModal({ isOpen, onClose, board }) {
   const [invitations, setInvitations] = useState([])
@@ -30,6 +32,10 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
     expiresInDays: 7
   })
   const [copied, setCopied] = useState(null)
+  const [showInviteInput, setShowInviteInput] = useState(null); // Changed to null instead of boolean
+  const [inviteEmails, setInviteEmails] = useState('');
+  const [isInviting, setIsInviting] = useState(false);
+  const { data: session } = useSession()
 
   // Load board data when modal opens
   useEffect(() => {
@@ -37,6 +43,56 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
       loadBoardData()
     }
   }, [isOpen, board?.id])
+
+  const handleInviteSubmit = async (token) => {
+    try {
+      const emails = inviteEmails.split(',').map(email => email.trim());
+      console.log('Emails to be sent:', emails); // Debug log for email list
+
+      const invalidEmails = emails.filter(email => !validateEmail(email));
+      console.log('Invalid emails:', invalidEmails); // Debug log for invalid emails
+
+      if (invalidEmails.length > 0) {
+        toast.error('Please enter valid email addresses');
+        return;
+      }
+
+      setIsInviting(true);
+      const inviteLink = `${window.location.origin}/invite/${token}`;
+      
+      const payload = {
+        emails: emails,
+        invitedByUsername: session?.user?.name,
+        invitedByEmail: session?.user?.email,
+        boardName: board.name,
+        inviteLink: inviteLink
+      };
+      console.log('Sending payload:', payload); // Debug log for request payload
+
+      const response = await fetch('/api/mail', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      console.log('Response status:', response.status); // Debug log for response status
+
+      if (!response.ok) {
+        throw new Error('Failed to send invitations');
+      }
+
+      toast.success('Invitations sent successfully!');
+      setInviteEmails('');
+      setShowInviteInput(false);
+    } catch (error) {
+      toast.error('Failed to send invitations');
+      console.error('Error sending invitations:', error);
+    } finally {
+      setIsInviting(false);
+    }
+  };
 
   const loadBoardData = async () => {
     setLoading(true)
@@ -440,8 +496,43 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
                               >
                                 {copied === invitation.token ? <Check size={16} /> : <Copy size={16} />}
                               </Button>
+                              <Button
+                                isIconOnly
+                                variant="flat"
+                                onPress={() => setShowInviteInput(prev => prev === invitation.id ? null : invitation.id)}
+                                className="flex items-center bg-purple-100 text-purple-700 border-purple-200 hover:bg-purple-200"
+                              >
+                                <UserPlus size={16} />
+                              </Button>
                             </div>
-
+                            {showInviteInput === invitation.id && (
+                              <div className="mt-3 space-y-3">
+                                <Input
+                                  type="text"
+                                  placeholder="Enter email addresses (comma-separated)"
+                                  value={inviteEmails}
+                                  onChange={(e) => setInviteEmails(e.target.value)}
+                                  className="w-full p-2 text-sm border rounded"
+                                />
+                                <div className="flex justify-end gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="light"
+                                    onPress={() => setShowInviteInput(null)}
+                                  >
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    color="primary"
+                                    isLoading={isInviting}
+                                    onPress={() => handleInviteSubmit(invitation.token)}
+                                  >
+                                    Send Invites
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
                             <div className="flex justify-between text-xs text-black bg-gray-50/80 p-2 rounded-lg font-medium">
                               <span className="flex items-center gap-1">
                                 <Clock size={12} />
@@ -462,3 +553,9 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
     </Modal>
   )
 }
+
+const validateEmail = (email) => {
+  return email.match(
+    /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+  );
+};

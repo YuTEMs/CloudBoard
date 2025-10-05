@@ -6,9 +6,9 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req) {
   try {
-    const { recipientEmail, currentUser, boardName, inviteLink } = await req.json();
+    const { emails, invitedByUsername, invitedByEmail, boardName, inviteLink } = await req.json();
 
-    if (!recipientEmail || !currentUser || !boardName || !inviteLink) {
+    if (!emails || !invitedByUsername || !invitedByEmail || !boardName || !inviteLink) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -17,12 +17,11 @@ export async function POST(req) {
 
     const data = await resend.emails.send({
       from: 'Smart Bulletin Board <onboarding@resend.dev>',
-      to: Array.isArray(recipientEmail) ? recipientEmail : [recipientEmail],
+      to: Array.isArray(emails) ? emails : [emails],
       subject: `Join ${boardName} on Smart Bulletin Board`,
       react: InviteUserEmail({
-        userEmail: recipientEmail,
-        invitedByUsername: currentUser.name,
-        invitedByEmail: currentUser.email,
+        invitedByUsername: invitedByUsername,
+        invitedByEmail: invitedByEmail,
         boardName: boardName,
         inviteLink: inviteLink
       })
