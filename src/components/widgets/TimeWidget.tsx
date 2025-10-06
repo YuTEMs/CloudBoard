@@ -8,6 +8,7 @@ interface TimeWidgetProps extends WidgetProps {
   item?: {
     timeType?: 'digital' | 'analog'
     backgroundColor?: string
+    fontSize?: number // Font size multiplier (0.5 to 2.0, default 1.0)
     [key: string]: any
   }
 }
@@ -131,9 +132,15 @@ const AnalogClock: React.FC<{ time: Date, size: number, backgroundColor?: string
 const TimeWidget: React.FC<TimeWidgetProps> = memo(function TimeWidget(props) {
   const { width, height, item } = props
   const [time, setTime] = useState(new Date())
-  
+
   const timeType = item?.timeType || 'digital'
   const backgroundColor = item?.backgroundColor || '#1e293b'
+  const fontSizeMultiplier = item?.fontSize ?? 0.8 // Default to 0.8 (slightly smaller), range 0.5-2.0
+
+  // Calculate scale factor to ensure consistent appearance in organize and display modes
+  const baseWidth = item?.width || width
+  const baseHeight = item?.height || height
+  const scaleFactor = width / baseWidth
 
   useEffect(() => {
     const timer = setInterval(() => setTime(new Date()), 1000)
@@ -142,30 +149,31 @@ const TimeWidget: React.FC<TimeWidgetProps> = memo(function TimeWidget(props) {
 
   if (timeType === 'analog') {
     const analogBg = backgroundColor === 'transparent' ? 'transparent' : backgroundColor
-    const clockSize = Math.min(width * 0.75, height * 0.65, Math.max(width, height) * 0.8)
+    // Calculate clock size based on original dimensions, then scale (no fontSizeMultiplier for clock)
+    const baseClockSize = Math.min(baseWidth * 0.75, baseHeight * 0.65, Math.max(baseWidth, baseHeight) * 0.8)
     const minClockSize = 80 // Minimum size to ensure visibility
-    const finalClockSize = Math.max(clockSize, minClockSize)
-    
+    const finalClockSize = Math.max(baseClockSize * scaleFactor, minClockSize)
+
     return (
       <BaseWidget
         {...props}
         className="flex items-center justify-center"
-        style={{ 
-          background: analogBg === 'transparent' 
-            ? 'transparent' 
+        style={{
+          background: analogBg === 'transparent'
+            ? 'transparent'
             : `linear-gradient(to bottom right, ${analogBg}, ${analogBg}dd)`
         }}
       >
         <div className="flex flex-col items-center gap-1">
-          <AnalogClock 
-            time={time} 
-            size={finalClockSize} 
+          <AnalogClock
+            time={time}
+            size={finalClockSize}
             backgroundColor={analogBg}
           />
-          <div 
+          <div
             className="text-gray-800 font-semibold text-center"
-            style={{ 
-              fontSize: Math.min(width * 0.06, height * 0.15, 16),
+            style={{
+              fontSize: Math.min(baseWidth * 0.06, baseHeight * 0.15, 16) * fontSizeMultiplier * scaleFactor,
               color: analogBg === 'transparent' ? '#1f2937' : '#374151'
             }}
           >
@@ -180,20 +188,20 @@ const TimeWidget: React.FC<TimeWidgetProps> = memo(function TimeWidget(props) {
     <BaseWidget
       {...props}
       className="text-white flex items-center justify-center font-bold text-center"
-      style={{ 
+      style={{
         background: `linear-gradient(to bottom right, ${backgroundColor}, ${backgroundColor}dd)`
       }}
     >
       <div className="text-center">
-        <div 
+        <div
           className="font-black tracking-tight"
-          style={{ fontSize: Math.min(width * 0.08, height * 0.3, 24) }}
+          style={{ fontSize: Math.min(baseWidth * 0.08, baseHeight * 0.3, 24) * fontSizeMultiplier * scaleFactor }}
         >
           {time.toLocaleTimeString()}
         </div>
-        <div 
+        <div
           className="opacity-75 font-medium"
-          style={{ fontSize: Math.min(width * 0.05, height * 0.2, 14) }}
+          style={{ fontSize: Math.min(baseWidth * 0.05, baseHeight * 0.2, 14) * fontSizeMultiplier * scaleFactor }}
         >
           {time.toLocaleDateString()}
         </div>

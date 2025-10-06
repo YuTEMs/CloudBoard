@@ -671,6 +671,53 @@ export function PropertiesPanel({
         </>
       )}
 
+      {/* Time widget-specific properties */}
+      {selectedItem.type === 'widget' && selectedItem.widgetType === 'time' && (
+        <div className="bg-white/70 backdrop-blur-sm rounded-xl p-4 border border-slate-200/50 mb-6">
+          <h4 className="font-semibold text-slate-900 mb-4 flex items-center gap-2">
+            <Settings className="w-4 h-4 text-indigo-500" />
+            Time Widget Settings
+          </h4>
+
+          <div className="space-y-4">
+            {/* Font Size Slider */}
+            <div className="bg-slate-50 rounded-lg p-4">
+              <label className="text-sm text-slate-700 font-semibold block mb-3">
+                Font Size
+              </label>
+              <div className="space-y-3">
+                <input
+                  type="range"
+                  min="50"
+                  max="200"
+                  step="10"
+                  value={(selectedItem.fontSize ?? 0.8) * 100}
+                  onChange={(e) => updateItemProperty('fontSize', parseInt(e.target.value) / 100)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-indigo-500"
+                />
+                <div className="flex justify-between items-center text-xs text-slate-600">
+                  <span>Small (50%)</span>
+                  <span className="font-semibold text-indigo-600 bg-indigo-50 px-3 py-1 rounded-full">
+                    {Math.round((selectedItem.fontSize ?? 0.8) * 100)}%
+                  </span>
+                  <span>Large (200%)</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Info */}
+            <div className="bg-indigo-50 rounded-lg p-3">
+              <div className="text-xs text-indigo-700">
+                <p>• Adjust the font size to match your display needs</p>
+                <p>• Default is 80% for better readability</p>
+                <p>• Changes apply to both digital and analog clock modes</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Weather widget-specific properties */}
       {selectedItem.type === 'widget' && selectedItem.widgetType === 'weather' && (
         <div className="bg-white/70 backdrop-blur-sm rounded-xl p-4 border border-slate-200/50 mb-6">
@@ -815,6 +862,32 @@ export function PropertiesPanel({
                 </div>
               </div>
             ))}
+
+            {/* Font Size Slider */}
+            <div className="bg-slate-50 rounded-lg p-4">
+              <label className="text-sm text-slate-700 font-semibold block mb-3">
+                Font Size
+              </label>
+              <div className="space-y-3">
+                <input
+                  type="range"
+                  min="50"
+                  max="200"
+                  step="10"
+                  value={(selectedItem.fontSize ?? 0.8) * 100}
+                  onChange={(e) => updateItemProperty('fontSize', parseInt(e.target.value) / 100)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                />
+                <div className="flex justify-between items-center text-xs text-slate-600">
+                  <span>Small (50%)</span>
+                  <span className="font-semibold text-blue-600 bg-blue-50 px-3 py-1 rounded-full">
+                    {Math.round((selectedItem.fontSize ?? 0.8) * 100)}%
+                  </span>
+                  <span>Large (200%)</span>
+                </div>
+              </div>
+            </div>
 
             {/* Info */}
             <div className="bg-blue-50 rounded-lg p-3">

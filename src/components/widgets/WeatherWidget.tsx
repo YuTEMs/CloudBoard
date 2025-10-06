@@ -76,6 +76,8 @@ const WeatherWidget: React.FC<WidgetProps> = memo(function WeatherWidget(props) 
   const [isLoading, setIsLoading] = useState(true)
   const [currentLocationIndex, setCurrentLocationIndex] = useState(0)
 
+  const fontSizeMultiplier = (item as any)?.fontSize ?? 0.8 // Default to 0.8 (slightly smaller), range 0.5-2.0
+
   // Get locations from the item prop and filter out empty ones
   const locations = useMemo(() => {
     return (item?.locations || []).filter((location: LocationData) => {
@@ -142,14 +144,29 @@ const WeatherWidget: React.FC<WidgetProps> = memo(function WeatherWidget(props) 
     precipitationProbability: 0
   }
 
-  // Stable font sizes to prevent glitching
+  // Calculate fonts based on original item dimensions, then scale with the widget
+  // This ensures identical appearance in both organize and display modes
+  const baseWidth = item?.width || width
+  const baseHeight = item?.height || height
+  const scaleFactor = width / baseWidth // How much the widget is scaled from original
+
+  const baseFontSizes = {
+    location: Math.max(18, Math.min(baseWidth * 0.1, baseHeight * 0.25, 32)) * fontSizeMultiplier,
+    temperature: Math.max(24, Math.min(baseWidth * 0.15, baseHeight * 0.35, 48)) * fontSizeMultiplier,
+    condition: Math.max(14, Math.min(baseWidth * 0.07, baseHeight * 0.18, 22)) * fontSizeMultiplier,
+    precipitation: Math.max(12, Math.min(baseWidth * 0.06, baseHeight * 0.15, 18)) * fontSizeMultiplier,
+    counter: Math.max(10, Math.min(baseWidth * 0.04, baseHeight * 0.1, 14)) * fontSizeMultiplier,
+    emoji: Math.max(28, Math.min(baseWidth * 0.15, baseHeight * 0.35, 52)) * fontSizeMultiplier
+  }
+
+  // Apply scale factor to fonts so they match the widget's rendered size
   const fontSizes = {
-    location: Math.max(18, Math.min(width * 0.1, height * 0.25, 32)),
-    temperature: Math.max(24, Math.min(width * 0.15, height * 0.35, 48)),
-    condition: Math.max(14, Math.min(width * 0.07, height * 0.18, 22)),
-    precipitation: Math.max(12, Math.min(width * 0.06, height * 0.15, 18)),
-    counter: Math.max(10, Math.min(width * 0.04, height * 0.1, 14)),
-    emoji: Math.max(28, Math.min(width * 0.15, height * 0.35, 52))
+    location: baseFontSizes.location * scaleFactor,
+    temperature: baseFontSizes.temperature * scaleFactor,
+    condition: baseFontSizes.condition * scaleFactor,
+    precipitation: baseFontSizes.precipitation * scaleFactor,
+    counter: baseFontSizes.counter * scaleFactor,
+    emoji: baseFontSizes.emoji * scaleFactor
   }
 
   const currentHour = new Date().getHours()
