@@ -84,7 +84,7 @@ export default function LoginPage() {
               <ClipboardList className="w-8 h-8 text-white" />
             </div>
             <h1 className="text-2xl font-bold text-gray-900 text-center">Welcome Back</h1>
-            <p className="text-gray-600 text-center">Sign in to your Smart Bulletin Board</p>
+            <p className="text-gray-600 text-center">Sign in to your VisioBoard</p>
           </div>
 
           <div className="space-y-6">

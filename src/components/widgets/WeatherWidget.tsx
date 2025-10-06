@@ -144,12 +144,12 @@ const WeatherWidget: React.FC<WidgetProps> = memo(function WeatherWidget(props) 
 
   // Stable font sizes to prevent glitching
   const fontSizes = {
-    location: Math.max(12, Math.min(width * 0.08, height * 0.2, 24)),
-    temperature: Math.max(16, Math.min(width * 0.12, height * 0.3, 36)),
-    condition: Math.max(10, Math.min(width * 0.05, height * 0.13, 16)),
-    precipitation: Math.max(9, Math.min(width * 0.045, height * 0.12, 14)),
-    counter: Math.max(8, Math.min(width * 0.03, height * 0.08, 12)),
-    emoji: Math.max(20, Math.min(width * 0.12, height * 0.3, 40))
+    location: Math.max(18, Math.min(width * 0.1, height * 0.25, 32)),
+    temperature: Math.max(24, Math.min(width * 0.15, height * 0.35, 48)),
+    condition: Math.max(14, Math.min(width * 0.07, height * 0.18, 22)),
+    precipitation: Math.max(12, Math.min(width * 0.06, height * 0.15, 18)),
+    counter: Math.max(10, Math.min(width * 0.04, height * 0.1, 14)),
+    emoji: Math.max(28, Math.min(width * 0.15, height * 0.35, 52))
   }
 
   const currentHour = new Date().getHours()

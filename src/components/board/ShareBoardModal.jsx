@@ -520,13 +520,24 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
                             </div>
                             {showInviteInput === invitation.id && (
                               <div className="mt-3 space-y-3">
-                                <Input
-                                  type="text"
-                                  placeholder="Enter email addresses (comma-separated)"
-                                  value={inviteEmails}
-                                  onChange={(e) => setInviteEmails(e.target.value)}
-                                  className="w-full p-2 text-sm border rounded"
-                                />
+                                <div className="flex items-center justify-center p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border border-purple-200 min-h-[100px]">
+                                  <div className="w-full max-w-2xl flex items-center justify-center">
+                                    <Input
+                                      type="text"
+                                      placeholder="Enter email addresses (comma-separated)"
+                                      value={inviteEmails}
+                                      onChange={(e) => setInviteEmails(e.target.value)}
+                                      variant="bordered"
+                                      size="lg"
+                                      classNames={{
+                                        input: "text-black font-medium placeholder:text-gray-400 text-center",
+                                        inputWrapper: "bg-white border-purple-200 hover:border-purple-400 focus-within:border-purple-500 shadow-sm flex items-center justify-center",
+                                        base: "w-full",
+                                        innerWrapper: "flex items-center justify-center"
+                                      }}
+                                    />
+                                  </div>
+                                </div>
                                 <div className="flex justify-end gap-2">
                                   <Button
                                     size="sm"
