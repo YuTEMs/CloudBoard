@@ -237,7 +237,7 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
               </div>
             </ModalHeader>
 
-            <ModalBody className="p-8 space-y-8 overflow-y-auto max-h-[70vh]">
+            <ModalBody className="p-8 space-y-8 overflow-y-auto">
               {/* Current Members Section */}
               <div className="space-y-4">
                 <div className="flex items-center gap-3 mb-4">
