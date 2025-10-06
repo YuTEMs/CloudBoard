@@ -87,9 +87,9 @@ export default function InvitePage({ params }) {
 
   const getRoleIcon = (role) => {
     switch (role) {
-      case 'owner': return <Crown size={20} className="text-yellow-500" />
-      case 'editor': return <Edit size={20} className="text-black-500" />
-      case 'viewer': return <Eye size={20} className="text-black-500" />
+      case 'owner': return <Crown size={20} className="text-yellow-600" />
+      case 'editor': return <Edit size={20} className="text-blue-600" />
+      case 'viewer': return <Eye size={20} className="text-gray-600" />
       default: return null
     }
   }
@@ -221,7 +221,10 @@ export default function InvitePage({ params }) {
                 color={getRoleColor(invitation.role)}
                 variant="flat"
                 size="lg"
-                className="px-6 py-3 font-bold text-base shadow-sm"
+                classNames={{
+                  base: "px-6 py-3 font-bold text-base shadow-sm flex items-center justify-center",
+                  content: "text-black font-bold flex items-center gap-2"
+                }}
               >
                 {invitation.role.toUpperCase()}
               </Chip>
