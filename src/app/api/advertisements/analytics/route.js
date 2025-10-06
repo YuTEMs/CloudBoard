@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '../../../../lib/auth-options';
 import { supabase } from '../../../../lib/supabase';
+import { queryCache, withCache } from '../../../../lib/cache';
 
 export async function GET(request) {
   try {
@@ -28,24 +29,31 @@ export async function GET(request) {
       return NextResponse.json({ error: 'Board not found or access denied' }, { status: 404 });
     }
 
-    // Get analytics data with advertisement details
-    const { data: analytics, error } = await supabase
-      .from('advertisement_analytics')
-      .select(`
-        *,
-        advertisements (
-          id,
-          title,
-          media_type,
-          created_at
-        )
-      `)
-      .eq('board_id', boardId)
-      .order('created_at', { ascending: false });
+    // Get analytics data with caching (5 minute TTL)
+    const cacheKey = `analytics:${boardId}`;
+    const analytics = await withCache(
+      cacheKey,
+      async () => {
+        const { data, error } = await supabase
+          .from('advertisement_analytics')
+          .select(`
+            *,
+            advertisements (
+              id,
+              title,
+              media_type,
+              created_at
+            )
+          `)
+          .eq('board_id', boardId)
+          .order('created_at', { ascending: false });
 
-    if (error) {
-      throw error;
-    }
+        if (error) throw error;
+        return data;
+      },
+      queryCache,
+      300000 // 5 minutes
+    );
 
     return NextResponse.json(analytics);
   } catch (error) {

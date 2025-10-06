@@ -52,6 +52,8 @@ function OrganizePageContent() {
   // Track if there are unsaved changes to prevent real-time updates from overriding them
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [lastSavedState, setLastSavedState] = useState(null)
+  const justSavedRef = useRef(false)
+  const isSavingRef = useRef(false)
 
   // Refs for high-frequency resize updates (avoid re-subscribing listeners)
   const isResizingRef = useRef(false)
@@ -90,23 +92,29 @@ function OrganizePageContent() {
   useEffect(() => {
     if (currentBoard) {
       setBoardName(currentBoard.name)
-      
+
       // Only update local state if there are no unsaved changes to prevent overriding user's work
-      if (!hasUnsavedChanges) {
+      // Also skip if we just saved to prevent stuttering (the data is already current)
+      if (!hasUnsavedChanges && !justSavedRef.current) {
         const newItems = currentBoard.configuration?.items || []
         const newBackgroundImage = currentBoard.configuration?.backgroundImage || null
         const newBackgroundColor = currentBoard.configuration?.backgroundColor || "#ffffff"
-        
+
         setCanvasItems(newItems)
         setBackgroundImage(newBackgroundImage)
         setBackgroundColor(newBackgroundColor)
-        
+
         // Store the current state as the last saved state for comparison
         setLastSavedState({
           items: newItems,
           backgroundImage: newBackgroundImage,
           backgroundColor: newBackgroundColor
         })
+      }
+
+      // Clear justSaved flag after real-time update confirms the save
+      if (justSavedRef.current) {
+        justSavedRef.current = false
       }
     }
   }, [currentBoard, hasUnsavedChanges])
@@ -146,6 +154,8 @@ function OrganizePageContent() {
     if (!boardId) return
 
     try {
+      isSavingRef.current = true  // Prevent widget re-renders during save
+
       const configuration = {
         items: canvasItems,
         canvasSize,
@@ -154,16 +164,19 @@ function OrganizePageContent() {
       }
 
       await saveBoardToDb(boardId, configuration)
-      
+
       // Mark as saved and update last saved state
+      justSavedRef.current = true  // Prevent reload stutter
       setHasUnsavedChanges(false)
       setLastSavedState({
         items: [...canvasItems],
         backgroundImage,
         backgroundColor
       })
-      
+
     } catch (error) {
+    } finally {
+      isSavingRef.current = false
     }
   }, [boardId, canvasItems, canvasSize, backgroundImage, backgroundColor, saveBoardToDb])
 
@@ -535,8 +548,12 @@ function OrganizePageContent() {
     if (selectedItem) {
       const updatedItem = canvasItems.find(item => item.id === selectedItem.id)
       // Avoid resetting selection during active resize to prevent thrash
-      if (!isResizingRef.current) {
-        setSelectedItem(updatedItem)
+      // Also skip during save to prevent widget re-renders
+      if (!isResizingRef.current && !isSavingRef.current) {
+        // Only update if the item reference actually changed
+        if (updatedItem !== selectedItem) {
+          setSelectedItem(updatedItem)
+        }
       }
     }
   }, [canvasItems, selectedItem])
