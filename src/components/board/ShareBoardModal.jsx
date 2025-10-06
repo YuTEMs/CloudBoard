@@ -451,7 +451,7 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
                       </div>
                     </div>
 
-                    <div className="space-y-3">
+                    <div className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                       {invitations.map((invitation) => (
                         <div key={invitation.id} className="p-4 bg-white/70 rounded-xl border border-gray-100/30 shadow-sm hover:shadow-md hover:bg-white/90 transition-all duration-200 backdrop-blur-sm">
                           <div className="space-y-4">
