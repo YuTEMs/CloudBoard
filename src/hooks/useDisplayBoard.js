@@ -127,8 +127,11 @@ export function useDisplayBoard(boardId) {
 
                 case 'advertisement_settings_updated':
                   console.log(`[useDisplayBoard] Received advertisement settings update for ${boardId}`)
-                  // Signal to re-fetch advertisement settings
-                  setConnectionStatus('advertisement_settings_updated')
+                  // Signal to update advertisement settings with the new data from broadcast
+                  setConnectionStatus({
+                    status: 'advertisement_settings_updated',
+                    settings: data.data // Pass the settings data from broadcast
+                  })
                   // Reset status after a brief moment
                   setTimeout(() => setConnectionStatus('connected'), 1000)
                   break

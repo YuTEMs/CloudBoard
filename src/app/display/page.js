@@ -211,15 +211,28 @@ function DisplayContent() {
 
   // Listen for real-time updates via the existing SSE connection
   useEffect(() => {
-    if (connectionStatus === 'updated') {
-      // Board content was updated - handled by useDisplayBoard hook
-    } else if (connectionStatus === 'advertisements_updated') {
-      // Advertisements were updated - refetch advertisement list
-      fetchAdvertisements();
-    } else if (connectionStatus === 'advertisement_settings_updated') {
-      // Advertisement settings were updated - refetch settings
-      console.log('[Display] Advertisement settings updated, refetching settings');
-      fetchAdSettings();
+    // Handle string status values
+    if (typeof connectionStatus === 'string') {
+      if (connectionStatus === 'updated') {
+        // Board content was updated - handled by useDisplayBoard hook
+      } else if (connectionStatus === 'advertisements_updated') {
+        // Advertisements were updated - refetch advertisement list
+        fetchAdvertisements();
+      }
+    }
+    // Handle object status values (with embedded data)
+    else if (typeof connectionStatus === 'object' && connectionStatus !== null) {
+      if (connectionStatus.status === 'advertisement_settings_updated') {
+        // Advertisement settings were updated - use settings from broadcast
+        console.log('[Display] Advertisement settings updated via broadcast:', connectionStatus.settings);
+        if (connectionStatus.settings) {
+          setAdSettings(connectionStatus.settings);
+        } else {
+          // Fallback to fetching if no settings in broadcast
+          console.log('[Display] No settings in broadcast, refetching...');
+          fetchAdSettings();
+        }
+      }
     }
   }, [connectionStatus, fetchAdvertisements, fetchAdSettings]);
 

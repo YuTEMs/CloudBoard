@@ -439,14 +439,6 @@ export default function AdvertisementsPage() {
       // Refresh the advertisements list to get the latest state
       await fetchAdvertisements();
       
-      // Show success feedback with real-time update info
-      const adNames = changedAds.map(ad => `"${ad.title}"`).join(', ');
-      alert(
-        `✅ Configuration Saved Successfully!\n\n` +
-        `Updated ${changedAds.length} advertisement${changedAds.length === 1 ? '' : 's'}: ${adNames}\n\n` +
-        `📡 Changes have been broadcasted to all display screens in real-time.`
-      );
-      
     } catch (error) {
       console.error('[Ads Page] Error saving configuration:', error);
       alert(`Failed to save changes: ${error.message}`);
@@ -512,19 +504,6 @@ export default function AdvertisementsPage() {
       setAdSettings(savedSettings);
       setLocalAdSettings(savedSettings);
       setHasUnsavedSettings(false);
-      
-      // Show success feedback
-      const aiStatus = savedSettings.enableAI
-        ? `✅ AI Detection: Enabled (Threshold: ${savedSettings.personThreshold} ${savedSettings.personThreshold === 1 ? 'person' : 'people'})`
-        : '❌ AI Detection: Disabled';
-
-      alert(
-        `✅ Advertisement Settings Saved!\n\n` +
-        `📺 Time between ads: ${savedSettings.timeBetweenAds} seconds\n` +
-        `⏱️ Initial delay: ${savedSettings.initialDelay} seconds\n` +
-        `${aiStatus}\n\n` +
-        `📡 Settings have been broadcasted to all display screens.`
-      );
       
     } catch (error) {
       console.error('[Ads Page] Error saving advertisement settings:', error);
