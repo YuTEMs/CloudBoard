@@ -279,7 +279,10 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
                             startContent={getRoleIcon(member.role)}
                             color={getRoleColor(member.role)}
                             variant="flat"
-                            className="flex items-center font-semibold shadow-sm"
+                            classNames={{
+                              base: "flex items-center font-semibold shadow-sm",
+                              content: "text-black font-semibold"
+                            }}
                           >
                             {member.role.toUpperCase()}
                           </Chip>
@@ -458,12 +461,22 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
                                   startContent={getRoleIcon(invitation.role)}
                                   color={getRoleColor(invitation.role)}
                                   variant="flat"
-                                  className="flex items-center font-semibold"
+                                  classNames={{
+                                    base: "flex items-center font-semibold",
+                                    content: "text-black font-semibold"
+                                  }}
                                 >
                                   {invitation.role.toUpperCase()}
                                 </Chip>
                                 {isExpired(invitation.expires_at) && (
-                                  <Chip color="danger" variant="flat" className="flex items-center font-semibold">
+                                  <Chip
+                                    color="danger"
+                                    variant="flat"
+                                    classNames={{
+                                      base: "flex items-center font-semibold",
+                                      content: "text-black font-semibold"
+                                    }}
+                                  >
                                     EXPIRED
                                   </Chip>
                                 )}

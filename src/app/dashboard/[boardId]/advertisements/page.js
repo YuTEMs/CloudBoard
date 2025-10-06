@@ -587,12 +587,12 @@ export default function AdvertisementsPage() {
               isIconOnly
               variant="light"
               onPress={() => router.push('/dashboard')}
-              className="bg-white/80 backdrop-blur-sm hover:bg-white hover:shadow-md transition-all duration-300 rounded-2xl"
+              className="bg-white/80 backdrop-blur-sm hover:bg-white hover:shadow-md transition-all duration-300 rounded-2xl flex items-center justify-center "
             >
-              <ArrowLeft className="w-5 h-5 text-gray-600" />
+              <ArrowLeft className="w-5 h-5 text-gray-600 justify-center" />
             </Button>
             <div className="flex-1">
-              <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-orange-800 to-purple-800 bg-clip-text text-transparent">
+              <h1 className="text-3xl font-bold bg-gradient-to-r from-gray-900 via-orange-800 to-purple-800 bg-clip-text text-transparent ">
                 Advertisement Manager
               </h1>
               <p className="text-gray-600 text-lg mt-2">Manage advertisements for "{boardName}"</p>
@@ -852,11 +852,24 @@ export default function AdvertisementsPage() {
                     Show ads when people are detected by camera (uses TensorFlow.js COCO-SSD)
                   </p>
                 </div>
-                <Switch
+                <Checkbox
                   isSelected={localAdSettings.enableAI || false}
                   onValueChange={(checked) => updateAdSetting('enableAI', checked)}
+                  size="md"
                   classNames={{
-                    wrapper: "group-data-[selected=true]:bg-gradient-to-r group-data-[selected=true]:from-purple-500 group-data-[selected=true]:to-pink-500"
+                    wrapper: [
+                      "group-data-[selected=true]:bg-gradient-to-r",
+                      "group-data-[selected=true]:from-purple-500",
+                      "group-data-[selected=true]:to-pink-500",
+                      "group-data-[selected=true]:border-transparent",
+                      "border-0",
+                      "bg-gray-200",
+                      "hover:bg-gray-300",
+                      "transition-all duration-300",
+                      "w-5 h-5"
+                    ],
+                    icon: "text-white text-xs",
+                    base: "transition-all duration-200"
                   }}
                 />
               </div>
@@ -876,26 +889,47 @@ export default function AdvertisementsPage() {
                     Minimum number of people detected to trigger advertisement display
                   </p>
                   <div className="space-y-3">
-                    <Input
-                      type="number"
-                      min="1"
-                      max="50"
-                      step="1"
-                      value={localAdSettings.personThreshold || 1}
-                      onChange={(e) => {
-                        const value = parseInt(e.target.value, 10);
-                        if (!isNaN(value) && value >= 1 && value <= 50) {
-                          updateAdSetting('personThreshold', value);
-                        }
-                      }}
-                      variant="bordered"
-                      label="Number of People"
-                      placeholder="Enter number (1-50)"
-                      classNames={{
-                        input: "text-gray-900 font-medium text-lg",
-                        inputWrapper: "border-purple-200 hover:border-purple-400 focus-within:border-purple-500 bg-white/80 backdrop-blur-sm transition-all duration-300 rounded-xl group-data-[focus=true]:border-purple-500 group-data-[focus=true]:shadow-lg"
-                      }}
-                    />
+                    <div className="flex items-center justify-center gap-4 p-4 bg-white rounded-xl shadow-sm min-h-[80px]">
+                      {/* Icon - Centered */}
+                      <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center shadow-md flex-shrink-0">
+                        <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                        </svg>
+                      </div>
+
+                      {/* Input - Centered */}
+                      <div className="flex-1 flex items-center justify-center max-w-xs">
+                        <Input
+                          type="number"
+                          min="1"
+                          max="50"
+                          step="1"
+                          value={localAdSettings.personThreshold || 1}
+                          onChange={(e) => {
+                            const value = parseInt(e.target.value, 10);
+                            if (!isNaN(value) && value >= 1 && value <= 50) {
+                              updateAdSetting('personThreshold', value);
+                            }
+                          }}
+                          variant="flat"
+                          size="lg"
+                          classNames={{
+                            input: "text-black font-bold text-xl text-center placeholder:text-gray-300 p-0 m-0 leading-none",
+                            inputWrapper: "bg-gradient-to-r from-purple-50 to-pink-50 border-0 shadow-inner h-14 flex items-center justify-center p-0",
+                            base: "w-full",
+                            innerWrapper: "p-0 m-0 flex items-center justify-center"
+                          }}
+                        />
+                      </div>
+
+                      {/* Label - Centered */}
+                      <div className="flex flex-col items-end justify-center flex-shrink-0">
+                        <div className="text-sm font-semibold text-gray-700 leading-tight">
+                          {(localAdSettings.personThreshold || 1) === 1 ? 'Person' : 'People'}
+                        </div>
+                        <div className="text-xs text-gray-500 leading-tight">Required</div>
+                      </div>
+                    </div>
                     <p className="text-xs text-gray-500 bg-white/80 p-3 rounded-lg border border-purple-100">
                       💡 <strong>How it works:</strong> The display page will use your device camera to detect people. When {localAdSettings.personThreshold || 1} or more {(localAdSettings.personThreshold || 1) === 1 ? 'person is' : 'people are'} detected, advertisements will be shown. If camera is unavailable, ads will display on timer as normal.
                     </p>
@@ -946,7 +980,7 @@ export default function AdvertisementsPage() {
                     <p className="text-xs text-gray-500 bg-blue-50/50 p-3 rounded-lg border border-blue-100">
                       ⏱️ <strong>What this does:</strong> {(localAdSettings.detectionDuration || 0) === 0
                         ? 'Ads show immediately when threshold is met'
-                        : `Person must remain detected for ${localAdSettings.detectionDuration} second${(localAdSettings.detectionDuration || 0) !== 1 ? 's' : ''} before ad appears. If they leave during this time, the timer resets.`}
+                        : <>Person must remain detected for <span className="font-bold text-sm text-blue-700">{localAdSettings.detectionDuration} second{(localAdSettings.detectionDuration || 0) !== 1 ? 's' : ''}</span> before ad appears. If they leave during this time, the timer resets.</>}
                     </p>
                   </div>
                 </div>
