@@ -41,6 +41,10 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
   useEffect(() => {
     if (isOpen && board?.id) {
       loadBoardData()
+      // Reset scroll position when modal opens
+      setTimeout(() => {
+        window.scrollTo(0, 0)
+      }, 100)
     }
   }, [isOpen, board?.id])
 
@@ -204,10 +208,11 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
 
   return (
     <Modal
+      key={isOpen ? 'open' : 'closed'}
       isOpen={isOpen}
       onClose={onClose}
       size="4xl"
-      scrollBehavior="inside"
+      scrollBehavior="outside"
       classNames={{
         backdrop: "bg-gradient-to-t from-black/80 via-black/40 to-black/60",
         wrapper: "z-[9999]",
@@ -217,7 +222,12 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
       <ModalContent className="bg-white border border-gray-200 shadow-2xl rounded-3xl">
         {(onClose) => (
           <>
-            <ModalHeader className="p-8 pb-6 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-t-3xl">
+            <ModalHeader
+              className="p-8 pb-6 text-white rounded-t-3xl"
+              style={{
+                background: 'linear-gradient(to right, rgb(37, 99, 235), rgb(147, 51, 234))'
+              }}
+            >
               <div className="flex items-center gap-3 w-full">
                 <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm">
                   <Share2 size={24} className="text-white" />
@@ -451,7 +461,7 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
                       </div>
                     </div>
 
-                    <div className="space-y-3 max-h-96 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
+                    <div className="space-y-3">
                       {invitations.map((invitation) => (
                         <div key={invitation.id} className="p-4 bg-white/70 rounded-xl border border-gray-100/30 shadow-sm hover:shadow-md hover:bg-white/90 transition-all duration-200 backdrop-blur-sm">
                           <div className="space-y-4">
@@ -541,14 +551,14 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
                                 <div className="flex justify-end gap-2">
                                   <Button
                                     size="sm"
-                                    variant="light"
+                                    className="bg-red-500 text-white hover:bg-red-600"
                                     onPress={() => setShowInviteInput(null)}
                                   >
                                     Cancel
                                   </Button>
                                   <Button
                                     size="sm"
-                                    color="primary"
+                                    className="bg-green-500 text-white hover:bg-green-600"
                                     isLoading={isInviting}
                                     onPress={() => handleInviteSubmit(invitation.token)}
                                   >
