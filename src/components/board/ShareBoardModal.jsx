@@ -237,7 +237,7 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
               </div>
             </ModalHeader>
 
-            <ModalBody className="p-8 space-y-8">
+            <ModalBody className="p-8 space-y-8 overflow-y-auto max-h-[70vh]">
               {/* Current Members Section */}
               <div className="space-y-4">
                 <div className="flex items-center gap-3 mb-4">
@@ -281,7 +281,7 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
                             variant="flat"
                             classNames={{
                               base: "flex items-center font-semibold shadow-sm",
-                              content: "text-black font-semibold"
+                              content: "text-gray-700 font-semibold"
                             }}
                           >
                             {member.role.toUpperCase()}
@@ -463,7 +463,7 @@ export default function ShareBoardModal({ isOpen, onClose, board }) {
                                   variant="flat"
                                   classNames={{
                                     base: "flex items-center font-semibold",
-                                    content: "text-black font-semibold"
+                                    content: "text-gray-700 font-semibold"
                                   }}
                                 >
                                   {invitation.role.toUpperCase()}
