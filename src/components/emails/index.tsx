@@ -30,7 +30,7 @@ export const InviteUserEmail = ({
   boardName,
   inviteLink,
 }: InviteUserEmailProps) => {
-  const previewText = `Join ${invitedByUsername} on Smart Bulletin Board`;
+  const previewText = `Join ${invitedByUsername} on CloudBoard`;
 
   return (
     <Html>
@@ -44,7 +44,7 @@ export const InviteUserEmail = ({
           <Preview>{previewText}</Preview>
           <Container className="mx-auto my-[40px] max-w-[465px] rounded border border-[#eaeaea] border-solid p-[20px]">
             <Heading className="mx-0 my-[30px] p-0 text-center font-normal text-[24px] text-black">
-              Join <strong>{boardName}</strong> on <strong>Smart Bulletin Board</strong>
+              Join <strong>{boardName}</strong> on <strong>CloudBoard</strong>
             </Heading>
             <Text className="text-[14px] text-black leading-[24px]">
               Hello,
