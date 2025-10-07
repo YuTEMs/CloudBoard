@@ -38,7 +38,7 @@ function OrganizePageContent() {
   const [canvasItems, setCanvasItems] = useState([])
   const [selectedItem, setSelectedItem] = useState(null)
   const [draggedItem, setDraggedItem] = useState(null)
-  const [canvasSize] = useState({ width: 1920, height: 1080 })
+  const [canvasSize, setCanvasSize] = useState({ width: 1920, height: 1080 })
   const [uploadedFiles, setUploadedFiles] = useState([])
   const [boardName, setBoardName] = useState("")
   const [backgroundImage, setBackgroundImage] = useState(null)
@@ -100,9 +100,18 @@ function OrganizePageContent() {
         const newBackgroundImage = currentBoard.configuration?.backgroundImage || null
         const newBackgroundColor = currentBoard.configuration?.backgroundColor || "#ffffff"
 
+        // Default canvas size fallback
+        const savedCanvasSize = currentBoard.configuration?.canvasSize;
+        const defaultCanvasSize = { width: 1920, height: 1080 };
+        const newCanvasSize =
+        savedCanvasSize && savedCanvasSize.width && savedCanvasSize.height
+          ? savedCanvasSize
+          : defaultCanvasSize;
+
         setCanvasItems(newItems)
         setBackgroundImage(newBackgroundImage)
         setBackgroundColor(newBackgroundColor)
+        setCanvasSize(newCanvasSize);
 
         // Store the current state as the last saved state for comparison
         setLastSavedState({
@@ -751,6 +760,36 @@ function OrganizePageContent() {
   )
 }
 
+  // Add state for custom canvas dimensions
+const [customCanvasWidth, setCustomCanvasWidth] = useState(canvasSize.width);
+const [customCanvasHeight, setCustomCanvasHeight] = useState(canvasSize.height);
+
+// Add state to toggle edit mode for canvas size
+const [isEditingCanvasSize, setIsEditingCanvasSize] = useState(false);
+
+// Function to update canvas size
+const handleCanvasSizeChange = () => {
+  setCanvasSize({ width: customCanvasWidth, height: customCanvasHeight });
+};
+
+// Function to handle toggling between edit and display modes
+const toggleCanvasSizeEdit = () => {
+  setIsEditingCanvasSize((prev) => !prev);
+};
+
+// Function to handle applying changes and exiting edit mode
+const applyCanvasSizeChange = () => {
+  handleCanvasSizeChange();
+  setIsEditingCanvasSize(false);
+};
+
+useEffect(() => {
+  if (canvasSize) {
+    setCustomCanvasWidth(canvasSize.width)
+    setCustomCanvasHeight(canvasSize.height)
+  }
+}, [canvasSize])
+
   // Show loading while checking permissions
   if (currentBoard && userRole && !hasWriteAccess) {
     return (
@@ -788,10 +827,24 @@ function OrganizePageContent() {
     )
   }
 
+  // Ensure consistent rendering of the Edit button
+  const renderEditButton = () => {
+    return (
+      <button
+        onClick={toggleCanvasSizeEdit}
+        className={`bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 transition cursor-pointer ${
+          isEditingCanvasSize ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
+        disabled={isEditingCanvasSize}
+      >
+        Edit
+      </button>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
       <AppHeader title={`Edit Board: ${boardName}`} showBack backHref="/dashboard" />
-
       <ResponsiveLayout
         toolsPanel={
           <ToolsPanel
@@ -858,7 +911,41 @@ function OrganizePageContent() {
                 </span>
               )}
             </h3>
-            <p className="text-sm text-slate-300 hidden sm:block">Size: {canvasSize.width}x{canvasSize.height}px</p>
+            <div className="text-sm text-slate-300 hidden sm:flex items-center gap-2">
+              <p>Size: {canvasSize.width}x{canvasSize.height}px</p>
+              {renderEditButton()}
+            </div>
+            {isEditingCanvasSize && (
+              <div className="mt-2 flex items-center gap-2">
+                <input
+                  type="number"
+                  value={customCanvasWidth}
+                  onChange={(e) => setCustomCanvasWidth(Number(e.target.value))}
+                  className="border rounded px-2 py-1 text-sm text-white w-20"
+                  placeholder="Width"
+                />
+                <span className="text-sm text-white">x</span>
+                <input
+                  type="number"
+                  value={customCanvasHeight}
+                  onChange={(e) => setCustomCanvasHeight(Number(e.target.value))}
+                  className="border rounded px-2 py-1 text-sm text-white w-20"
+                  placeholder="Height"
+                />
+                <button
+                  onClick={applyCanvasSizeChange}
+                  className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 transition cursor-pointer"
+                >
+                  Apply
+                </button>
+                <button
+                  onClick={toggleCanvasSizeEdit}
+                  className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 transition cursor-pointer"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
           <div className="flex gap-2 sm:gap-4 items-center">
             <Button
