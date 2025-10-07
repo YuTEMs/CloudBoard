@@ -880,6 +880,7 @@ useEffect(() => {
             uploadedFiles={uploadedFiles}
             makeFileDraggable={makeFileDraggable}
             moveSlide={moveSlide}
+            canvasSize={canvasSize}
           />
         }
         contextPanel={

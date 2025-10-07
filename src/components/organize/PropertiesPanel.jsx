@@ -19,7 +19,8 @@ export function PropertiesPanel({
   addToSlideshow,
   uploadedFiles,
   makeFileDraggable,
-  moveSlide
+  moveSlide,
+  canvasSize
 }) {
   // Location search state
   const [locationSearchQuery, setLocationSearchQuery] = useState("")
@@ -129,7 +130,9 @@ export function PropertiesPanel({
           </h4>
           <div className="space-y-2 text-sm text-slate-600">
             <p><strong>Items:</strong> {canvasItems.length}</p>
-            <p><strong>Size:</strong> 1920×1080px</p>
+            <p>
+              <strong>Size:</strong> {canvasSize?.width ?? 1920}×{canvasSize?.height ?? 1080}px
+            </p>
             <p><strong>Scale:</strong> 60%</p>
           </div>
         </div>
