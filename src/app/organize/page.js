@@ -241,10 +241,11 @@ function OrganizePageContent() {
     setDraggedItem(item)
     setSelectedItem(item)
     const rect = e.currentTarget.getBoundingClientRect()
-    // getBoundingClientRect() returns transformed bounds, no need to divide by scale
-    const offsetX = e.clientX - rect.left
-    const offsetY = e.clientY - rect.top
-    e.dataTransfer.setData("text/plain", JSON.stringify({ offsetX, offsetY }))
+    // Compute logical offsets by dividing by current canvas scale
+    const scale = canvasScaleRef.current || 1
+    const logicalOffsetX = (e.clientX - rect.left) / scale
+    const logicalOffsetY = (e.clientY - rect.top) / scale
+    e.dataTransfer.setData("text/plain", JSON.stringify({ offsetX: logicalOffsetX, offsetY: logicalOffsetY }))
 
     // Create simple box as drag preview matching visual size
     const dragImage = document.createElement('div')
@@ -259,8 +260,10 @@ function OrganizePageContent() {
     dragImage.style.pointerEvents = 'none'
     document.body.appendChild(dragImage)
 
-    // Set custom drag image
-    e.dataTransfer.setDragImage(dragImage, offsetX, offsetY)
+    // Set custom drag image using pixel offsets (not scaled)
+    const pixelOffsetX = e.clientX - rect.left
+    const pixelOffsetY = e.clientY - rect.top
+    e.dataTransfer.setDragImage(dragImage, pixelOffsetX, pixelOffsetY)
 
     // Clean up after drag starts
     requestAnimationFrame(() => {
@@ -277,9 +280,10 @@ function OrganizePageContent() {
     const canvasRect = canvasRef.current.getBoundingClientRect()
     const dropData = JSON.parse(e.dataTransfer.getData("text/plain"))
 
-    // getBoundingClientRect() returns transformed bounds, no need to divide by scale
-    const newX = (e.clientX - canvasRect.left) - dropData.offsetX
-    const newY = (e.clientY - canvasRect.top) - dropData.offsetY
+    // Convert from viewport pixels to logical canvas coordinates by dividing by scale
+    const scale = canvasScaleRef.current || 1
+    const newX = ((e.clientX - canvasRect.left) / scale) - dropData.offsetX
+    const newY = ((e.clientY - canvasRect.top) / scale) - dropData.offsetY
 
     // Apply bounds checking
     const boundedX = Math.max(0, Math.min(newX, canvasSize.width - draggedItem.width))
