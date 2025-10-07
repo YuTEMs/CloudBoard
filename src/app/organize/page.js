@@ -13,6 +13,7 @@ import { uploadMedia, isTooLarge, deleteMedia } from "../../lib/storage"
 import { ToolsPanel } from "../../components/organize/ToolsPanel"
 import { PropertiesPanel } from "../../components/organize/PropertiesPanel"
 import { CanvasArea } from "../../components/organize/CanvasArea"
+import { OrientationSelector } from "../../components/organize/OrientationSelector"
 import { ContextPanel } from "../../components/organize/ContextPanel"
 import { ResponsiveLayout } from "../../components/organize/ResponsiveLayout"
 
@@ -763,23 +764,35 @@ function OrganizePageContent() {
   )
 }
 
-  // Track if component is mounted to prevent hydration mismatch
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  // Determine orientation mode based on current canvas size (computed value, not state)
-  const orientationMode = canvasSize.width > canvasSize.height ? 'landscape' : 'portrait';
-
   // Function to handle orientation change
   const handleOrientationChange = (mode) => {
+    const oldWidth = canvasSize.width;
+    const oldHeight = canvasSize.height;
+
+    let newWidth, newHeight;
     if (mode === 'landscape') {
-      setCanvasSize({ width: 1920, height: 1080 });
+      newWidth = 1920;
+      newHeight = 1080;
     } else if (mode === 'portrait') {
-      setCanvasSize({ width: 1080, height: 1920 });
+      newWidth = 1080;
+      newHeight = 1920;
     }
+
+    // Calculate scale factors
+    const scaleX = newWidth / oldWidth;
+    const scaleY = newHeight / oldHeight;
+
+    // Transform all canvas items to fit new orientation
+    const transformedItems = canvasItems.map(item => ({
+      ...item,
+      x: item.x * scaleX,
+      y: item.y * scaleY,
+      width: item.width * scaleX,
+      height: item.height * scaleY
+    }));
+
+    setCanvasItems(transformedItems);
+    setCanvasSize({ width: newWidth, height: newHeight });
   };
 
   // Show loading while checking permissions
@@ -890,34 +903,10 @@ function OrganizePageContent() {
                 </span>
               )}
             </h3>
-            <div
-              className="text-sm text-slate-300 hidden sm:flex items-center gap-3"
-              style={{ visibility: isMounted ? 'visible' : 'hidden' }}
-            >
-              <span className="font-medium">Orientation:</span>
-              <div className="flex gap-1 bg-slate-600/50 rounded-lg p-1">
-                <button
-                  onClick={() => handleOrientationChange('landscape')}
-                  className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                    orientationMode === 'landscape'
-                      ? 'bg-blue-500 text-white shadow-lg'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-600'
-                  }`}
-                >
-                  Landscape (1920×1080)
-                </button>
-                <button
-                  onClick={() => handleOrientationChange('portrait')}
-                  className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
-                    orientationMode === 'portrait'
-                      ? 'bg-blue-500 text-white shadow-lg'
-                      : 'text-slate-300 hover:text-white hover:bg-slate-600'
-                  }`}
-                >
-                  Portrait (1080×1920)
-                </button>
-              </div>
-            </div>
+            <OrientationSelector
+              canvasSize={canvasSize}
+              onOrientationChange={handleOrientationChange}
+            />
           </div>
           <div className="flex gap-2 sm:gap-4 items-center">
             <Button
