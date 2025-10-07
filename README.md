@@ -1,91 +1,85 @@
-# Smart Bulletin Board
+# CloudBoard
 
-A real-time digital bulletin board system for creating and displaying dynamic content across multiple displays. Built with Next.js and Supabase
+A real-time digital bulletin board system for creating and managing dynamic content across multiple displays. Perfect for digital signage, information displays, and collaborative boards.
 
-## Features
+## What is CloudBoard?
 
-- Upload images and videos up to 50MB
-- Interactive widgets: time, weather, slideshow, and announcements
-- Real-time synchronization across all connected displays
-- Drag and drop canvas editor with resize and positioning tools
-- Fullscreen display mode optimized for digital signage
-- User authentication with Google OAuth and email/password
-- Secure file storage with automatic cleanup
+CloudBoard lets you create interactive digital boards with widgets, media content, and advertisements that sync in real-time across all connected displays. Built with Next.js and Supabase for seamless performance and real-time updates.
 
-## Getting Started
+**Key Features:**
+- Drag-and-drop canvas editor for easy content arrangement
+- Real-time synchronization across multiple displays
+- Interactive widgets (time, weather, slideshows)
+- Advertisement management with scheduling and analytics
+- Multi-user collaboration with role-based access control
+- AI-powered person detection for targeted ad display
+- Secure authentication with Google OAuth and email/password
+
+## Quick Start
 
 ### Prerequisites
 - Node.js 18+
-- npm package manager
+- Supabase account
 - Chrome browser (recommended)
-- Supabase account for database and storage
 
-### Installation
+### Setup
 
-1. Clone the repository and install dependencies:
+1. **Clone and install dependencies:**
    ```bash
-   git clone https://github.com/yourusername/smart-bulletin-board-final-year-project.git
-   cd smart-bulletin-board-final-year-project
+   git clone <repository-url>
+   cd CloudBoard
    npm install
    ```
 
-2. Set up environment variables in `.env.local`:
+2. **Configure environment variables:**
+
+   Create a `.env.local` file with:
    ```bash
    NEXTAUTH_URL=http://localhost:3000
-   NEXTAUTH_SECRET=your_nextauth_secret
-   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
-   SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
+   NEXTAUTH_SECRET=<your-secret>
+   NEXT_PUBLIC_SUPABASE_URL=<your-supabase-url>
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
+   SUPABASE_SERVICE_ROLE_KEY=<your-service-key>
    NEXT_PUBLIC_SUPABASE_MEDIA_BUCKET=upload-media
-   # Optional Google OAuth
-   GOOGLE_CLIENT_ID=your_google_client_id
-   GOOGLE_CLIENT_SECRET=your_google_client_secret
+   NEXT_PUBLIC_SUPABASE_ADVERTISEMENT_BUCKET=advertisement-media
    ```
 
-3. Set up Supabase database and storage bucket
+3. **Set up database:**
 
-4. Run the development server:
+   Run the schema in `schema.sql` on your Supabase project
+
+4. **Start development server:**
    ```bash
    npm run dev
    ```
 
-5. Open http://localhost:3000 in Chrome browser
+5. **Open http://localhost:3000** and create an account
 
-## How to Use
+## Usage
 
-1. Create an account and access the dashboard
-2. Create a new board with a name and description
-3. Use organize mode to add widgets and content with drag-and-drop
-4. Configure widgets (time, weather, slideshow, announcements)
-5. Save changes to sync across all displays
-6. Use display mode for fullscreen presentation
+1. **Dashboard** - Create and manage your boards
+2. **Organize Mode** - Add widgets, media, and configure layouts
+3. **Display Mode** - Fullscreen view for digital signage
+4. **Manage Ads** - Upload and schedule advertisements with analytics
 
-## Technology Stack
+## Tech Stack
 
 - Next.js 15 with React 19
-- HeroUI and Tailwind CSS for styling
-- Supabase for database and real-time updates
+- Supabase (PostgreSQL + Realtime + Storage)
+- Server-Sent Events (SSE) for real-time sync
 - NextAuth.js for authentication
-- Server-sent events for real-time synchronization
-- Open-Meteo API for weather data
+- TensorFlow.js for person detection
+- Tailwind CSS + HeroUI
 
-## Project Structure
-
-```
-src/
-├── app/                    # Next.js pages and API routes
-├── components/             # React components
-│   └── widgets/           # Widget system (time, weather, slideshow, announcements)
-├── hooks/                 # Custom hooks for real-time updates
-└── lib/                   # Utilities (Supabase, storage, weather API)
-```
-
-## Available Scripts
+## Commands
 
 ```bash
-npm run dev      # Development server
-npm run build    # Production build
-npm start        # Production server
-npm run lint     # ESLint
+npm run dev      # Start development server
+npm run build    # Build for production
+npm start        # Run production build
+npm run lint     # Run ESLint
 ```
 
+---
+
+Built with ❤️ for digital signage and collaborative displays
