@@ -6,7 +6,6 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   Button,
   Input,
-  Switch,
   Checkbox,
   Modal,
   ModalContent,
@@ -26,12 +25,17 @@ export default function AdvertisementsPage() {
   const { boardId } = useParams();
   const router = useRouter();
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
+  const { isOpen: isDeleteOpen, onOpen: onDeleteOpen, onOpenChange: onDeleteOpenChange } = useDisclosure();
 
   const [advertisements, setAdvertisements] = useState([]);
   const [boardName, setBoardName] = useState('');
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [editingAd, setEditingAd] = useState(null);
+  const [adToDelete, setAdToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deletingAds, setDeletingAds] = useState(new Set());
+  const [deletionError, setDeletionError] = useState(null);
 
   // SSE Real-time connection state
   const [connectionStatus, setConnectionStatus] = useState('disconnected'); // 'disconnected', 'connecting', 'connected', 'error'
@@ -63,7 +67,7 @@ export default function AdvertisementsPage() {
     file: null,
     startDate: '',
     endDate: '',
-    isActive: true,
+    isActive: false,
     displayDuration: 10000 // Default 10 seconds for images
   });
 
@@ -348,21 +352,61 @@ export default function AdvertisementsPage() {
     onOpen();
   };
 
-  const handleDelete = async (id) => {
-    if (!confirm('Are you sure you want to delete this advertisement?')) return;
-
+  const handleDeleteAd = async (adId) => {
     try {
-      const response = await fetch(`/api/advertisements?id=${id}`, {
+      // Safety check: Prevent deletion of active ads
+      const ad = advertisements.find(a => a.id === adId);
+      const isAdActive = localAdConfig[adId] ?? ad?.is_active;
+
+      if (isAdActive) {
+        setDeletionError('Cannot delete active advertisement. Please deactivate it first.');
+        setTimeout(() => setDeletionError(null), 5000);
+        setAdToDelete(null);
+        onDeleteOpenChange(false);
+        return;
+      }
+
+      setIsDeleting(true);
+
+      // Add to deleting set for immediate UI feedback
+      setDeletingAds(prev => new Set([...prev, adId]));
+
+      // Close modal immediately for better UX
+      setAdToDelete(null);
+      onDeleteOpenChange(false);
+
+      // Perform deletion
+      const response = await fetch(`/api/advertisements?id=${adId}`, {
         method: 'DELETE'
       });
 
-      if (response.ok) {
-        await fetchAdvertisements();
-      } else {
-        alert('Failed to delete advertisement');
+      if (!response.ok) {
+        throw new Error('Failed to delete advertisement');
       }
-    } catch (error) {
-      alert('Failed to delete advertisement');
+
+      // Refresh advertisements list
+      await fetchAdvertisements();
+
+    } catch (err) {
+      console.error('Error deleting advertisement:', err);
+      // Remove from deleting set on error
+      setDeletingAds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(adId);
+        return newSet;
+      });
+      // Show error message
+      setDeletionError(`Failed to delete advertisement: ${err.message}`);
+      // Clear error after 5 seconds
+      setTimeout(() => setDeletionError(null), 5000);
+    } finally {
+      setIsDeleting(false);
+      // Remove from deleting set when complete
+      setDeletingAds(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(adId);
+        return newSet;
+      });
     }
   };
 
@@ -520,13 +564,147 @@ export default function AdvertisementsPage() {
     setHasUnsavedSettings(false);
   };
 
+  // Unified state: check if ANY changes exist
+  const hasAnyUnsavedChanges = hasUnsavedChanges || hasUnsavedSettings;
+  const isSaving = saving || savingSettings;
+
+  // Unified save function - saves both configuration and settings
+  const saveAllChanges = async () => {
+    console.log('[Ads Page] Saving all changes (configuration + settings)');
+
+    const promises = [];
+
+    // Save configuration if there are changes
+    if (hasUnsavedChanges) {
+      setSaving(true);
+      promises.push(
+        (async () => {
+          try {
+            // Find all advertisements that have changed
+            const changedAds = advertisements.filter(ad => {
+              const localState = localAdConfig[ad.id];
+              return localState !== undefined && localState !== ad.is_active;
+            });
+
+            if (changedAds.length === 0) {
+              console.log('[Ads Page] No configuration changes to save');
+              return { type: 'config', success: true, count: 0 };
+            }
+
+            console.log(`[Ads Page] Saving ${changedAds.length} advertisement configuration changes`);
+
+            // Send all updates in parallel
+            const updatePromises = changedAds.map(ad =>
+              fetch('/api/advertisements', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  id: ad.id,
+                  isActive: localAdConfig[ad.id]
+                })
+              }).then(response => {
+                if (!response.ok) {
+                  throw new Error(`Failed to update ${ad.title}: ${response.status}`);
+                }
+                return response.json();
+              })
+            );
+
+            await Promise.all(updatePromises);
+            console.log(`[Ads Page] Successfully saved ${changedAds.length} advertisement configurations`);
+
+            // Refresh the advertisements list
+            await fetchAdvertisements();
+
+            return { type: 'config', success: true, count: changedAds.length };
+          } catch (error) {
+            console.error('[Ads Page] Error saving configuration:', error);
+            return { type: 'config', success: false, error: error.message };
+          }
+        })()
+      );
+    }
+
+    // Save settings if there are changes
+    if (hasUnsavedSettings) {
+      setSavingSettings(true);
+      promises.push(
+        (async () => {
+          try {
+            console.log('[Ads Page] Saving advertisement settings');
+            const response = await fetch('/api/advertisements/settings', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                boardId,
+                ...localAdSettings
+              })
+            });
+
+            if (!response.ok) {
+              const errorData = await response.json().catch(() => ({}));
+              throw new Error(errorData.error || `Failed to save settings: ${response.status}`);
+            }
+
+            const savedSettings = await response.json();
+            console.log(`[Ads Page] Successfully saved advertisement settings`);
+
+            // Update the local state to match saved settings
+            setAdSettings(savedSettings);
+            setLocalAdSettings(savedSettings);
+            setHasUnsavedSettings(false);
+
+            return { type: 'settings', success: true };
+          } catch (error) {
+            console.error('[Ads Page] Error saving settings:', error);
+            return { type: 'settings', success: false, error: error.message };
+          }
+        })()
+      );
+    }
+
+    if (promises.length === 0) {
+      console.log('[Ads Page] No changes to save');
+      return;
+    }
+
+    // Wait for all operations to complete
+    const results = await Promise.all(promises);
+
+    // Check for errors
+    const errors = results.filter(r => !r.success);
+    if (errors.length > 0) {
+      const errorMessages = errors.map(e => `${e.type}: ${e.error}`).join('\n');
+      alert(`Some changes failed to save:\n${errorMessages}`);
+    } else {
+      console.log('[Ads Page] All changes saved successfully');
+    }
+
+    // Reset saving states
+    setSaving(false);
+    setSavingSettings(false);
+  };
+
+  // Unified reset function - resets both configuration and settings
+  const resetAllChanges = () => {
+    console.log('[Ads Page] Resetting all changes (configuration + settings)');
+
+    if (hasUnsavedChanges) {
+      resetAdConfiguration();
+    }
+
+    if (hasUnsavedSettings) {
+      resetAdSettings();
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       title: '',
       file: null,
       startDate: '',
       endDate: '',
-      isActive: true,
+      isActive: false,
       displayDuration: 10000
     });
     setEditingAd(null);
@@ -581,15 +759,12 @@ export default function AdvertisementsPage() {
                 <span className="text-orange-800 font-bold text-lg">{advertisements.length} {advertisements.length === 1 ? 'Ad' : 'Ads'}</span>
               </div>
               
-              {/* Unsaved Changes Indicator */}
-              {hasUnsavedChanges && (
+              {/* Unified Unsaved Changes Indicator */}
+              {hasAnyUnsavedChanges && (
                 <div className="flex items-center gap-2 px-4 py-2 rounded-xl border bg-yellow-50 border-yellow-200 text-yellow-700 transition-all duration-300">
                   <div className="w-4 h-4 border-2 border-yellow-600 border-t-transparent rounded-full animate-spin"></div>
                   <span className="text-sm font-medium">
-                    {Object.keys(localAdConfig).filter(adId => {
-                      const ad = advertisements.find(a => a.id === adId);
-                      return ad && localAdConfig[adId] !== ad.is_active;
-                    }).length} Unsaved Changes
+                    Unsaved Changes
                   </span>
                 </div>
               )}
@@ -647,34 +822,34 @@ export default function AdvertisementsPage() {
               <span>Add Advertisement</span>
             </Button>
 
-            {/* Save Configuration Button */}
-            {hasUnsavedChanges && (
+            {/* Unified Save All Changes Button */}
+            {hasAnyUnsavedChanges && (
               <Button
                 size="lg"
-                onPress={saveAdConfiguration}
-                isLoading={saving}
+                onPress={saveAllChanges}
+                isLoading={isSaving}
                 className="bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700 font-semibold transition-all duration-300 hover:shadow-xl hover:scale-105 px-8 rounded-2xl flex items-center justify-center gap-3 h-14"
               >
                 <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                <span>{saving ? 'Saving...' : 'Save Configuration'}</span>
+                <span>{isSaving ? 'Saving...' : 'Save All Changes'}</span>
               </Button>
             )}
 
-            {/* Reset Button (only show when there are unsaved changes) */}
-            {hasUnsavedChanges && (
+            {/* Unified Reset Button (only show when there are unsaved changes) */}
+            {hasAnyUnsavedChanges && (
               <Button
                 size="lg"
                 variant="bordered"
-                onPress={resetAdConfiguration}
-                disabled={saving}
+                onPress={resetAllChanges}
+                disabled={isSaving}
                 className="border-gray-300 hover:border-gray-400 hover:bg-gray-50 font-semibold text-gray-700 transition-all duration-300 hover:shadow-lg px-6 rounded-2xl flex items-center justify-center gap-3 h-14 bg-white/80 backdrop-blur-sm"
               >
                 <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                 </svg>
-                <span>Reset</span>
+                <span>Reset All</span>
               </Button>
             )}
 
@@ -704,12 +879,6 @@ export default function AdvertisementsPage() {
               <h2 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                 Advertisement Settings
               </h2>
-              {hasUnsavedSettings && (
-                <div className="flex items-center gap-2 px-3 py-1 rounded-full bg-yellow-100 border border-yellow-300">
-                  <div className="w-2 h-2 bg-yellow-500 rounded-full animate-pulse"></div>
-                  <span className="text-xs font-medium text-yellow-700">Unsaved</span>
-                </div>
-              )}
             </div>
             <p className="text-gray-600 ml-11">Configure how advertisements are displayed on your board</p>
           </div>
@@ -966,46 +1135,11 @@ export default function AdvertisementsPage() {
               )}
             </div>
 
-            {/* Save Settings Section */}
-            {hasUnsavedSettings && (
-              <div className="mt-8 pt-6 border-t border-gray-200/50">
-                <div className="flex items-center justify-between p-4 bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl border border-blue-200/50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-500 rounded-xl flex items-center justify-center">
-                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                      </svg>
-                    </div>
-                    <div>
-                      <h4 className="font-semibold text-blue-800">Settings Changed</h4>
-                      <p className="text-sm text-blue-700">Save your changes to apply them to all display screens</p>
-                    </div>
-                  </div>
-                  <div className="flex gap-3">
-                    <Button
-                      variant="bordered"
-                      onPress={resetAdSettings}
-                      disabled={savingSettings}
-                      className="border-blue-300 text-blue-700 hover:bg-blue-100 font-medium transition-all duration-300 rounded-xl"
-                    >
-                      Reset
-                    </Button>
-                    <Button
-                      onPress={saveAdSettings}
-                      isLoading={savingSettings}
-                      className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 font-semibold transition-all duration-300 hover:shadow-lg rounded-xl"
-                    >
-                      {savingSettings ? 'Saving...' : 'Save Settings'}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
 
-        {/* Unsaved Changes Banner */}
-        {hasUnsavedChanges && (
+        {/* Unified Unsaved Changes Banner */}
+        {hasAnyUnsavedChanges && (
           <div className="mb-8 p-6 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200/50 rounded-3xl shadow-lg">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -1016,31 +1150,31 @@ export default function AdvertisementsPage() {
                 </div>
                 <div>
                   <h3 className="text-lg font-bold text-yellow-800 mb-1">
-                    You have {Object.keys(localAdConfig).filter(adId => {
-                      const ad = advertisements.find(a => a.id === adId);
-                      return ad && localAdConfig[adId] !== ad.is_active;
-                    }).length} unsaved changes
+                    You have unsaved changes
                   </h3>
                   <p className="text-yellow-700 text-sm">
-                    Click "Save Configuration" to apply your changes to the display board, or "Reset" to discard them.
+                    {hasUnsavedChanges && hasUnsavedSettings && 'Advertisement settings and configuration have been modified. '}
+                    {hasUnsavedChanges && !hasUnsavedSettings && 'Advertisement configuration has been modified. '}
+                    {!hasUnsavedChanges && hasUnsavedSettings && 'Advertisement settings have been modified. '}
+                    Click "Save All Changes" to apply them to all display screens, or "Reset All" to discard them.
                   </p>
                 </div>
               </div>
               <div className="flex gap-3">
                 <Button
                   variant="bordered"
-                  onPress={resetAdConfiguration}
-                  disabled={saving}
+                  onPress={resetAllChanges}
+                  disabled={isSaving}
                   className="border-yellow-400 text-yellow-700 hover:bg-yellow-100 font-medium transition-all duration-300 rounded-xl"
                 >
-                  Reset
+                  Reset All
                 </Button>
                 <Button
-                  onPress={saveAdConfiguration}
-                  isLoading={saving}
+                  onPress={saveAllChanges}
+                  isLoading={isSaving}
                   className="bg-gradient-to-r from-yellow-600 to-orange-600 text-white hover:from-yellow-700 hover:to-orange-700 font-semibold transition-all duration-300 hover:shadow-lg rounded-xl"
                 >
-                  {saving ? 'Saving...' : 'Save Configuration'}
+                  {isSaving ? 'Saving...' : 'Save All Changes'}
                 </Button>
               </div>
             </div>
@@ -1048,11 +1182,27 @@ export default function AdvertisementsPage() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {advertisements.map((ad) => (
+          {advertisements.map((ad) => {
+            const isBeingDeleted = deletingAds.has(ad.id);
+            const isAdActive = localAdConfig[ad.id] ?? ad.is_active;
+
+            return (
             <div
               key={ad.id}
-              className="group relative bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all duration-500 hover:scale-[1.02] hover:bg-white/90 hover:border-orange-300/50"
+              className={`group relative bg-white/80 backdrop-blur-sm border border-gray-200/50 rounded-3xl p-8 shadow-lg hover:shadow-2xl transition-all duration-500 hover:scale-[1.02] hover:bg-white/90 hover:border-orange-300/50 ${
+                isBeingDeleted ? 'opacity-50 scale-95 pointer-events-none' : ''
+              }`}
             >
+              {/* Deletion overlay */}
+              {isBeingDeleted && (
+                <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center rounded-3xl">
+                  <div className="text-center">
+                    <div className="w-8 h-8 mx-auto mb-3 border-2 border-red-500 border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-red-600 font-medium text-sm">Deleting...</p>
+                  </div>
+                </div>
+              )}
+
               {/* Status indicator */}
               <div className="absolute top-4 right-4 flex items-center gap-2">
                 {(() => {
@@ -1208,30 +1358,35 @@ export default function AdvertisementsPage() {
                     </div>
                   </div>
 
-                  <div className="flex gap-3">
+                  <div className="space-y-3">
                     <Button
                       size="md"
                       variant="flat"
                       onPress={() => handleEdit(ad)}
-                      className="flex-1 bg-blue-100/80 text-blue-700 hover:bg-blue-200 hover:scale-[1.02] transition-all duration-200 rounded-xl font-medium h-11 flex items-center justify-center gap-2"
+                      className="w-full bg-blue-100/80 text-blue-700 hover:bg-blue-200 hover:text-blue-800 font-medium rounded-xl transition-all duration-300 hover:shadow-md hover:scale-[1.02] flex items-center justify-center gap-2 h-12"
                     >
-                      <Edit className="w-4 h-4" />
+                      <Edit className="w-4 h-4 flex-shrink-0" />
                       <span>Edit</span>
                     </Button>
-                    <Button
-                      size="md"
-                      variant="flat"
-                      onPress={() => handleDelete(ad.id)}
-                      className="flex-1 bg-red-100/80 text-red-700 hover:bg-red-200 hover:scale-[1.02] transition-all duration-200 rounded-xl font-medium h-11 flex items-center justify-center gap-2"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      <span>Delete</span>
-                    </Button>
+
+                    {!isAdActive && (
+                      <Button
+                        size="sm"
+                        variant="light"
+                        onPress={() => { setAdToDelete(ad); onDeleteOpen(); }}
+                        isDisabled={isBeingDeleted}
+                        className="w-full text-red-600 hover:bg-red-50/80 font-medium rounded-xl transition-all duration-300 hover:shadow-sm flex items-center justify-center gap-2 h-10"
+                      >
+                        <Trash2 className="w-4 h-4 flex-shrink-0" />
+                        <span>{isBeingDeleted ? 'Deleting...' : 'Delete Advertisement'}</span>
+                      </Button>
+                    )}
                   </div>
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -1393,20 +1548,6 @@ export default function AdvertisementsPage() {
                       </div>
                     </div>
                   )}
-
-                  <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-orange-50/50 rounded-2xl border border-gray-200/50">
-                    <div>
-                      <span className="text-sm font-semibold text-gray-700">Active Status</span>
-                      <p className="text-xs text-gray-500">Enable this advertisement to display on the board</p>
-                    </div>
-                    <Switch
-                      isSelected={formData.isActive}
-                      onValueChange={(checked) => setFormData({ ...formData, isActive: checked })}
-                      classNames={{
-                        wrapper: "group-data-[selected=true]:bg-gradient-to-r group-data-[selected=true]:from-orange-500 group-data-[selected=true]:to-purple-500"
-                      }}
-                    />
-                  </div>
                 </div>
               </ModalBody>
               <ModalFooter className="p-8 pt-6 bg-gray-50/30 border-t border-gray-100/50">
@@ -1431,6 +1572,94 @@ export default function AdvertisementsPage() {
           )}
         </ModalContent>
       </Modal>
+
+      {/* Delete Confirmation Modal */}
+      <Modal
+        isOpen={isDeleteOpen}
+        onOpenChange={onDeleteOpenChange}
+        placement="top-center"
+        classNames={{
+          base: "bg-white/95 backdrop-blur-md rounded-3xl border-0",
+          backdrop: "bg-black/30 backdrop-blur-sm"
+        }}
+        motionProps={{
+          variants: {
+            enter: { y: 0, opacity: 1, scale: 1, transition: { duration: 0.25, ease: "easeOut" } },
+            exit: { y: -20, opacity: 0, scale: 0.98, transition: { duration: 0.2, ease: "easeIn" } },
+          }
+        }}
+      >
+        <ModalContent className="border-0 shadow-2xl rounded-3xl overflow-hidden">
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex flex-col gap-1 text-gray-900 p-8 pb-4 bg-gradient-to-r from-red-50 to-rose-50 border-b border-gray-100/50">
+                <div className="flex items-center gap-3 mb-1">
+                  <div className="w-8 h-8 bg-gradient-to-br from-red-500 to-rose-500 rounded-xl flex items-center justify-center flex-shrink-0">
+                    <Trash2 className="w-4 h-4 text-white" />
+                  </div>
+                  <h3 className="text-2xl font-bold text-red-700">Delete Advertisement</h3>
+                </div>
+                <p className="text-sm text-gray-600 font-normal ml-11">This action cannot be undone.</p>
+              </ModalHeader>
+              <ModalBody className="p-8">
+                <div className="space-y-3">
+                  <p className="text-gray-700">
+                    Are you sure you want to delete
+                    {" "}
+                    <span className="font-semibold">{adToDelete?.title || 'this advertisement'}</span>
+                    ?
+                  </p>
+                  <p className="text-gray-500 text-sm">
+                    This advertisement is inactive and can be safely deleted. All advertisement data will be permanently removed from the database.
+                  </p>
+                </div>
+              </ModalBody>
+              <ModalFooter className="p-8 pt-4 bg-gray-50/30 border-t border-gray-100/50">
+                <div className="flex gap-3 w-full">
+                  <Button
+                    variant="bordered"
+                    className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 font-medium transition-all duration-300 rounded-xl hover:shadow-md flex items-center justify-center h-12"
+                    onPress={() => { setAdToDelete(null); onClose(); }}
+                    isDisabled={isDeleting}
+                  >
+                    <span>Cancel</span>
+                  </Button>
+                  <Button
+                    className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white hover:from-red-700 hover:to-rose-700 font-semibold transition-all duration-300 hover:shadow-lg hover:scale-[1.02] rounded-xl disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center h-12"
+                    onPress={() => adToDelete && handleDeleteAd(adToDelete.id)}
+                    isDisabled={!adToDelete || isDeleting}
+                  >
+                    <span>{isDeleting ? 'Deleting...' : 'Yes, Delete'}</span>
+                  </Button>
+                </div>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
+
+      {/* Error Toast */}
+      {deletionError && (
+        <div className="fixed top-4 right-4 z-50 max-w-md">
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 shadow-lg backdrop-blur-sm animate-in slide-in-from-right-2 duration-300">
+            <div className="flex items-start gap-3">
+              <div className="w-5 h-5 bg-red-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                <span className="text-white text-xs font-bold">!</span>
+              </div>
+              <div className="flex-1">
+                <h4 className="text-red-800 font-semibold text-sm mb-1">Deletion Failed</h4>
+                <p className="text-red-700 text-xs leading-relaxed">{deletionError}</p>
+              </div>
+              <button
+                onClick={() => setDeletionError(null)}
+                className="text-red-400 hover:text-red-600 transition-colors flex-shrink-0"
+              >
+                <span className="text-lg leading-none">&times;</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

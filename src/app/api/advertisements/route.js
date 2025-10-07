@@ -136,7 +136,7 @@ export async function POST(request) {
         media_type: mediaType,
         start_date: startDate || new Date().toISOString(),
         end_date: endDate,
-        is_active: isActive !== undefined ? isActive : true,
+        is_active: isActive !== undefined ? isActive : false,
         display_duration: finalDisplayDuration
       })
       .select()
