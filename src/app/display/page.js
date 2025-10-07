@@ -545,46 +545,42 @@ function DisplayContent() {
   }
 
   return (
-    <div 
-      className="fixed inset-0 overflow-hidden"
-      style={{ 
+    <div
+      className="fixed inset-0 overflow-hidden flex items-center justify-center"
+      style={{
         backgroundColor,
         backgroundImage: backgroundImage ? `url(${backgroundImage})` : 'none',
         backgroundSize: 'cover',
         backgroundPosition: 'center'
       }}
     >
-      {/* Canvas Container - Now fills entire viewport */}
+      {/* Canvas Container - Actual size with CSS transform */}
       <div
         ref={displayRef}
         key={`canvas-${lastUpdated?.getTime() || 'initial'}`}
-        className="relative w-full h-full"
-        style={{ 
-          width: viewportSize.width,
-          height: viewportSize.height
+        className="relative"
+        style={{
+          width: safeCanvasSize.width,
+          height: safeCanvasSize.height,
+          transform: `scale(${scale})`,
+          transformOrigin: 'center center'
         }}
       >
         {/* Canvas Items */}
         {canvasItems.map((item) => {
-          // Calculate scaled positions and dimensions with uniform scale
-          const scaledX = item.x * scale + offset.x
-          const scaledY = item.y * scale + offset.y
-          const scaledWidth = item.width * scale
-          const scaledHeight = item.height * scale
-          
-          // Create a unique key that includes lastUpdated to force re-render on updates
+          // Use actual coordinates - no scaling math needed
           const itemKey = `${item.id}-${lastUpdated?.getTime() || 'initial'}`
-          
+
           // Render widgets
           if (item.type === 'widget') {
             return (
               <RenderWidget
                 key={itemKey}
                 widgetType={item.widgetType}
-                x={scaledX}
-                y={scaledY}
-                width={scaledWidth}
-                height={scaledHeight}
+                x={item.x}
+                y={item.y}
+                width={item.width}
+                height={item.height}
                 mode="display"
                 item={item}
                 playlist={item.playlist || []}
@@ -599,10 +595,10 @@ function DisplayContent() {
               key={itemKey}
               className="absolute rounded-xl overflow-hidden"
               style={{
-                left: scaledX,
-                top: scaledY,
-                width: scaledWidth,
-                height: scaledHeight,
+                left: item.x,
+                top: item.y,
+                width: item.width,
+                height: item.height,
                 zIndex: item.zIndex || 0,
                 transform: `rotate(${item.rotation || 0}deg)`
               }}

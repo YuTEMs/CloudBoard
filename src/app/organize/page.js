@@ -56,6 +56,31 @@ function OrganizePageContent() {
   const justSavedRef = useRef(false)
   const isSavingRef = useRef(false)
 
+  // Calculate dynamic scale factor that ensures canvas fits in available space
+  const [isMounted, setIsMounted] = useState(false)
+  const [windowSize, setWindowSize] = useState({ width: 1920, height: 1080 })
+
+  useEffect(() => {
+    setIsMounted(true)
+    const updateWindowSize = () => {
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight })
+    }
+    updateWindowSize()
+    window.addEventListener('resize', updateWindowSize)
+    return () => window.removeEventListener('resize', updateWindowSize)
+  }, [])
+
+  const canvasScale = useMemo(() => {
+    // Use fixed scale during SSR to prevent hydration mismatch
+    if (!isMounted) return 0.6
+
+    const availableWidth = windowSize.width - 700 // 680-700px for side panels + margins
+    const availableHeight = windowSize.height - 230 // 230px for app header (80) + canvas header (100) + padding (32) + margins (18)
+    const scaleToFitWidth = availableWidth / canvasSize.width
+    const scaleToFitHeight = availableHeight / canvasSize.height
+    return Math.min(scaleToFitWidth, scaleToFitHeight, 0.6); // Max scale of 0.6
+  }, [isMounted, windowSize, canvasSize])
+
   // Refs for high-frequency resize updates (avoid re-subscribing listeners)
   const isResizingRef = useRef(false)
   const selectedItemRef = useRef(null)
@@ -64,6 +89,7 @@ function OrganizePageContent() {
   const resizeStartPosRef = useRef({ x: 0, y: 0 })
   const resizeStartSizeRef = useRef({ width: 0, height: 0, x: 0, y: 0 })
   const canvasSizeRef = useRef(canvasSize)
+  const canvasScaleRef = useRef(canvasScale)
   const isSlideshowRef = useRef(false)
   const rafIdRef = useRef(null)
 
@@ -159,7 +185,8 @@ function OrganizePageContent() {
 
   useEffect(() => {
     canvasSizeRef.current = canvasSize
-  }, [canvasSize])
+    canvasScaleRef.current = canvasScale
+  }, [canvasSize, canvasScale])
 
   // Manual save function - only saves when user clicks Save button
   const handleSaveBoard = useCallback(async () => {
@@ -214,22 +241,45 @@ function OrganizePageContent() {
     setDraggedItem(item)
     setSelectedItem(item)
     const rect = e.currentTarget.getBoundingClientRect()
-    const scale = 0.6
-    const offsetX = (e.clientX - rect.left) / scale
-    const offsetY = (e.clientY - rect.top) / scale
+    // getBoundingClientRect() returns transformed bounds, no need to divide by scale
+    const offsetX = e.clientX - rect.left
+    const offsetY = e.clientY - rect.top
     e.dataTransfer.setData("text/plain", JSON.stringify({ offsetX, offsetY }))
+
+    // Create simple box as drag preview matching visual size
+    const dragImage = document.createElement('div')
+    dragImage.style.width = `${rect.width}px`
+    dragImage.style.height = `${rect.height}px`
+    dragImage.style.backgroundColor = 'rgba(59, 130, 246, 0.5)' // Blue semi-transparent
+    dragImage.style.border = '2px solid rgb(59, 130, 246)'
+    dragImage.style.borderRadius = '8px'
+    dragImage.style.position = 'absolute'
+    dragImage.style.top = '-9999px'
+    dragImage.style.left = '-9999px'
+    dragImage.style.pointerEvents = 'none'
+    document.body.appendChild(dragImage)
+
+    // Set custom drag image
+    e.dataTransfer.setDragImage(dragImage, offsetX, offsetY)
+
+    // Clean up after drag starts
+    requestAnimationFrame(() => {
+      if (document.body.contains(dragImage)) {
+        document.body.removeChild(dragImage)
+      }
+    })
   }, [isResizing])
 
-  const handleCanvasDrop = (e) => {
+  const handleCanvasDrop = useCallback((e) => {
     e.preventDefault()
     if (!draggedItem) return
 
     const canvasRect = canvasRef.current.getBoundingClientRect()
     const dropData = JSON.parse(e.dataTransfer.getData("text/plain"))
-    const scale = 0.6
 
-    const newX = (e.clientX - canvasRect.left) / scale - dropData.offsetX
-    const newY = (e.clientY - canvasRect.top) / scale - dropData.offsetY
+    // getBoundingClientRect() returns transformed bounds, no need to divide by scale
+    const newX = (e.clientX - canvasRect.left) - dropData.offsetX
+    const newY = (e.clientY - canvasRect.top) - dropData.offsetY
 
     // Apply bounds checking
     const boundedX = Math.max(0, Math.min(newX, canvasSize.width - draggedItem.width))
@@ -243,7 +293,7 @@ function OrganizePageContent() {
       )
     )
     setDraggedItem(null)
-  }
+  }, [draggedItem, canvasSize])
 
   // Resize handlers
   const handleResizeStart = useCallback((e, handle) => {
@@ -292,11 +342,6 @@ function OrganizePageContent() {
 
       const deltaX = e.clientX - startPos.x
       const deltaY = e.clientY - startPos.y
-      const scale = 0.6
-
-      // Scale deltas to canvas scale
-      const scaledDeltaX = deltaX / scale
-      const scaledDeltaY = deltaY / scale
 
       let newWidth = startSize.width
       let newHeight = startSize.height
@@ -306,24 +351,24 @@ function OrganizePageContent() {
       // Calculate new dimensions based on resize handle
       switch (handle) {
         case 'nw':
-          newWidth = Math.max(50, startSize.width - scaledDeltaX)
-          newHeight = Math.max(50, startSize.height - scaledDeltaY)
+          newWidth = Math.max(50, startSize.width - deltaX)
+          newHeight = Math.max(50, startSize.height - deltaY)
           newX = startSize.x + (startSize.width - newWidth)
           newY = startSize.y + (startSize.height - newHeight)
           break
         case 'ne':
-          newWidth = Math.max(50, startSize.width + scaledDeltaX)
-          newHeight = Math.max(50, startSize.height - scaledDeltaY)
+          newWidth = Math.max(50, startSize.width + deltaX)
+          newHeight = Math.max(50, startSize.height - deltaY)
           newY = startSize.y + (startSize.height - newHeight)
           break
         case 'sw':
-          newWidth = Math.max(50, startSize.width - scaledDeltaX)
-          newHeight = Math.max(50, startSize.height + scaledDeltaY)
+          newWidth = Math.max(50, startSize.width - deltaX)
+          newHeight = Math.max(50, startSize.height + deltaY)
           newX = startSize.x + (startSize.width - newWidth)
           break
         case 'se':
-          newWidth = Math.max(50, startSize.width + scaledDeltaX)
-          newHeight = Math.max(50, startSize.height + scaledDeltaY)
+          newWidth = Math.max(50, startSize.width + deltaX)
+          newHeight = Math.max(50, startSize.height + deltaY)
           break
       }
 
@@ -334,7 +379,7 @@ function OrganizePageContent() {
       // Maintain 16:9 for slideshow widgets
       if (isSlideshow) {
         const aspectRatio = 16 / 9
-        if (Math.abs(scaledDeltaX) >= Math.abs(scaledDeltaY)) {
+        if (Math.abs(deltaX) >= Math.abs(deltaY)) {
           newHeight = newWidth / aspectRatio
         } else {
           newWidth = newHeight * aspectRatio
@@ -675,12 +720,6 @@ function OrganizePageContent() {
       } : undefined
     }
     addToCanvas(widget)
-
-    // Reset expanded state after adding widget
-    if (type === 'time') {
-      setExpandedTimeWidget(false)
-      setShowAnalogColorPicker(false)
-    }
   }
 
   // Handle adding items to slideshow
@@ -948,6 +987,7 @@ function OrganizePageContent() {
         <CanvasArea
           canvasRef={canvasRef}
           canvasSize={canvasSize}
+          canvasScale={canvasScale}
           backgroundColor={backgroundColor}
           backgroundImage={backgroundImage}
           canvasItems={canvasItems}

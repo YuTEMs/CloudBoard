@@ -6,6 +6,7 @@ import { RenderWidget } from "../../components/widgets"
 export function CanvasArea({
   canvasRef,
   canvasSize,
+  canvasScale,
   backgroundColor,
   backgroundImage,
   canvasItems,
@@ -27,26 +28,39 @@ export function CanvasArea({
       <div
         className="w-full flex items-center justify-center m-auto"
         style={{
-          padding: isPortrait ? '3rem 1.5rem' : '1.5rem'
+          padding: isPortrait ? '1rem 1.5rem' : '1.5rem'
         }}
       >
+        {/* Wrapper to constrain layout space to scaled dimensions */}
         <div
-          ref={canvasRef}
-          className="relative border-2 border-slate-200/50 rounded-3xl shadow-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-gray-50/80"
           style={{
-            width: canvasSize.width * 0.6,
-            height: canvasSize.height * 0.6,
-            maxWidth: 'calc(100vw - 680px)', // Account for both side panels
-            transformOrigin: 'center center',
-            backgroundColor: backgroundColor,
-            backgroundImage: backgroundImage ? `url(${backgroundImage})` : 'none',
-            backgroundSize: 'cover',
-            backgroundPosition: 'center'
+            width: canvasSize.width * canvasScale,
+            height: canvasSize.height * canvasScale,
+            position: 'relative'
           }}
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={handleCanvasDrop}
-          onClick={handleCanvasClick}
         >
+          <div
+            ref={canvasRef}
+            className="relative border-2 border-slate-200/50 shadow-2xl backdrop-blur-sm bg-gradient-to-br from-white/80 to-gray-50/80"
+            style={{
+              width: canvasSize.width,
+              height: canvasSize.height,
+              transform: `scale(${canvasScale})`,
+              transformOrigin: 'center center',
+              position: 'absolute',
+              left: '50%',
+              top: '50%',
+              marginLeft: -(canvasSize.width / 2),
+              marginTop: -(canvasSize.height / 2),
+              backgroundColor: backgroundColor,
+              backgroundImage: backgroundImage ? `url(${backgroundImage})` : 'none',
+              backgroundSize: 'cover',
+              backgroundPosition: 'center'
+            }}
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={handleCanvasDrop}
+            onClick={handleCanvasClick}
+          >
             {/* Canvas Items */}
             {canvasItems.map((item) => {
               if (item.type === 'widget') {
@@ -54,10 +68,10 @@ export function CanvasArea({
                   <RenderWidget
                     key={item.id}
                     widgetType={item.widgetType}
-                    x={item.x * 0.6}
-                    y={item.y * 0.6}
-                    width={item.width * 0.6}
-                    height={item.height * 0.6}
+                    x={item.x}
+                    y={item.y}
+                    width={item.width}
+                    height={item.height}
                     mode="organize"
                     isSelected={selectedItem?.id === item.id}
                     item={item}
@@ -81,10 +95,10 @@ export function CanvasArea({
                       : 'cursor-move border-transparent hover:border-gray-300 hover:shadow-md transition-all duration-150'
                     }`}
                   style={{
-                    left: item.x * 0.6,
-                    top: item.y * 0.6,
-                    width: item.width * 0.6,
-                    height: item.height * 0.6,
+                    left: item.x,
+                    top: item.y,
+                    width: item.width,
+                    height: item.height,
                     zIndex: item.zIndex,
                     transform: `rotate(${item.rotation || 0}deg)`
                   }}
@@ -113,7 +127,7 @@ export function CanvasArea({
                       className="w-full h-full flex items-center justify-center p-2 pointer-events-none"
                       style={{
                         color: item.color || '#000000',
-                        fontSize: `${(item.fontSize || 24) * 0.6}px`,
+                        fontSize: `${item.fontSize || 24}px`,
                         fontFamily: item.fontFamily || 'Arial',
                         fontWeight: item.fontWeight || 'normal',
                         textAlign: item.textAlign || 'center',
@@ -160,6 +174,7 @@ export function CanvasArea({
               </div>
             )}
           </div>
+        </div>
       </div>
     </div>
   )
