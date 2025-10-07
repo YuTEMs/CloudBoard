@@ -100,9 +100,18 @@ function OrganizePageContent() {
         const newBackgroundImage = currentBoard.configuration?.backgroundImage || null
         const newBackgroundColor = currentBoard.configuration?.backgroundColor || "#ffffff"
 
+        // Default canvas size fallback
+        const savedCanvasSize = currentBoard.configuration?.canvasSize;
+        const defaultCanvasSize = { width: 1920, height: 1080 };
+        const newCanvasSize =
+        savedCanvasSize && savedCanvasSize.width && savedCanvasSize.height
+          ? savedCanvasSize
+          : defaultCanvasSize;
+
         setCanvasItems(newItems)
         setBackgroundImage(newBackgroundImage)
         setBackgroundColor(newBackgroundColor)
+        setCanvasSize(newCanvasSize);
 
         // Store the current state as the last saved state for comparison
         setLastSavedState({
@@ -774,6 +783,13 @@ const applyCanvasSizeChange = () => {
   setIsEditingCanvasSize(false);
 };
 
+useEffect(() => {
+  if (canvasSize) {
+    setCustomCanvasWidth(canvasSize.width)
+    setCustomCanvasHeight(canvasSize.height)
+  }
+}, [canvasSize])
+
   // Show loading while checking permissions
   if (currentBoard && userRole && !hasWriteAccess) {
     return (
@@ -816,13 +832,14 @@ const applyCanvasSizeChange = () => {
     return (
       <button
         onClick={toggleCanvasSizeEdit}
-        className={`bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 transition ${
+        className={`bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 transition cursor-pointer ${
           isEditingCanvasSize ? 'opacity-50 cursor-not-allowed' : ''
         }`}
         disabled={isEditingCanvasSize}
       >
         Edit
-      </button>)
+      </button>
+    );
   }
 
   return (
@@ -904,26 +921,26 @@ const applyCanvasSizeChange = () => {
                   type="number"
                   value={customCanvasWidth}
                   onChange={(e) => setCustomCanvasWidth(Number(e.target.value))}
-                  className="border rounded px-2 py-1 text-sm w-20"
+                  className="border rounded px-2 py-1 text-sm text-white w-20"
                   placeholder="Width"
                 />
-                <span>x</span>
+                <span className="text-sm text-white">x</span>
                 <input
                   type="number"
                   value={customCanvasHeight}
                   onChange={(e) => setCustomCanvasHeight(Number(e.target.value))}
-                  className="border rounded px-2 py-1 text-sm w-20"
+                  className="border rounded px-2 py-1 text-sm text-white w-20"
                   placeholder="Height"
                 />
                 <button
                   onClick={applyCanvasSizeChange}
-                  className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 transition"
+                  className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 transition cursor-pointer"
                 >
                   Apply
                 </button>
                 <button
                   onClick={toggleCanvasSizeEdit}
-                  className="text-red-500 text-sm hover:underline"
+                  className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 transition cursor-pointer"
                 >
                   Cancel
                 </button>
