@@ -25,7 +25,8 @@ function DisplayContent() {
   // Use display board hook with save-based updates
   const { board, loading, error, lastUpdated, connectionStatus } = useDisplayBoard(boardId)
   const [viewportSize, setViewportSize] = useState({ width: 1920, height: 1080 })
-  const [scaleFactors, setScaleFactors] = useState({ x: 1, y: 1 })
+  const [scale, setScale] = useState(1)
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
   const [showAdvertisement, setShowAdvertisement] = useState(false)
   const [currentAdIndex, setCurrentAdIndex] = useState(0)
   const [advertisements, setAdvertisements] = useState([])
@@ -81,20 +82,30 @@ function DisplayContent() {
     const vw = window.innerWidth
     const vh = window.innerHeight
     setViewportSize({ width: vw, height: vh })
-    
+
+    // Use uniform scale factor to maintain aspect ratio
     const scaleX = vw / safeCanvasSize.width
     const scaleY = vh / safeCanvasSize.height
-    setScaleFactors({ x: scaleX, y: scaleY })
+    const uniformScale = Math.min(scaleX, scaleY)
+
+    // Calculate offsets to center the content
+    const scaledCanvasWidth = safeCanvasSize.width * uniformScale
+    const scaledCanvasHeight = safeCanvasSize.height * uniformScale
+    const offsetX = (vw - scaledCanvasWidth) / 2
+    const offsetY = (vh - scaledCanvasHeight) / 2
+
+    setScale(uniformScale)
+    setOffset({ x: offsetX, y: offsetY })
   }, [safeCanvasSize.width, safeCanvasSize.height])
 
   // Set initial viewport size and add resize listener
   useEffect(() => {
     updateViewportSize()
-    
+
     const handleResize = () => {
       updateViewportSize()
     }
-    
+
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [updateViewportSize])
@@ -555,11 +566,11 @@ function DisplayContent() {
       >
         {/* Canvas Items */}
         {canvasItems.map((item) => {
-          // Calculate scaled positions and dimensions
-          const scaledX = item.x * scaleFactors.x
-          const scaledY = item.y * scaleFactors.y
-          const scaledWidth = item.width * scaleFactors.x
-          const scaledHeight = item.height * scaleFactors.y
+          // Calculate scaled positions and dimensions with uniform scale
+          const scaledX = item.x * scale + offset.x
+          const scaledY = item.y * scale + offset.y
+          const scaledWidth = item.width * scale
+          const scaledHeight = item.height * scale
           
           // Create a unique key that includes lastUpdated to force re-render on updates
           const itemKey = `${item.id}-${lastUpdated?.getTime() || 'initial'}`

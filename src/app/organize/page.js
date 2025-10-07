@@ -117,7 +117,8 @@ function OrganizePageContent() {
         setLastSavedState({
           items: newItems,
           backgroundImage: newBackgroundImage,
-          backgroundColor: newBackgroundColor
+          backgroundColor: newBackgroundColor,
+          canvasSize: newCanvasSize
         })
       }
 
@@ -135,16 +136,17 @@ function OrganizePageContent() {
       const currentStateString = JSON.stringify({
         items: canvasItems,
         backgroundImage,
-        backgroundColor
+        backgroundColor,
+        canvasSize
       })
       const lastSavedStateString = JSON.stringify(lastSavedState)
-      
+
       const hasChanges = currentStateString !== lastSavedStateString
       if (hasChanges !== hasUnsavedChanges) {
         setHasUnsavedChanges(hasChanges)
       }
     }
-  }, [canvasItems, backgroundImage, backgroundColor, lastSavedState, hasUnsavedChanges])
+  }, [canvasItems, backgroundImage, backgroundColor, canvasSize, lastSavedState, hasUnsavedChanges])
 
   // Keep refs in sync with state that is read during resize
   useEffect(() => {
@@ -180,7 +182,8 @@ function OrganizePageContent() {
       setLastSavedState({
         items: [...canvasItems],
         backgroundImage,
-        backgroundColor
+        backgroundColor,
+        canvasSize: { ...canvasSize }
       })
 
     } catch (error) {
@@ -760,35 +763,24 @@ function OrganizePageContent() {
   )
 }
 
-  // Add state for custom canvas dimensions
-const [customCanvasWidth, setCustomCanvasWidth] = useState(canvasSize.width);
-const [customCanvasHeight, setCustomCanvasHeight] = useState(canvasSize.height);
+  // Track if component is mounted to prevent hydration mismatch
+  const [isMounted, setIsMounted] = useState(false);
 
-// Add state to toggle edit mode for canvas size
-const [isEditingCanvasSize, setIsEditingCanvasSize] = useState(false);
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
-// Function to update canvas size
-const handleCanvasSizeChange = () => {
-  setCanvasSize({ width: customCanvasWidth, height: customCanvasHeight });
-};
+  // Determine orientation mode based on current canvas size (computed value, not state)
+  const orientationMode = canvasSize.width > canvasSize.height ? 'landscape' : 'portrait';
 
-// Function to handle toggling between edit and display modes
-const toggleCanvasSizeEdit = () => {
-  setIsEditingCanvasSize((prev) => !prev);
-};
-
-// Function to handle applying changes and exiting edit mode
-const applyCanvasSizeChange = () => {
-  handleCanvasSizeChange();
-  setIsEditingCanvasSize(false);
-};
-
-useEffect(() => {
-  if (canvasSize) {
-    setCustomCanvasWidth(canvasSize.width)
-    setCustomCanvasHeight(canvasSize.height)
-  }
-}, [canvasSize])
+  // Function to handle orientation change
+  const handleOrientationChange = (mode) => {
+    if (mode === 'landscape') {
+      setCanvasSize({ width: 1920, height: 1080 });
+    } else if (mode === 'portrait') {
+      setCanvasSize({ width: 1080, height: 1920 });
+    }
+  };
 
   // Show loading while checking permissions
   if (currentBoard && userRole && !hasWriteAccess) {
@@ -827,20 +819,6 @@ useEffect(() => {
     )
   }
 
-  // Ensure consistent rendering of the Edit button
-  const renderEditButton = () => {
-    return (
-      <button
-        onClick={toggleCanvasSizeEdit}
-        className={`bg-blue-500 text-white px-2 py-1 rounded text-xs hover:bg-blue-600 transition cursor-pointer ${
-          isEditingCanvasSize ? 'opacity-50 cursor-not-allowed' : ''
-        }`}
-        disabled={isEditingCanvasSize}
-      >
-        Edit
-      </button>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-blue-50">
@@ -912,41 +890,34 @@ useEffect(() => {
                 </span>
               )}
             </h3>
-            <div className="text-sm text-slate-300 hidden sm:flex items-center gap-2">
-              <p>Size: {canvasSize.width}x{canvasSize.height}px</p>
-              {renderEditButton()}
-            </div>
-            {isEditingCanvasSize && (
-              <div className="mt-2 flex items-center gap-2">
-                <input
-                  type="number"
-                  value={customCanvasWidth}
-                  onChange={(e) => setCustomCanvasWidth(Number(e.target.value))}
-                  className="border rounded px-2 py-1 text-sm text-white w-20"
-                  placeholder="Width"
-                />
-                <span className="text-sm text-white">x</span>
-                <input
-                  type="number"
-                  value={customCanvasHeight}
-                  onChange={(e) => setCustomCanvasHeight(Number(e.target.value))}
-                  className="border rounded px-2 py-1 text-sm text-white w-20"
-                  placeholder="Height"
-                />
+            <div
+              className="text-sm text-slate-300 hidden sm:flex items-center gap-3"
+              style={{ visibility: isMounted ? 'visible' : 'hidden' }}
+            >
+              <span className="font-medium">Orientation:</span>
+              <div className="flex gap-1 bg-slate-600/50 rounded-lg p-1">
                 <button
-                  onClick={applyCanvasSizeChange}
-                  className="bg-green-500 text-white px-3 py-1 rounded text-sm hover:bg-green-600 transition cursor-pointer"
+                  onClick={() => handleOrientationChange('landscape')}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                    orientationMode === 'landscape'
+                      ? 'bg-blue-500 text-white shadow-lg'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-600'
+                  }`}
                 >
-                  Apply
+                  Landscape (1920×1080)
                 </button>
                 <button
-                  onClick={toggleCanvasSizeEdit}
-                  className="bg-red-500 text-white px-3 py-1 rounded text-sm hover:bg-red-600 transition cursor-pointer"
+                  onClick={() => handleOrientationChange('portrait')}
+                  className={`px-3 py-1 rounded-md text-xs font-medium transition-all ${
+                    orientationMode === 'portrait'
+                      ? 'bg-blue-500 text-white shadow-lg'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-600'
+                  }`}
                 >
-                  Cancel
+                  Portrait (1080×1920)
                 </button>
               </div>
-            )}
+            </div>
           </div>
           <div className="flex gap-2 sm:gap-4 items-center">
             <Button
