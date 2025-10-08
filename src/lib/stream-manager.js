@@ -51,15 +51,18 @@ export function broadcastToBoard(boardId, message) {
     return 0
   }
 
+  const encoder = new TextEncoder()
   const messageData = `data: ${JSON.stringify(message)}\n\n`
+  const encodedMessage = encoder.encode(messageData)
   let sentCount = 0
   const disconnected = []
 
   console.log(`[StreamManager] Broadcasting to ${connections.size} connections for board ${boardId}`)
+  console.log(`[StreamManager] Message:`, message)
 
   for (const [controller, connectionInfo] of connections) {
     try {
-      controller.enqueue(messageData)
+      controller.enqueue(encodedMessage)
       sentCount++
     } catch (error) {
       console.error(`[StreamManager] Failed to send to connection ${connectionInfo.connectionId}:`, error.message)

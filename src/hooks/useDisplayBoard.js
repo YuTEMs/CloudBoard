@@ -76,6 +76,7 @@ export function useDisplayBoard(boardId) {
           es.onmessage = (event) => {
             try {
               const data = JSON.parse(event.data)
+              console.log(`[useDisplayBoard] SSE Message received:`, data.type, data)
 
               switch (data.type) {
                 case 'connected':

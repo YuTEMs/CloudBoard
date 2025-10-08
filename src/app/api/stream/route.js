@@ -10,6 +10,7 @@ export async function GET(request) {
   }
 
   // Create Server-Sent Events stream
+  const encoder = new TextEncoder()
   const stream = new ReadableStream({
     start(controller) {
       // Store this connection with tracking
@@ -22,7 +23,7 @@ export async function GET(request) {
         connectionId,
         timestamp: new Date().toISOString()
       })
-      controller.enqueue(`data: ${connectMessage}\n\n`)
+      controller.enqueue(encoder.encode(`data: ${connectMessage}\n\n`))
 
       // Keep connection alive with periodic pings
       const pingInterval = setInterval(() => {
@@ -32,7 +33,7 @@ export async function GET(request) {
             type: 'ping',
             timestamp: new Date().toISOString()
           })
-          controller.enqueue(`data: ${pingMessage}\n\n`)
+          controller.enqueue(encoder.encode(`data: ${pingMessage}\n\n`))
         } catch (error) {
           console.error(`[SSE] Ping failed for connection ${connectionId}:`, error.message)
           clearInterval(pingInterval)
