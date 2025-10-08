@@ -36,9 +36,10 @@ export default function AdvertisementDisplay({
     const currentAd = advertisements[currentAdIndex];
     if (!currentAd || currentAd.media_type !== 'image') return;
 
-    // For images, use a fixed duration (you can make this configurable per ad)
-    const imageDuration = 10000; // 10 seconds for images
+    // Use the ad's configured display duration, or default to 10 seconds
+    const imageDuration = currentAd.display_duration || 10000;
 
+    console.log(`[AdvertisementDisplay] Image ad "${currentAd.title}" will display for ${imageDuration / 1000}s`);
 
     const timer = setTimeout(() => {
       onAdComplete();
