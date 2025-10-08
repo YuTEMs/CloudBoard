@@ -520,7 +520,7 @@ export const boardService = {
 
   // Subscribe to changes for a specific board (for display mode)
   subscribeToBoardChanges(boardId, callback) {
-    
+
     const channel = supabase
       .channel(`board_${boardId}`)
       .on(
@@ -538,6 +538,40 @@ export const boardService = {
       .subscribe()
 
     return channel
+  }
+}
+
+// Database operations for advertisement settings
+export const advertisementSettingsService = {
+  // Subscribe to advertisement settings changes for a specific board
+  subscribeToSettingsChanges(boardId, callback) {
+    const channel = supabase
+      .channel(`ad_settings_${boardId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'advertisement_settings',
+          filter: `board_id=eq.${boardId}`
+        },
+        (payload) => {
+          console.log(`[Supabase Realtime] Advertisement settings change:`, payload)
+          callback(payload)
+        }
+      )
+      .subscribe((status) => {
+        console.log(`[Supabase Realtime] Advertisement settings subscription status for board ${boardId}:`, status)
+      })
+
+    return channel
+  },
+
+  // Unsubscribe from advertisement settings changes
+  unsubscribe(channel) {
+    if (channel) {
+      supabase.removeChannel(channel)
+    }
   }
 }
 

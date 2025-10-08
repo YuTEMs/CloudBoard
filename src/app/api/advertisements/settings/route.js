@@ -221,29 +221,9 @@ export async function POST(request) {
       detectionDuration: savedSettings.detection_duration || 0
     };
 
-    // Broadcast settings update immediately for real-time updates
-    try {
-      const { broadcastToBoard } = await import('@/lib/stream-manager');
-
-      const broadcastMessage = {
-        type: 'advertisement_settings_updated',
-        boardId: boardId,
-        timestamp: new Date().toISOString(),
-        data: apiSettings,
-        changeType: 'SETTINGS_UPDATE',
-        priority: 'HIGH'
-      };
-
-      console.log(`[Ad Settings API] POST: Broadcasting settings update:`, broadcastMessage);
-
-      const clientsNotified = broadcastToBoard(boardId, broadcastMessage);
-      
-      console.log(`[Ad Settings API] POST: Notified ${clientsNotified} clients about settings update`);
-      
-    } catch (broadcastError) {
-      console.error(`[Ad Settings API] POST: Broadcast failed:`, broadcastError);
-      // Don't fail the request if broadcast fails, but log it
-    }
+    // Real-time updates are now handled by Supabase Realtime subscriptions
+    // No need for SSE broadcast - Supabase will automatically notify subscribers
+    // when the advertisement_settings table is updated
 
     return NextResponse.json(apiSettings);
     

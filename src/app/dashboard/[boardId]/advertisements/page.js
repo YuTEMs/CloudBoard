@@ -19,6 +19,7 @@ import {
 } from '@heroui/react';
 import { Upload, Calendar, Image, Video, Trash2, Edit, Plus, ArrowLeft, Wifi, WifiOff } from 'lucide-react';
 import { uploadMedia } from '../../../../lib/storage';
+import { advertisementSettingsService } from '../../../../lib/supabase';
 
 export default function AdvertisementsPage() { 
   const { data: session } = useSession();
@@ -37,12 +38,10 @@ export default function AdvertisementsPage() {
   const [deletingAds, setDeletingAds] = useState(new Set());
   const [deletionError, setDeletionError] = useState(null);
 
-  // SSE Real-time connection state
+  // Realtime connection state (using Supabase Realtime instead of SSE)
   const [connectionStatus, setConnectionStatus] = useState('disconnected'); // 'disconnected', 'connecting', 'connected', 'error'
   const [lastUpdate, setLastUpdate] = useState(null);
-  const eventSourceRef = useRef(null);
-  const reconnectTimeoutRef = useRef(null);
-  const reconnectAttemptsRef = useRef(0);
+  const realtimeChannelRef = useRef(null);
 
   // Local configuration state for batch saving
   const [localAdConfig, setLocalAdConfig] = useState({});
@@ -71,122 +70,79 @@ export default function AdvertisementsPage() {
     displayDuration: 10000 // Default 10 seconds for images
   });
 
-  // SSE Connection Management
-  const connectToSSE = useCallback(() => {
+  // Supabase Realtime Connection Management
+  const connectToRealtime = useCallback(() => {
     if (!boardId) return;
 
-    console.log(`[Ads Page] Connecting to SSE for board ${boardId}`);
+    console.log(`[Ads Page] Connecting to Supabase Realtime for board ${boardId}`);
     setConnectionStatus('connecting');
 
     // Close existing connection
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
+    if (realtimeChannelRef.current) {
+      advertisementSettingsService.unsubscribe(realtimeChannelRef.current);
+      realtimeChannelRef.current = null;
     }
 
     try {
-      const eventSource = new EventSource(`/api/stream?boardId=${boardId}`);
-      eventSourceRef.current = eventSource;
+      // Subscribe to advertisement settings changes
+      const channel = advertisementSettingsService.subscribeToSettingsChanges(
+        boardId,
+        (payload) => {
+          console.log(`[Ads Page] Realtime update received:`, payload);
+          setLastUpdate(new Date());
 
-      eventSource.onopen = () => {
-        console.log(`[Ads Page] SSE connected for board ${boardId}`);
-        setConnectionStatus('connected');
-        reconnectAttemptsRef.current = 0;
-      };
-
-      eventSource.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log(`[Ads Page] SSE message received:`, data);
-
-          if (data.type === 'connected') {
-            console.log(`[Ads Page] Connection confirmed for board ${boardId}`);
-          } else if (data.type === 'advertisements_updated') {
-            console.log(`[Ads Page] Advertisement update received:`, data);
-            setLastUpdate(new Date());
-            
-            // Refresh advertisements list when any advertisement changes
-            fetchAdvertisements();
-            
-            // Show brief visual feedback
-            if (data.changeType === 'ACTIVE_STATUS_CHANGE') {
-              console.log(`[Ads Page] Active status changed for ad: ${data.advertisementId}`);
-            }
-            
-            // Note: fetchAdvertisements() will reset localAdConfig to match server state
-            // This ensures we don't have conflicts with changes from other users
-          } else if (data.type === 'ping') {
-            // Handle ping silently
+          // Refresh advertisement settings when they change
+          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+            console.log(`[Ads Page] Advertisement settings ${payload.eventType.toLowerCase()}d`);
+            fetchAdSettings();
+          } else if (payload.eventType === 'DELETE') {
+            console.log(`[Ads Page] Advertisement settings deleted, using defaults`);
+            fetchAdSettings();
           }
-        } catch (error) {
-          console.error(`[Ads Page] Error parsing SSE message:`, error);
         }
-      };
+      );
 
-      eventSource.onerror = (error) => {
-        console.error(`[Ads Page] SSE error:`, error);
-        setConnectionStatus('error');
-        
-        // Attempt reconnection with exponential backoff
-        const maxAttempts = 5;
-        const baseDelay = 1000;
-        
-        if (reconnectAttemptsRef.current < maxAttempts) {
-          const delay = baseDelay * Math.pow(2, reconnectAttemptsRef.current);
-          console.log(`[Ads Page] Attempting reconnection in ${delay}ms (attempt ${reconnectAttemptsRef.current + 1}/${maxAttempts})`);
-          
-          reconnectTimeoutRef.current = setTimeout(() => {
-            reconnectAttemptsRef.current++;
-            connectToSSE();
-          }, delay);
-        } else {
-          console.log(`[Ads Page] Max reconnection attempts reached`);
-          setConnectionStatus('disconnected');
-        }
-      };
+      realtimeChannelRef.current = channel;
+      setConnectionStatus('connected');
+      console.log(`[Ads Page] Supabase Realtime connected for board ${boardId}`);
 
     } catch (error) {
-      console.error(`[Ads Page] Failed to create SSE connection:`, error);
+      console.error(`[Ads Page] Failed to connect to Supabase Realtime:`, error);
       setConnectionStatus('error');
     }
   }, [boardId]);
 
-  const disconnectSSE = useCallback(() => {
-    console.log(`[Ads Page] Disconnecting SSE`);
-    
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
+  const disconnectRealtime = useCallback(() => {
+    console.log(`[Ads Page] Disconnecting Supabase Realtime`);
+
+    if (realtimeChannelRef.current) {
+      advertisementSettingsService.unsubscribe(realtimeChannelRef.current);
+      realtimeChannelRef.current = null;
     }
-    
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
-    
+
     setConnectionStatus('disconnected');
-    reconnectAttemptsRef.current = 0;
   }, []);
 
-  // Setup SSE connection when board loads
+  // Setup Realtime connection when board loads
   useEffect(() => {
     if (session?.user?.id && boardId) {
       fetchBoardInfo();
       fetchAdvertisements();
       fetchAdSettings();
-      connectToSSE();
+      connectToRealtime();
     }
 
     return () => {
-      disconnectSSE();
+      disconnectRealtime();
     };
-  }, [session, boardId, connectToSSE, disconnectSSE]);
+  }, [session, boardId, connectToRealtime, disconnectRealtime]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      disconnectSSE();
+      disconnectRealtime();
     };
-  }, [disconnectSSE]);
+  }, [disconnectRealtime]);
 
   const fetchBoardInfo = async () => {
     try {
