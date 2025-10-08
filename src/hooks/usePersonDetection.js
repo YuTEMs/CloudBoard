@@ -14,8 +14,9 @@ import { useState, useEffect, useRef } from 'react';
  * @property {boolean} isModelReady - Whether the model is loaded and ready
  * @property {boolean} cameraAvailable - Whether camera access was granted
  */
-export function usePersonDetection(enabled = true) {
+export function usePersonDetection(enabled = true, suppressToZero = false) {
   const [personCount, setPersonCount] = useState(0);
+  const [rawPersonCount, setRawPersonCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isModelReady, setIsModelReady] = useState(false);
@@ -111,6 +112,8 @@ export function usePersonDetection(enabled = true) {
             ).length;
 
             if (mounted) {
+              // Track raw detection count and the public personCount (may be suppressed by caller)
+              setRawPersonCount(peopleDetected);
               setPersonCount(peopleDetected);
               console.log(`[Person Detection] Detected ${peopleDetected} people`);
             }
@@ -180,7 +183,8 @@ export function usePersonDetection(enabled = true) {
   }, [enabled]);
 
   return {
-    personCount,
+    personCount: suppressToZero ? 0 : personCount,
+    rawPersonCount,
     isLoading,
     error,
     isModelReady,
