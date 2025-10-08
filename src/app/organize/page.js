@@ -277,9 +277,19 @@ function OrganizePageContent() {
     const canvasRect = canvasRef.current.getBoundingClientRect()
     const dropData = JSON.parse(e.dataTransfer.getData("text/plain"))
 
-    // getBoundingClientRect() returns transformed bounds, no need to divide by scale
-    const newX = (e.clientX - canvasRect.left) - dropData.offsetX
-    const newY = (e.clientY - canvasRect.top) - dropData.offsetY
+    // Calculate mouse position relative to canvas in screen space
+    const mouseXInCanvas = e.clientX - canvasRect.left
+    const mouseYInCanvas = e.clientY - canvasRect.top
+
+    // Convert both mouse position and offset from scaled space to canvas space
+    const canvasMouseX = mouseXInCanvas / canvasScale
+    const canvasMouseY = mouseYInCanvas / canvasScale
+    const canvasOffsetX = dropData.offsetX / canvasScale
+    const canvasOffsetY = dropData.offsetY / canvasScale
+
+    // Calculate new position in canvas coordinates
+    const newX = canvasMouseX - canvasOffsetX
+    const newY = canvasMouseY - canvasOffsetY
 
     // Apply bounds checking
     const boundedX = Math.max(0, Math.min(newX, canvasSize.width - draggedItem.width))
@@ -293,7 +303,7 @@ function OrganizePageContent() {
       )
     )
     setDraggedItem(null)
-  }, [draggedItem, canvasSize])
+  }, [draggedItem, canvasSize, canvasScale])
 
   // Resize handlers
   const handleResizeStart = useCallback((e, handle) => {

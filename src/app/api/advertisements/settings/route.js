@@ -5,40 +5,38 @@ import { supabaseAdmin } from '../../../../lib/supabase-admin';
 
 export async function GET(request) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user?.id) {
-      console.log('[Ad Settings API] GET: Unauthorized access attempt');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    }
-
     const { searchParams } = new URL(request.url);
     const boardId = searchParams.get('boardId');
 
-    console.log(`[Ad Settings API] GET: User ${session.user.id} requesting settings for board ${boardId}`);
+    // Check for session (optional for GET - allows public display access)
+    const session = await getServerSession(authOptions);
+    const userId = session?.user?.id;
+
+    console.log(`[Ad Settings API] GET: ${userId ? `User ${userId}` : 'Public'} requesting settings for board ${boardId}`);
 
     if (!boardId) {
       console.log('[Ad Settings API] GET: Missing board ID');
       return NextResponse.json({ error: 'Board ID is required' }, { status: 400 });
     }
 
-    // Verify user owns the board
+    // Verify board exists (no ownership check for GET - public display needs this)
     const { data: board, error: boardError } = await supabaseAdmin
       .from('boards')
-      .select('created_by')
+      .select('id, created_by')
       .eq('id', boardId)
       .single();
 
     if (boardError) {
       console.error(`[Ad Settings API] GET: Board query error:`, boardError);
-      return NextResponse.json({ 
-        error: 'Board not found', 
-        details: boardError.message 
+      return NextResponse.json({
+        error: 'Board not found',
+        details: boardError.message
       }, { status: 404 });
     }
 
-    if (board?.created_by !== session.user.id) {
-      console.log(`[Ad Settings API] GET: Access denied - User ${session.user.id} doesn't own board ${boardId}`);
-      return NextResponse.json({ error: 'Board not found or access denied' }, { status: 404 });
+    if (!board) {
+      console.log(`[Ad Settings API] GET: Board not found: ${boardId}`);
+      return NextResponse.json({ error: 'Board not found' }, { status: 404 });
     }
 
     console.log(`[Ad Settings API] GET: Fetching advertisement settings for board ${boardId}`);
