@@ -13,7 +13,7 @@ import { uploadMedia, isTooLarge, deleteMedia } from "../../lib/storage"
 import { ToolsPanel } from "../../components/organize/ToolsPanel"
 import { PropertiesPanel } from "../../components/organize/PropertiesPanel"
 import { CanvasArea } from "../../components/organize/CanvasArea"
-import { AspectRatioSelector } from "../../components/organize/AspectRatioSelector"
+import { OrientationSelector } from "../../components/organize/OrientationSelector"
 import { ContextPanel } from "../../components/organize/ContextPanel"
 import { ResponsiveLayout } from "../../components/organize/ResponsiveLayout"
 
@@ -241,11 +241,10 @@ function OrganizePageContent() {
     setDraggedItem(item)
     setSelectedItem(item)
     const rect = e.currentTarget.getBoundingClientRect()
-    // Compute logical offsets by dividing by current canvas scale
-    const scale = canvasScaleRef.current || 1
-    const logicalOffsetX = (e.clientX - rect.left) / scale
-    const logicalOffsetY = (e.clientY - rect.top) / scale
-    e.dataTransfer.setData("text/plain", JSON.stringify({ offsetX: logicalOffsetX, offsetY: logicalOffsetY }))
+    // getBoundingClientRect() returns transformed bounds, no need to divide by scale
+    const offsetX = e.clientX - rect.left
+    const offsetY = e.clientY - rect.top
+    e.dataTransfer.setData("text/plain", JSON.stringify({ offsetX, offsetY }))
 
     // Create simple box as drag preview matching visual size
     const dragImage = document.createElement('div')
@@ -260,10 +259,8 @@ function OrganizePageContent() {
     dragImage.style.pointerEvents = 'none'
     document.body.appendChild(dragImage)
 
-    // Set custom drag image using pixel offsets (not scaled)
-    const pixelOffsetX = e.clientX - rect.left
-    const pixelOffsetY = e.clientY - rect.top
-    e.dataTransfer.setDragImage(dragImage, pixelOffsetX, pixelOffsetY)
+    // Set custom drag image
+    e.dataTransfer.setDragImage(dragImage, offsetX, offsetY)
 
     // Clean up after drag starts
     requestAnimationFrame(() => {
@@ -280,10 +277,9 @@ function OrganizePageContent() {
     const canvasRect = canvasRef.current.getBoundingClientRect()
     const dropData = JSON.parse(e.dataTransfer.getData("text/plain"))
 
-    // Convert from viewport pixels to logical canvas coordinates by dividing by scale
-    const scale = canvasScaleRef.current || 1
-    const newX = ((e.clientX - canvasRect.left) / scale) - dropData.offsetX
-    const newY = ((e.clientY - canvasRect.top) / scale) - dropData.offsetY
+    // getBoundingClientRect() returns transformed bounds, no need to divide by scale
+    const newX = (e.clientX - canvasRect.left) - dropData.offsetX
+    const newY = (e.clientY - canvasRect.top) - dropData.offsetY
 
     // Apply bounds checking
     const boundedX = Math.max(0, Math.min(newX, canvasSize.width - draggedItem.width))
@@ -807,44 +803,35 @@ function OrganizePageContent() {
   )
 }
 
-  // Function to handle aspect ratio change
-  const handleAspectRatioChange = (newSize) => {
-    const newWidth = newSize.width;
-    const newHeight = newSize.height;
+  // Function to handle orientation change
+  const handleOrientationChange = (mode) => {
+    const oldWidth = canvasSize.width;
+    const oldHeight = canvasSize.height;
 
-    // Check if changing back to the saved aspect ratio
-    const isRestoringToSaved =
-      lastSavedState &&
-      lastSavedState.canvasSize.width === newWidth &&
-      lastSavedState.canvasSize.height === newHeight;
-
-    if (isRestoringToSaved) {
-      // Restore original items perfectly to avoid floating-point precision issues
-      // Deep clone to ensure exact match with saved state
-      setCanvasItems(JSON.parse(JSON.stringify(lastSavedState.items)));
-      setCanvasSize({ width: newWidth, height: newHeight });
-    } else {
-      // Scale items proportionally to fit new aspect ratio
-      const oldWidth = canvasSize.width;
-      const oldHeight = canvasSize.height;
-
-      const scaleX = newWidth / oldWidth;
-      const scaleY = newHeight / oldHeight;
-
-      const transformedItems = canvasItems.map(item => ({
-        ...item,
-        x: item.x * scaleX,
-        y: item.y * scaleY,
-        width: item.width * scaleX,
-        height: item.height * scaleY
-      }));
-
-      setCanvasItems(transformedItems);
-      setCanvasSize({ width: newWidth, height: newHeight });
+    let newWidth, newHeight;
+    if (mode === 'landscape') {
+      newWidth = 1920;
+      newHeight = 1080;
+    } else if (mode === 'portrait') {
+      newWidth = 1080;
+      newHeight = 1920;
     }
 
-    // Note: hasUnsavedChanges is automatically detected by comparing
-    // canvasSize with lastSavedState in the useEffect (lines 160-176)
+    // Calculate scale factors
+    const scaleX = newWidth / oldWidth;
+    const scaleY = newHeight / oldHeight;
+
+    // Transform all canvas items to fit new orientation
+    const transformedItems = canvasItems.map(item => ({
+      ...item,
+      x: item.x * scaleX,
+      y: item.y * scaleY,
+      width: item.width * scaleX,
+      height: item.height * scaleY
+    }));
+
+    setCanvasItems(transformedItems);
+    setCanvasSize({ width: newWidth, height: newHeight });
   };
 
   // Show loading while checking permissions
@@ -955,9 +942,9 @@ function OrganizePageContent() {
                 </span>
               )}
             </h3>
-            <AspectRatioSelector
+            <OrientationSelector
               canvasSize={canvasSize}
-              onAspectRatioChange={handleAspectRatioChange}
+              onOrientationChange={handleOrientationChange}
             />
           </div>
           <div className="flex gap-2 sm:gap-4 items-center">
