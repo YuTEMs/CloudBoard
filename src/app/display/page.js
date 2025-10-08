@@ -254,29 +254,49 @@ function DisplayContent() {
     }
   }, [connectionStatus, fetchAdvertisements, fetchAdSettings]);
 
-  // Subscribe to ad settings changes via Supabase Realtime (for Vercel compatibility)
+  // Subscribe to ad settings changes via SSE
   useEffect(() => {
     if (!boardId) return;
 
-    console.log(`[Display] Subscribing to ad settings Realtime updates for board ${boardId}`);
+    console.log(`[Display] Subscribing to advertisement settings SSE updates for board ${boardId}`);
 
-    const channel = advertisementSettingsService.subscribeToSettingsChanges(
+    let indicatorTimeout = null;
+
+    const subscription = advertisementSettingsService.subscribeToSettingsChanges(
       boardId,
-      (payload) => {
-        console.log('[Display] Supabase Realtime: Ad settings changed', payload);
+      (message) => {
+        if (!message || message.type !== 'advertisement_settings_updated') {
+          return;
+        }
 
-        // Fetch fresh settings from API
-        fetchAdSettings();
+        console.log('[Display] SSE: Advertisement settings message received', message);
+
+        if (message.data) {
+          setAdSettings(message.data);
+        } else {
+          fetchAdSettings();
+        }
 
         // Show visual indicator for 2 seconds
         setShowAdSettingsUpdate(true);
-        setTimeout(() => setShowAdSettingsUpdate(false), 2000);
+        if (indicatorTimeout) {
+          clearTimeout(indicatorTimeout);
+        }
+        indicatorTimeout = setTimeout(() => setShowAdSettingsUpdate(false), 2000);
       }
     );
 
+    if (!subscription) {
+      console.warn('[Display] Failed to subscribe to advertisement settings SSE');
+      return undefined;
+    }
+
     return () => {
-      console.log(`[Display] Unsubscribing from ad settings Realtime updates`);
-      advertisementSettingsService.unsubscribe(channel);
+      console.log(`[Display] Unsubscribing from advertisement settings SSE updates`);
+      if (indicatorTimeout) {
+        clearTimeout(indicatorTimeout);
+      }
+      advertisementSettingsService.unsubscribe(subscription);
     };
   }, [boardId, fetchAdSettings]);
 

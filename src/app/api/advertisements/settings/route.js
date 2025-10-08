@@ -221,9 +221,21 @@ export async function POST(request) {
       detectionDuration: savedSettings.detection_duration || 0
     };
 
-    // Real-time updates are now handled by Supabase Realtime subscriptions
-    // No need for SSE broadcast - Supabase will automatically notify subscribers
-    // when the advertisement_settings table is updated
+    try {
+      const { broadcastToBoard } = await import('@/lib/stream-manager');
+      const broadcastMessage = {
+        type: 'advertisement_settings_updated',
+        boardId,
+        timestamp: new Date().toISOString(),
+        source: 'advertisement-settings-api',
+        data: apiSettings
+      };
+
+      const clientsNotified = broadcastToBoard(boardId, broadcastMessage);
+      console.log(`[Ad Settings API] POST: Broadcasted settings update to ${clientsNotified} clients`);
+    } catch (broadcastError) {
+      console.error('[Ad Settings API] POST: Failed to broadcast advertisement settings update:', broadcastError);
+    }
 
     return NextResponse.json(apiSettings);
     

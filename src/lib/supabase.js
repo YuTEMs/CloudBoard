@@ -543,34 +543,74 @@ export const boardService = {
 
 // Database operations for advertisement settings
 export const advertisementSettingsService = {
-  // Subscribe to advertisement settings changes for a specific board
-  subscribeToSettingsChanges(boardId, callback) {
-    const channel = supabase
-      .channel(`ad_settings_${boardId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
-          schema: 'public',
-          table: 'advertisement_settings',
-          filter: `board_id=eq.${boardId}`
-        },
-        (payload) => {
-          console.log(`[Supabase Realtime] Advertisement settings change:`, payload)
-          callback(payload)
-        }
-      )
-      .subscribe((status) => {
-        console.log(`[Supabase Realtime] Advertisement settings subscription status for board ${boardId}:`, status)
-      })
+  // Subscribe to advertisement settings changes for a specific board using SSE
+  subscribeToSettingsChanges(boardId, callback, options = {}) {
+    if (!boardId) {
+      console.warn('[AdvertisementSettingsService] Missing boardId for subscription')
+      return null
+    }
 
-    return channel
+    if (typeof window === 'undefined') {
+      console.warn('[AdvertisementSettingsService] Subscription attempted during SSR - ignoring')
+      return null
+    }
+
+    const { onStatusChange } = options
+    let closed = false
+
+    onStatusChange?.('connecting')
+
+    const eventSource = new EventSource(`/api/stream?boardId=${boardId}`)
+
+    const handleMessage = (event) => {
+      if (!callback) return
+
+      try {
+        const data = JSON.parse(event.data)
+
+        if (data?.type === 'advertisement_settings_updated') {
+          callback(data)
+        }
+      } catch (error) {
+        console.error('[AdvertisementSettingsService] Failed to parse SSE message:', error)
+      }
+    }
+
+    eventSource.addEventListener('message', handleMessage)
+
+    eventSource.onopen = () => {
+      onStatusChange?.('connected')
+    }
+
+    eventSource.onerror = (error) => {
+      console.error('[AdvertisementSettingsService] SSE error:', error)
+      if (!closed) {
+        onStatusChange?.('error', error)
+      }
+    }
+
+    const close = () => {
+      if (closed) return
+      closed = true
+      eventSource.removeEventListener('message', handleMessage)
+      eventSource.close()
+      onStatusChange?.('disconnected')
+    }
+
+    return { eventSource, close }
   },
 
   // Unsubscribe from advertisement settings changes
-  unsubscribe(channel) {
-    if (channel) {
-      supabase.removeChannel(channel)
+  unsubscribe(subscription) {
+    if (!subscription) return
+
+    if (typeof subscription.close === 'function') {
+      subscription.close()
+      return
+    }
+
+    if (subscription.eventSource && typeof subscription.eventSource.close === 'function') {
+      subscription.eventSource.close()
     }
   }
 }

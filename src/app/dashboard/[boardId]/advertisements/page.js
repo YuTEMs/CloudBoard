@@ -21,6 +21,15 @@ import { Upload, Calendar, Image, Video, Trash2, Edit, Plus, ArrowLeft, Wifi, Wi
 import { uploadMedia } from '../../../../lib/storage';
 import { advertisementSettingsService } from '../../../../lib/supabase';
 
+const DEFAULT_AD_SETTINGS = {
+  timeBetweenAds: 60, // seconds
+  initialDelay: 5, // seconds
+  adDisplayDuration: null, // null for auto-duration based on content
+  enableAI: false, // AI person detection
+  personThreshold: 1, // Number of people to trigger ad
+  detectionDuration: 0 // Seconds person must be detected before showing ad (dwell time)
+};
+
 export default function AdvertisementsPage() { 
   const { data: session } = useSession();
   const { boardId } = useParams();
@@ -38,7 +47,7 @@ export default function AdvertisementsPage() {
   const [deletingAds, setDeletingAds] = useState(new Set());
   const [deletionError, setDeletionError] = useState(null);
 
-  // Realtime connection state (using Supabase Realtime instead of SSE)
+  // SSE connection state for advertisement settings
   const [connectionStatus, setConnectionStatus] = useState('disconnected'); // 'disconnected', 'connecting', 'connected', 'error'
   const [lastUpdate, setLastUpdate] = useState(null);
   const realtimeChannelRef = useRef(null);
@@ -49,17 +58,16 @@ export default function AdvertisementsPage() {
   const [saving, setSaving] = useState(false);
 
   // General advertisement settings
-  const [adSettings, setAdSettings] = useState({
-    timeBetweenAds: 60, // seconds
-    initialDelay: 5, // seconds
-    adDisplayDuration: null, // null for auto-duration based on content
-    enableAI: false, // AI person detection
-    personThreshold: 1, // Number of people to trigger ad
-    detectionDuration: 0 // Seconds person must be detected before showing ad (dwell time)
-  });
-  const [localAdSettings, setLocalAdSettings] = useState({});
+  const [adSettings, setAdSettings] = useState(() => ({ ...DEFAULT_AD_SETTINGS }));
+  const [localAdSettings, setLocalAdSettings] = useState(() => ({ ...DEFAULT_AD_SETTINGS }));
   const [hasUnsavedSettings, setHasUnsavedSettings] = useState(false);
   const [savingSettings, setSavingSettings] = useState(false);
+
+  const adSettingsRef = useRef(adSettings);
+
+  useEffect(() => {
+    adSettingsRef.current = adSettings;
+  }, [adSettings]);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -70,50 +78,140 @@ export default function AdvertisementsPage() {
     displayDuration: 10000 // Default 10 seconds for images
   });
 
-  // Supabase Realtime Connection Management
+  const fetchBoardInfo = useCallback(async () => {
+    if (!boardId) return;
+
+    try {
+      const response = await fetch(`/api/boards?boardId=${boardId}`);
+      if (!response.ok) return;
+
+      const data = await response.json();
+
+      if (Array.isArray(data)) {
+        const board = data.find(b => b.id === boardId);
+        if (board) {
+          setBoardName(board.name);
+        }
+      } else if (data && data.id === boardId) {
+        setBoardName(data.name);
+      }
+    } catch (error) {
+      console.error('[Ads Page] Error fetching board info:', error);
+    }
+  }, [boardId]);
+
+  const fetchAdSettings = useCallback(async () => {
+    if (!boardId) return;
+
+    try {
+      console.log(`[Ads Page] Fetching advertisement settings for board ${boardId}`);
+      const response = await fetch(`/api/advertisements/settings?boardId=${boardId}`);
+      if (response.ok) {
+        const settings = await response.json();
+        console.log(`[Ads Page] Received ad settings:`, settings);
+        setAdSettings(settings);
+        setLocalAdSettings(settings);
+        setHasUnsavedSettings(false);
+      } else {
+        console.log(`[Ads Page] No settings found, using fallback`);
+        const fallback = adSettingsRef.current || { ...DEFAULT_AD_SETTINGS };
+        setAdSettings(fallback);
+        setLocalAdSettings(fallback);
+        setHasUnsavedSettings(false);
+      }
+    } catch (error) {
+      console.error('[Ads Page] Error fetching advertisement settings:', error);
+      const fallback = adSettingsRef.current || { ...DEFAULT_AD_SETTINGS };
+      setLocalAdSettings(fallback);
+    }
+  }, [boardId]);
+
+  const fetchAdvertisements = useCallback(async () => {
+    if (!boardId) return;
+
+    try {
+      const response = await fetch(`/api/advertisements?boardId=${boardId}`);
+      if (!response.ok) return;
+
+      const ads = await response.json();
+      setAdvertisements(ads);
+
+      const initialConfig = {};
+      ads.forEach(ad => {
+        initialConfig[ad.id] = ad.is_active;
+      });
+      setLocalAdConfig(initialConfig);
+      setHasUnsavedChanges(false);
+    } catch (error) {
+      console.error('[Ads Page] Error fetching advertisements:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [boardId]);
+
   const connectToRealtime = useCallback(() => {
     if (!boardId) return;
 
-    console.log(`[Ads Page] Connecting to Supabase Realtime for board ${boardId}`);
+    console.log(`[Ads Page] Connecting to advertisement settings SSE for board ${boardId}`);
     setConnectionStatus('connecting');
 
-    // Close existing connection
     if (realtimeChannelRef.current) {
       advertisementSettingsService.unsubscribe(realtimeChannelRef.current);
       realtimeChannelRef.current = null;
     }
 
-    try {
-      // Subscribe to advertisement settings changes
-      const channel = advertisementSettingsService.subscribeToSettingsChanges(
-        boardId,
-        (payload) => {
-          console.log(`[Ads Page] Realtime update received:`, payload);
+    const subscription = advertisementSettingsService.subscribeToSettingsChanges(
+      boardId,
+      (message) => {
+        if (!message) return;
+
+        console.log('[Ads Page] SSE update received:', message);
+
+        if (message.type === 'advertisement_settings_updated') {
           setLastUpdate(new Date());
 
-          // Refresh advertisement settings when they change
-          if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-            console.log(`[Ads Page] Advertisement settings ${payload.eventType.toLowerCase()}d`);
-            fetchAdSettings();
-          } else if (payload.eventType === 'DELETE') {
-            console.log(`[Ads Page] Advertisement settings deleted, using defaults`);
+          if (message.data) {
+            setAdSettings(message.data);
+            setLocalAdSettings(message.data);
+            setHasUnsavedSettings(false);
+          } else {
             fetchAdSettings();
           }
         }
-      );
+      },
+      {
+        onStatusChange: (status) => {
+          switch (status) {
+            case 'connecting':
+              setConnectionStatus('connecting');
+              break;
+            case 'connected':
+              setConnectionStatus('connected');
+              break;
+            case 'disconnected':
+              setConnectionStatus('disconnected');
+              break;
+            case 'error':
+              setConnectionStatus('error');
+              break;
+            default:
+              break;
+          }
+        }
+      }
+    );
 
-      realtimeChannelRef.current = channel;
-      setConnectionStatus('connected');
-      console.log(`[Ads Page] Supabase Realtime connected for board ${boardId}`);
-
-    } catch (error) {
-      console.error(`[Ads Page] Failed to connect to Supabase Realtime:`, error);
+    if (!subscription) {
+      console.warn('[Ads Page] Failed to establish advertisement settings SSE subscription');
       setConnectionStatus('error');
+      return;
     }
-  }, [boardId]);
+
+    realtimeChannelRef.current = subscription;
+  }, [boardId, fetchAdSettings]);
 
   const disconnectRealtime = useCallback(() => {
-    console.log(`[Ads Page] Disconnecting Supabase Realtime`);
+    console.log('[Ads Page] Disconnecting advertisement settings SSE');
 
     if (realtimeChannelRef.current) {
       advertisementSettingsService.unsubscribe(realtimeChannelRef.current);
@@ -123,7 +221,6 @@ export default function AdvertisementsPage() {
     setConnectionStatus('disconnected');
   }, []);
 
-  // Setup Realtime connection when board loads
   useEffect(() => {
     if (session?.user?.id && boardId) {
       fetchBoardInfo();
@@ -135,76 +232,21 @@ export default function AdvertisementsPage() {
     return () => {
       disconnectRealtime();
     };
-  }, [session, boardId, connectToRealtime, disconnectRealtime]);
+  }, [
+    session,
+    boardId,
+    fetchBoardInfo,
+    fetchAdvertisements,
+    fetchAdSettings,
+    connectToRealtime,
+    disconnectRealtime
+  ]);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       disconnectRealtime();
     };
   }, [disconnectRealtime]);
-
-  const fetchBoardInfo = async () => {
-    try {
-      const response = await fetch(`/api/boards?boardId=${boardId}`);
-      if (response.ok) {
-        const data = await response.json();
-        // Handle both single board object and array of boards
-        if (Array.isArray(data)) {
-          const board = data.find(b => b.id === boardId);
-          if (board) {
-            setBoardName(board.name);
-          }
-        } else if (data && data.id === boardId) {
-          // Single board object
-          setBoardName(data.name);
-        }
-      }
-    } catch (error) {
-    }
-  };
-
-  const fetchAdSettings = async () => {
-    try {
-      console.log(`[Ads Page] Fetching advertisement settings for board ${boardId}`);
-      const response = await fetch(`/api/advertisements/settings?boardId=${boardId}`);
-      if (response.ok) {
-        const settings = await response.json();
-        console.log(`[Ads Page] Received ad settings:`, settings);
-        setAdSettings(settings);
-        setLocalAdSettings(settings);
-        setHasUnsavedSettings(false);
-      } else {
-        // Use default settings if none exist
-        console.log(`[Ads Page] No settings found, using defaults`);
-        setLocalAdSettings(adSettings);
-      }
-    } catch (error) {
-      console.error('[Ads Page] Error fetching advertisement settings:', error);
-      setLocalAdSettings(adSettings);
-    }
-  };
-
-  const fetchAdvertisements = async () => {
-    try {
-      const response = await fetch(`/api/advertisements?boardId=${boardId}`);
-      if (response.ok) {
-        const ads = await response.json();
-        setAdvertisements(ads);
-        
-        // Initialize local configuration with current active states
-        const initialConfig = {};
-        ads.forEach(ad => {
-          initialConfig[ad.id] = ad.is_active;
-        });
-        setLocalAdConfig(initialConfig);
-        setHasUnsavedChanges(false);
-      }
-    } catch (error) {
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
