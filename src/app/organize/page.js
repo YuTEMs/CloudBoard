@@ -13,7 +13,7 @@ import { uploadMedia, isTooLarge, deleteMedia } from "../../lib/storage"
 import { ToolsPanel } from "../../components/organize/ToolsPanel"
 import { PropertiesPanel } from "../../components/organize/PropertiesPanel"
 import { CanvasArea } from "../../components/organize/CanvasArea"
-import { OrientationSelector } from "../../components/organize/OrientationSelector"
+import { AspectRatioSelector } from "../../components/organize/AspectRatioSelector"
 import { ContextPanel } from "../../components/organize/ContextPanel"
 import { ResponsiveLayout } from "../../components/organize/ResponsiveLayout"
 
@@ -807,35 +807,44 @@ function OrganizePageContent() {
   )
 }
 
-  // Function to handle orientation change
-  const handleOrientationChange = (mode) => {
-    const oldWidth = canvasSize.width;
-    const oldHeight = canvasSize.height;
+  // Function to handle aspect ratio change
+  const handleAspectRatioChange = (newSize) => {
+    const newWidth = newSize.width;
+    const newHeight = newSize.height;
 
-    let newWidth, newHeight;
-    if (mode === 'landscape') {
-      newWidth = 1920;
-      newHeight = 1080;
-    } else if (mode === 'portrait') {
-      newWidth = 1080;
-      newHeight = 1920;
+    // Check if changing back to the saved aspect ratio
+    const isRestoringToSaved =
+      lastSavedState &&
+      lastSavedState.canvasSize.width === newWidth &&
+      lastSavedState.canvasSize.height === newHeight;
+
+    if (isRestoringToSaved) {
+      // Restore original items perfectly to avoid floating-point precision issues
+      // Deep clone to ensure exact match with saved state
+      setCanvasItems(JSON.parse(JSON.stringify(lastSavedState.items)));
+      setCanvasSize({ width: newWidth, height: newHeight });
+    } else {
+      // Scale items proportionally to fit new aspect ratio
+      const oldWidth = canvasSize.width;
+      const oldHeight = canvasSize.height;
+
+      const scaleX = newWidth / oldWidth;
+      const scaleY = newHeight / oldHeight;
+
+      const transformedItems = canvasItems.map(item => ({
+        ...item,
+        x: item.x * scaleX,
+        y: item.y * scaleY,
+        width: item.width * scaleX,
+        height: item.height * scaleY
+      }));
+
+      setCanvasItems(transformedItems);
+      setCanvasSize({ width: newWidth, height: newHeight });
     }
 
-    // Calculate scale factors
-    const scaleX = newWidth / oldWidth;
-    const scaleY = newHeight / oldHeight;
-
-    // Transform all canvas items to fit new orientation
-    const transformedItems = canvasItems.map(item => ({
-      ...item,
-      x: item.x * scaleX,
-      y: item.y * scaleY,
-      width: item.width * scaleX,
-      height: item.height * scaleY
-    }));
-
-    setCanvasItems(transformedItems);
-    setCanvasSize({ width: newWidth, height: newHeight });
+    // Note: hasUnsavedChanges is automatically detected by comparing
+    // canvasSize with lastSavedState in the useEffect (lines 160-176)
   };
 
   // Show loading while checking permissions
@@ -946,9 +955,9 @@ function OrganizePageContent() {
                 </span>
               )}
             </h3>
-            <OrientationSelector
+            <AspectRatioSelector
               canvasSize={canvasSize}
-              onOrientationChange={handleOrientationChange}
+              onAspectRatioChange={handleAspectRatioChange}
             />
           </div>
           <div className="flex gap-2 sm:gap-4 items-center">
