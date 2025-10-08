@@ -7,6 +7,7 @@ import { ClipboardList, XCircle, Search as SearchIcon } from 'lucide-react'
 import { useDisplayBoard } from '../../hooks/useDisplayBoard'
 import { usePersonDetection } from '../../hooks/usePersonDetection'
 import { RenderWidget } from '../../components/widgets'
+import { advertisementSettingsService } from '../../lib/supabase'
 
 // Lazy load advertisement component (only when advertisements are active)
 const AdvertisementDisplay = dynamic(() => import('../../components/AdvertisementDisplay'), {
@@ -38,11 +39,13 @@ function DisplayContent() {
     personThreshold: 1,
     detectionDuration: 0
   })
+  const [showAdSettingsUpdate, setShowAdSettingsUpdate] = useState(false)
   const displayRef = useRef(null)
   const alternatingTimerRef = useRef(null)
   const isAdShowingRef = useRef(false) // Track ad state to avoid stale closures in intervals
   const currentAdIndexRef = useRef(0) // Track rotation index to avoid stale closures
   const detectionStartTimeRef = useRef(null) // Track when person detection started (for dwell time)
+  const checkAndShowAdCallbackRef = useRef(null) // Store AI check function for immediate calls
 
   // Person detection - only enabled when AI settings are turned on
   const personDetection = usePersonDetection(adSettings.enableAI)
@@ -243,9 +246,39 @@ function DisplayContent() {
           console.log('[Display] No settings in broadcast, refetching...');
           fetchAdSettings();
         }
+
+        // Show visual indicator for 2 seconds
+        setShowAdSettingsUpdate(true);
+        setTimeout(() => setShowAdSettingsUpdate(false), 2000);
       }
     }
   }, [connectionStatus, fetchAdvertisements, fetchAdSettings]);
+
+  // Subscribe to ad settings changes via Supabase Realtime (for Vercel compatibility)
+  useEffect(() => {
+    if (!boardId) return;
+
+    console.log(`[Display] Subscribing to ad settings Realtime updates for board ${boardId}`);
+
+    const channel = advertisementSettingsService.subscribeToSettingsChanges(
+      boardId,
+      (payload) => {
+        console.log('[Display] Supabase Realtime: Ad settings changed', payload);
+
+        // Fetch fresh settings from API
+        fetchAdSettings();
+
+        // Show visual indicator for 2 seconds
+        setShowAdSettingsUpdate(true);
+        setTimeout(() => setShowAdSettingsUpdate(false), 2000);
+      }
+    );
+
+    return () => {
+      console.log(`[Display] Unsubscribing from ad settings Realtime updates`);
+      advertisementSettingsService.unsubscribe(channel);
+    };
+  }, [boardId, fetchAdSettings]);
 
   // Start alternating cycle when board is loaded (with AI or timer mode)
   useEffect(() => {
@@ -343,6 +376,9 @@ function DisplayContent() {
         }
       };
 
+      // Store callback ref so handleAdComplete can trigger immediate check
+      checkAndShowAdCallbackRef.current = checkAndShowAd;
+
       // Check every second while in AI mode
       const aiCheckInterval = setInterval(checkAndShowAd, 1000);
 
@@ -351,6 +387,7 @@ function DisplayContent() {
 
       return () => {
         clearInterval(aiCheckInterval);
+        checkAndShowAdCallbackRef.current = null; // Clean up callback
       };
     }
 
@@ -447,7 +484,16 @@ function DisplayContent() {
         }
       }, breakTime);
     } else {
-      console.log(`[Display] AI mode: Person detection will handle next ad display (next will be ad ${nextIndex + 1})`);
+      console.log(`[Display] AI mode: Triggering immediate check for next ad (next will be ad ${nextIndex + 1})`);
+      // Immediately check if we should show next ad (don't wait for interval)
+      if (checkAndShowAdCallbackRef.current) {
+        // Small delay to ensure state updates have propagated
+        setTimeout(() => {
+          if (checkAndShowAdCallbackRef.current) {
+            checkAndShowAdCallbackRef.current();
+          }
+        }, 100);
+      }
     }
   }, [advertisements.length, adSettings, useAIMode])
 
@@ -660,11 +706,19 @@ function DisplayContent() {
           </div>
         )}
 
-        {/* Connection status indicator for production */}
+        {/* Connection status indicators */}
         {connectionStatus === 'updated' && (
-          <div className="absolute top-6 right-6 bg-gradient-to-r from-emerald-500 to-green-500 text-white px-4 py-2 rounded-full text-sm font-medium border border-white/20 backdrop-blur-sm z-50 flex items-center gap-2">
+          <div className="absolute top-6 right-6 bg-gradient-to-r from-emerald-500 to-green-500 text-white px-4 py-2 rounded-full text-sm font-medium border border-white/20 backdrop-blur-sm z-50 flex items-center gap-2 animate-in fade-in duration-300">
             <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
             Content Updated
+          </div>
+        )}
+
+        {/* Ad settings update indicator */}
+        {showAdSettingsUpdate && (
+          <div className="absolute top-6 right-6 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 rounded-full text-sm font-medium border border-white/20 backdrop-blur-sm z-50 flex items-center gap-2 animate-in fade-in duration-300">
+            <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+            Settings Updated
           </div>
         )}
       </div>
