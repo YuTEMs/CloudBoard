@@ -34,7 +34,7 @@ CloudBoard lets you create interactive digital boards with widgets, media conten
 2. **Configure environment variables:**
 
    Create a `.env.local` file with:
-   ```bash
+   ```bash 
    NEXTAUTH_URL=http://localhost:3000
    NEXTAUTH_SECRET=<your-secret>
    NEXT_PUBLIC_SUPABASE_URL=<your-supabase-url>
