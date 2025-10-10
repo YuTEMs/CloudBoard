@@ -6,6 +6,7 @@ import { ClipboardList } from "lucide-react"
 import { useState, useRef, useEffect, useCallback, Suspense, memo, useMemo } from "react"
 import { useSession } from 'next-auth/react'
 import { useSearchParams, useRouter } from "next/navigation"
+import toast from 'react-hot-toast'
 import { AppHeader } from "../../components/layout/app-hearder"
 import { useRealtimeBoards } from "../../hooks/useRealtimeBoards"
 import { useBoardSave } from "../../hooks/useBoardSave"
@@ -472,39 +473,69 @@ function OrganizePageContent() {
   // Handle file upload
   const handleFileUpload = async (files, type) => {
     setIsUploading(true)
+
+    // Show validation toast
+    const validationToast = toast.loading('Validating content...', {
+      duration: Infinity
+    })
+
     try {
       const tasks = Array.from(files).map(async (file) => {
         if (type === 'image' && !file.type.startsWith('image/')) return null
         if (type === 'video' && !file.type.startsWith('video/')) return null
         if (isTooLarge(file)) {
           const mb = (file.size / (1024 * 1024)).toFixed(1)
-            alert(`File too large: ${file.name} (${mb}MB). Max allowed is 50MB.`)
+          toast.error(`File too large: ${file.name} (${mb}MB). Max allowed is 50MB.`)
           return null
         }
-        const { publicUrl, bucket, path } = await uploadMedia(file, {
-          boardId: boardId || 'shared',
-          userId: userIdForPath,
-          kind: type,
-        })
-        return {
-          id: `${type}_${Date.now()}_${Math.random()}`,
-          name: file.name,
-          type,
-          size: file.size,
-          url: publicUrl,
-          bucket,
-          path,
+
+        try {
+          const { publicUrl, bucket, path } = await uploadMedia(file, {
+            boardId: boardId || 'shared',
+            userId: userIdForPath,
+            kind: type,
+            validateContent: true,
+          })
+          return {
+            id: `${type}_${Date.now()}_${Math.random()}`,
+            name: file.name,
+            type,
+            size: file.size,
+            url: publicUrl,
+            bucket,
+            path,
+          }
+        } catch (error) {
+          // Show error toast for blocked content
+          if (error.message.startsWith('Upload blocked:')) {
+            toast.error(error.message, { duration: 5000 })
+          } else {
+            toast.error(`Failed to upload ${file.name}: ${error.message}`)
+          }
+          throw error
         }
       })
+
       const results = await Promise.allSettled(tasks)
       const uploads = results
         .filter(r => r.status === 'fulfilled' && r.value)
         .map(r => r.value)
-      if (uploads.length) setUploadedFiles((prev) => [...prev, ...uploads])
-      const failures = results.filter(r => r.status === 'rejected')
-      if (failures.length) {
-        alert(`${failures.length} file(s) failed to upload.`)
+
+      // Dismiss validation toast
+      toast.dismiss(validationToast)
+
+      if (uploads.length) {
+        setUploadedFiles((prev) => [...prev, ...uploads])
+        toast.success(`Successfully uploaded ${uploads.length} file(s)`)
       }
+
+      const failures = results.filter(r => r.status === 'rejected')
+      if (failures.length && uploads.length === 0) {
+        toast.error(`All ${failures.length} file(s) failed to upload`)
+      }
+    } catch (error) {
+      toast.dismiss(validationToast)
+      console.error('Upload error:', error)
     } finally {
       setIsUploading(false)
     }
@@ -514,6 +545,12 @@ function OrganizePageContent() {
   const handleSlideshowFileUpload = async (files, type) => {
     if (!selectedItem || selectedItem.widgetType !== 'slideshow') return
     setIsUploading(true)
+
+    // Show validation toast
+    const validationToast = toast.loading('Validating slideshow content...', {
+      duration: Infinity
+    })
+
     try {
       const startOrder = (selectedItem.playlist?.length || 0)
       const tasks = Array.from(files).map(async (file, idx) => {
@@ -521,27 +558,43 @@ function OrganizePageContent() {
             (type === 'video' && !file.type.startsWith('video/'))) return null
         if (isTooLarge(file)) {
           const mb = (file.size / (1024 * 1024)).toFixed(1)
-            alert(`File too large: ${file.name} (${mb}MB). Max allowed is 50MB.`)
+          toast.error(`File too large: ${file.name} (${mb}MB). Max allowed is 50MB.`)
           return null
         }
-        const { publicUrl } = await uploadMedia(file, {
-          boardId: boardId || 'shared',
-          userId: userIdForPath,
-          kind: type,
-        })
-        return {
-          id: `slide_${Date.now()}_${Math.random()}`,
-          type,
-          name: file.name,
-          url: publicUrl,
-          duration: 5,
-          order: startOrder + idx + 1,
+
+        try {
+          const { publicUrl } = await uploadMedia(file, {
+            boardId: boardId || 'shared',
+            userId: userIdForPath,
+            kind: type,
+            validateContent: true,
+          })
+          return {
+            id: `slide_${Date.now()}_${Math.random()}`,
+            type,
+            name: file.name,
+            url: publicUrl,
+            duration: 5,
+            order: startOrder + idx + 1,
+          }
+        } catch (error) {
+          // Show error toast for blocked content
+          if (error.message.startsWith('Upload blocked:')) {
+            toast.error(error.message, { duration: 5000 })
+          } else {
+            toast.error(`Failed to upload ${file.name}: ${error.message}`)
+          }
+          throw error
         }
       })
+
       const results = await Promise.allSettled(tasks)
       const slides = results
         .filter(r => r.status === 'fulfilled' && r.value)
         .map(r => r.value)
+
+      // Dismiss validation toast
+      toast.dismiss(validationToast)
       if (slides.length) {
         const currentPlaylist = selectedItem.playlist || []
         const newPlaylist = [...currentPlaylist, ...slides]
@@ -670,18 +723,32 @@ function OrganizePageContent() {
     if (!file.type.startsWith('image/')) return
     if (isTooLarge(file)) {
       const mb = (file.size / (1024 * 1024)).toFixed(1)
-      alert(`Background image too large (${mb}MB). Max allowed is 50MB.`)
+      toast.error(`Background image too large (${mb}MB). Max allowed is 50MB.`)
       return
     }
+
+    // Show validation toast
+    const validationToast = toast.loading('Validating background image...', {
+      duration: Infinity
+    })
+
     try {
       const { publicUrl } = await uploadMedia(file, {
         boardId: boardId || 'shared',
         userId: userIdForPath,
         kind: 'image',
+        validateContent: true,
       })
+      toast.dismiss(validationToast)
       setBackgroundImage(publicUrl)
+      toast.success('Background image uploaded successfully')
     } catch (err) {
-      alert(`Failed to upload background: ${err.message || err}`)
+      toast.dismiss(validationToast)
+      if (err.message.startsWith('Upload blocked:')) {
+        toast.error(err.message, { duration: 5000 })
+      } else {
+        toast.error(`Failed to upload background: ${err.message || err}`)
+      }
     }
   }
 

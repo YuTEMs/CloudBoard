@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { validateMediaContent } from './content-moderation'
 
 const DEFAULT_BUCKET = process.env.NEXT_PUBLIC_SUPABASE_MEDIA_BUCKET || 'upload-media'
 const MAX_BYTES = 50 * 1024 * 1024 // 50MB
@@ -22,12 +23,49 @@ export async function uploadMedia(file, {
   boardId = 'shared',
   userId = 'anonymous',
   kind = 'file', // 'image' | 'video' | 'file'
+  validateContent = true, // Enable content moderation by default
+  onValidationStart = null, // Callback when validation starts
+  onValidationComplete = null, // Callback when validation completes
 } = {}) {
 
   if (!file) throw new Error('No file provided')
   if (isTooLarge(file)) {
     const mb = (file.size / (1024 * 1024)).toFixed(1)
     throw new Error(`File too large (${mb}MB). Max is 50MB.`)
+  }
+
+  // Content moderation for images and videos
+  if (validateContent && (kind === 'image' || kind === 'video')) {
+    try {
+      // Notify that validation is starting
+      if (onValidationStart) {
+        onValidationStart()
+      }
+
+      const validation = await validateMediaContent(file)
+
+      // Notify that validation is complete
+      if (onValidationComplete) {
+        onValidationComplete(validation)
+      }
+
+      if (!validation.safe) {
+        const reason = validation.reason || 'Content contains inappropriate or sensitive material'
+        throw new Error(`Upload blocked: ${reason}`)
+      }
+
+      // Log if there was a validation error but we're allowing the upload
+      if (validation.validationError || validation.configError) {
+        console.warn('[Upload] Content validation had an error but allowing upload:', validation.error || validation.warning)
+      }
+    } catch (error) {
+      // Re-throw content moderation errors
+      if (error.message.startsWith('Upload blocked:')) {
+        throw error
+      }
+      // Log other validation errors but continue with upload (fail open)
+      console.error('[Upload] Content validation error:', error)
+    }
   }
   // Prefer signed direct-to-storage uploads for speed (bypasses Vercel for file bytes)
   if (USE_SIGNED_UPLOAD) {
