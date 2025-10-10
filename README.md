@@ -66,7 +66,7 @@ CloudBoard lets you create interactive digital boards with widgets, media conten
 
 - Next.js 15 with React 19
 - Supabase (PostgreSQL + Realtime + Storage)
-- Server-Sent Events (SSE) for real-time sync
+- Supabase Realtime for live data synchronization
 - NextAuth.js for authentication
 - TensorFlow.js for person detection
 - Tailwind CSS + HeroUI

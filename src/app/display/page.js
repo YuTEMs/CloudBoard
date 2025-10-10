@@ -228,7 +228,7 @@ function DisplayContent() {
     };
   }, [boardId, loading, error, board, fetchAdvertisements, fetchAdSettings]);
 
-  // Listen for real-time updates via the existing SSE connection
+  // Listen for real-time updates via Supabase Realtime
   useEffect(() => {
     // Handle string status values
     if (typeof connectionStatus === 'string') {
@@ -259,11 +259,11 @@ function DisplayContent() {
     }
   }, [connectionStatus, fetchAdvertisements, fetchAdSettings]);
 
-  // Subscribe to ad settings changes via SSE
+  // Subscribe to ad settings changes via Supabase Realtime
   useEffect(() => {
     if (!boardId) return;
 
-    console.log(`[Display] Subscribing to advertisement settings SSE updates for board ${boardId}`);
+    console.log(`[Display] Subscribing to advertisement settings updates for board ${boardId}`);
 
     let indicatorTimeout = null;
 
@@ -274,7 +274,7 @@ function DisplayContent() {
           return;
         }
 
-        console.log('[Display] SSE: Advertisement settings message received', message);
+        console.log('[Display] Realtime: Advertisement settings message received', message);
 
         if (message.data) {
           setAdSettings(message.data);
@@ -292,12 +292,12 @@ function DisplayContent() {
     );
 
     if (!subscription) {
-      console.warn('[Display] Failed to subscribe to advertisement settings SSE');
+      console.warn('[Display] Failed to subscribe to advertisement settings');
       return undefined;
     }
 
     return () => {
-      console.log(`[Display] Unsubscribing from advertisement settings SSE updates`);
+      console.log(`[Display] Unsubscribing from advertisement settings updates`);
       if (indicatorTimeout) {
         clearTimeout(indicatorTimeout);
       }

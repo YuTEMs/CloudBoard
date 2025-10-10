@@ -160,32 +160,7 @@ export async function POST(request) {
       // Don't fail the entire request if analytics creation fails
     }
 
-
-    // Broadcast advertisement creation immediately for real-time updates
-    try {
-      const { broadcastToBoard } = await import('@/lib/stream-manager')
-
-      const broadcastMessage = {
-        type: 'advertisements_updated',
-        boardId: boardId,
-        advertisementId: advertisement.id,
-        webhookType: 'INSERT',
-        timestamp: new Date().toISOString(),
-        data: advertisement,
-        changeType: 'ADVERTISEMENT_CREATED',
-        priority: 'HIGH'
-      };
-
-      console.log(`[Ads API] POST: Broadcasting new advertisement "${advertisement.title}":`, broadcastMessage);
-
-      const clientsNotified = broadcastToBoard(boardId, broadcastMessage);
-      
-      console.log(`[Ads API] POST: Notified ${clientsNotified} clients about new advertisement`);
-      
-    } catch (broadcastError) {
-      console.error(`[Ads API] POST: Broadcast failed:`, broadcastError);
-      // Don't fail the request if broadcast fails, but log it
-    }
+    console.log(`[Ads API] POST: Created advertisement "${advertisement.title}" - Supabase Realtime will notify subscribers`);
 
     return NextResponse.json(advertisement);
   } catch (error) {
@@ -282,33 +257,7 @@ export async function PUT(request) {
       }, { status: 500 });
     }
 
-    console.log(`[Ads API] PUT: Successfully updated ad "${advertisement.title}"`);
-
-    // Broadcast advertisement update immediately for real-time updates
-    try {
-      const { broadcastToBoard } = await import('@/lib/stream-manager')
-
-      const broadcastMessage = {
-        type: 'advertisements_updated',
-        boardId: ad.board_id,
-        advertisementId: advertisement.id,
-        webhookType: 'UPDATE',
-        timestamp: new Date().toISOString(),
-        data: advertisement,
-        changeType: isActiveStatusChanging ? 'ACTIVE_STATUS_CHANGE' : 'CONTENT_UPDATE',
-        priority: isActiveStatusChanging ? 'HIGH' : 'NORMAL'
-      };
-
-      console.log(`[Ads API] PUT: Broadcasting update for ad "${advertisement.title}":`, broadcastMessage);
-
-      const clientsNotified = broadcastToBoard(ad.board_id, broadcastMessage);
-      
-      console.log(`[Ads API] PUT: Notified ${clientsNotified} clients about ad update`);
-      
-    } catch (broadcastError) {
-      console.error(`[Ads API] PUT: Broadcast failed:`, broadcastError);
-      // Don't fail the request if broadcast fails, but log it
-    }
+    console.log(`[Ads API] PUT: Successfully updated ad "${advertisement.title}" - Supabase Realtime will notify subscribers`);
 
     return NextResponse.json(advertisement);
     
@@ -388,35 +337,9 @@ export async function DELETE(request) {
       }, { status: 500 });
     }
 
-    console.log(`[Ads API] DELETE: Successfully deleted advertisement "${ad.title}"`);
+    console.log(`[Ads API] DELETE: Successfully deleted advertisement "${ad.title}" - Supabase Realtime will notify subscribers`);
 
     // TODO: Delete media file from storage if needed
-
-    // Broadcast advertisement deletion immediately for real-time updates
-    try {
-      const { broadcastToBoard } = await import('@/lib/stream-manager')
-
-      const broadcastMessage = {
-        type: 'advertisements_updated',
-        boardId: ad.board_id,
-        advertisementId: id,
-        webhookType: 'DELETE',
-        timestamp: new Date().toISOString(),
-        data: ad,
-        changeType: 'ADVERTISEMENT_DELETED',
-        priority: 'HIGH'
-      };
-
-      console.log(`[Ads API] DELETE: Broadcasting deletion of "${ad.title}":`, broadcastMessage);
-
-      const clientsNotified = broadcastToBoard(ad.board_id, broadcastMessage);
-      
-      console.log(`[Ads API] DELETE: Notified ${clientsNotified} clients about advertisement deletion`);
-      
-    } catch (broadcastError) {
-      console.error(`[Ads API] DELETE: Broadcast failed:`, broadcastError);
-      // Don't fail the request if broadcast fails, but log it
-    }
 
     return NextResponse.json({ success: true });
     

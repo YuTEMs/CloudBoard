@@ -47,7 +47,7 @@ export default function AdvertisementsPage() {
   const [deletingAds, setDeletingAds] = useState(new Set());
   const [deletionError, setDeletionError] = useState(null);
 
-  // SSE connection state for advertisement settings
+  // Realtime connection state for advertisement settings
   const [connectionStatus, setConnectionStatus] = useState('disconnected'); // 'disconnected', 'connecting', 'connected', 'error'
   const [lastUpdate, setLastUpdate] = useState(null);
   const realtimeChannelRef = useRef(null);
@@ -152,7 +152,7 @@ export default function AdvertisementsPage() {
   const connectToRealtime = useCallback(() => {
     if (!boardId) return;
 
-    console.log(`[Ads Page] Connecting to advertisement settings SSE for board ${boardId}`);
+    console.log(`[Ads Page] Connecting to advertisement settings Realtime for board ${boardId}`);
     setConnectionStatus('connecting');
 
     if (realtimeChannelRef.current) {
@@ -165,7 +165,7 @@ export default function AdvertisementsPage() {
       (message) => {
         if (!message) return;
 
-        console.log('[Ads Page] SSE update received:', message);
+        console.log('[Ads Page] Realtime update received:', message);
 
         if (message.type === 'advertisement_settings_updated') {
           setLastUpdate(new Date());
@@ -202,7 +202,7 @@ export default function AdvertisementsPage() {
     );
 
     if (!subscription) {
-      console.warn('[Ads Page] Failed to establish advertisement settings SSE subscription');
+      console.warn('[Ads Page] Failed to establish advertisement settings Realtime subscription');
       setConnectionStatus('error');
       return;
     }
@@ -211,7 +211,7 @@ export default function AdvertisementsPage() {
   }, [boardId, fetchAdSettings]);
 
   const disconnectRealtime = useCallback(() => {
-    console.log('[Ads Page] Disconnecting advertisement settings SSE');
+    console.log('[Ads Page] Disconnecting advertisement settings Realtime');
 
     if (realtimeChannelRef.current) {
       advertisementSettingsService.unsubscribe(realtimeChannelRef.current);

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from 'react'
-import { boardService } from '../lib/supabase'
+import { boardService, advertisementService } from '../lib/supabase'
 
 export function useDisplayBoard(boardId) {
   const [board, setBoard] = useState(null)
@@ -47,140 +47,62 @@ export function useDisplayBoard(boardId) {
     }
   }, [boardId])
 
-  // Setup Server-Sent Events to listen for updates
+  // Setup Supabase Realtime to listen for updates
   useEffect(() => {
     if (!boardId) return
 
-    let eventSource = null
-    let reconnectTimeout = null
-    let connectionAttempts = 0
-    const maxReconnectAttempts = 5
+    console.log(`[useDisplayBoard] Setting up Realtime subscriptions for board ${boardId}`)
+    setConnectionStatus('connected')
 
-    const createConnection = () => {
-      if (connectionAttempts >= maxReconnectAttempts) {
-        setConnectionStatus('error')
-        return
-      }
+    // Subscribe to board changes
+    const boardChannel = boardService.subscribeToBoardChanges(boardId, (payload) => {
+      console.log(`[useDisplayBoard] Board change received:`, payload)
 
-      connectionAttempts++
-
-      try {
-        eventSource = new EventSource(`/api/stream?boardId=${boardId}`)
-
-        const setupEventSourceHandlers = (es) => {
-          es.onopen = () => {
-            setConnectionStatus('connected')
-            connectionAttempts = 0 // Reset attempt counter on successful connection
-          }
-
-          es.onmessage = (event) => {
-            try {
-              const data = JSON.parse(event.data)
-              console.log(`[useDisplayBoard] SSE Message received:`, data.type, data)
-
-              switch (data.type) {
-                case 'connected':
-                  console.log(`[useDisplayBoard] Connected to board ${boardId} via SSE`)
-                  setConnectionStatus('connected')
-                  break
-
-                case 'ping':
-                  // Update connection status to ensure we're connected
-                  setConnectionStatus('connected')
-                  break
-
-                case 'board_updated':
-                  console.log(`[useDisplayBoard] Received board update for ${boardId}`)
-
-                  // Update board data reactively without page refresh
-                  if (data.data) {
-                    // Parse configuration if it's a string
-                    let updatedBoard = { ...data.data }
-                    if (typeof updatedBoard.configuration === 'string') {
-                      try {
-                        updatedBoard.configuration = JSON.parse(updatedBoard.configuration)
-                      } catch (e) {
-                        updatedBoard.configuration = {}
-                      }
-                    }
-
-                    setBoard(updatedBoard)
-                    setLastUpdated(new Date(data.timestamp))
-
-                    // Show a brief update indicator
-                    setConnectionStatus('updated')
-                    setTimeout(() => setConnectionStatus('connected'), 2000)
-
-                    console.log(`[useDisplayBoard] Board ${boardId} updated successfully via SSE`)
-                  } else {
-                    // If no data provided, reload from database
-                    console.log(`[useDisplayBoard] Board ${boardId} update received, reloading from database`)
-                    setConnectionStatus('updated')
-                    loadBoard()
-                  }
-                  break
-
-                case 'advertisements_updated':
-                  // Signal that advertisements have been updated
-                  setConnectionStatus('advertisements_updated')
-                  setTimeout(() => setConnectionStatus('connected'), 1000)
-                  break
-
-                case 'advertisement_settings_updated':
-                  console.log(`[useDisplayBoard] Received advertisement settings update for ${boardId}`)
-                  // Signal to update advertisement settings with the new data from broadcast
-                  setConnectionStatus({
-                    status: 'advertisement_settings_updated',
-                    settings: data.data // Pass the settings data from broadcast
-                  })
-                  // Reset status after a brief moment
-                  setTimeout(() => setConnectionStatus('connected'), 1000)
-                  break
-
-                default:
-                  break
-              }
-            } catch (err) {
-            }
-          }
-
-          es.onerror = (error) => {
-            setConnectionStatus('error')
-
-            // Only attempt reconnection if the connection was closed
-            if (es.readyState === EventSource.CLOSED) {
-              // Attempt to reconnect with exponential backoff
-              const backoffDelay = Math.min(3000 * Math.pow(2, connectionAttempts - 1), 30000)
-              reconnectTimeout = setTimeout(() => {
-                createConnection()
-              }, backoffDelay)
-            }
+      if (payload.eventType === 'UPDATE' && payload.new) {
+        // Parse configuration if it's a string
+        let updatedBoard = { ...payload.new }
+        if (typeof updatedBoard.configuration === 'string') {
+          try {
+            updatedBoard.configuration = JSON.parse(updatedBoard.configuration)
+          } catch (e) {
+            updatedBoard.configuration = {}
           }
         }
 
-        setupEventSourceHandlers(eventSource)
-      } catch (err) {
-        setConnectionStatus('error')
+        // Map database snake_case to frontend camelCase
+        updatedBoard = {
+          ...updatedBoard,
+          createdAt: updatedBoard.created_at,
+          updatedAt: updatedBoard.updated_at
+        }
 
-        // Schedule reconnect on creation error
-        reconnectTimeout = setTimeout(() => {
-          createConnection()
-        }, 5000)
+        setBoard(updatedBoard)
+        setLastUpdated(new Date(updatedBoard.updated_at))
+
+        // Show a brief update indicator
+        setConnectionStatus('updated')
+        setTimeout(() => setConnectionStatus('connected'), 2000)
+
+        console.log(`[useDisplayBoard] Board ${boardId} updated successfully via Realtime`)
       }
-    }
+    })
 
-    // Add a small delay to ensure the page is fully loaded before creating connection
-    const initialDelay = setTimeout(() => {
-      createConnection()
-    }, 500)
+    // Subscribe to advertisement changes
+    const advertisementChannel = advertisementService.subscribeToAdvertisements(boardId, (payload) => {
+      console.log(`[useDisplayBoard] Advertisement change received:`, payload.eventType)
+
+      // Signal that advertisements have been updated
+      setConnectionStatus('advertisements_updated')
+      setTimeout(() => setConnectionStatus('connected'), 1000)
+    })
 
     return () => {
-      clearTimeout(initialDelay)
-      if (eventSource) {
-        eventSource.close()
+      console.log(`[useDisplayBoard] Cleaning up Realtime subscriptions for board ${boardId}`)
+      if (boardChannel) {
+        boardService.subscribeToBoardChanges(boardId, null)?.unsubscribe()
       }
-      if (reconnectTimeout) {
-        clearTimeout(reconnectTimeout)
+      if (advertisementChannel) {
+        advertisementService.unsubscribe(advertisementChannel)
       }
       setConnectionStatus('disconnected')
     }

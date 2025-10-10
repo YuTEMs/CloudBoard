@@ -146,24 +146,7 @@ export async function PUT(request) {
     invalidateBoardCache(boardId)
     invalidateUserBoards(userId)
 
-    // ALWAYS broadcast update immediately - don't rely on webhooks
-    try {
-      const { broadcastToBoard } = await import('@/lib/stream-manager')
-
-      const clientsNotified = broadcastToBoard(boardId, {
-        type: 'board_updated',
-        boardId: boardId,
-        userId: userId,
-        data: updatedBoard,
-        timestamp: new Date().toISOString()
-      })
-
-      console.log(`[API] Board ${boardId} update broadcasted to ${clientsNotified} clients`)
-
-    } catch (broadcastError) {
-      console.error(`[API] Failed to broadcast board ${boardId} update:`, broadcastError)
-      // Don't fail the API call if broadcast fails, but log it
-    }
+    console.log(`[API] Board ${boardId} updated - Supabase Realtime will notify subscribers`)
 
     return NextResponse.json(updatedBoard)
   } catch (error) {

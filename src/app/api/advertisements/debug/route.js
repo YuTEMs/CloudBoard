@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
-import { getConnectionStats } from '@/lib/stream-manager';
 
 // Debug endpoint for testing advertisement system functionality
 export async function GET(request) {
@@ -20,8 +19,8 @@ export async function GET(request) {
       case 'status':
         // Overall system status
         debugInfo.results = {
-          message: 'Advertisement debug endpoint is active',
-          connectionStats: getConnectionStats(),
+          message: 'Advertisement debug endpoint is active (using Supabase Realtime)',
+          realtimeStatus: 'Enabled for all tables',
           databaseConnection: 'testing...'
         };
 
@@ -141,18 +140,19 @@ export async function GET(request) {
         }
         break;
 
-      case 'connections':
-        // Show SSE connection details
+      case 'realtime':
+        // Show Realtime information
         debugInfo.results = {
-          connectionStats: getConnectionStats(),
-          description: 'Active SSE connections per board'
+          status: 'Supabase Realtime is enabled for all tables',
+          tables: ['boards', 'advertisements', 'advertisement_settings'],
+          description: 'Real-time updates handled by Supabase Realtime subscriptions'
         };
         break;
 
       default:
         debugInfo.results = {
           error: 'Unknown action',
-          availableActions: ['status', 'board-ads', 'test-public-api', 'connections'],
+          availableActions: ['status', 'board-ads', 'test-public-api', 'realtime'],
           usage: '/api/advertisements/debug?action=STATUS&boardId=BOARD_ID'
         };
     }
@@ -161,53 +161,10 @@ export async function GET(request) {
 
   } catch (error) {
     console.error('[Advertisement Debug] Error:', error);
-    return NextResponse.json({ 
-      error: 'Debug endpoint error', 
+    return NextResponse.json({
+      error: 'Debug endpoint error',
       details: error.message,
       stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
-    }, { status: 500 });
-  }
-}
-
-// POST endpoint for testing broadcasts
-export async function POST(request) {
-  try {
-    const body = await request.json();
-    const { boardId, testMessage } = body;
-
-    if (!boardId) {
-      return NextResponse.json({ error: 'boardId is required' }, { status: 400 });
-    }
-
-    console.log(`[Debug] Broadcasting test message to board ${boardId}`);
-
-    const { broadcastToBoard } = await import('@/lib/stream-manager');
-
-    const testBroadcast = {
-      type: 'advertisements_updated',
-      boardId: boardId,
-      advertisementId: 'debug-test',
-      webhookType: 'DEBUG',
-      timestamp: new Date().toISOString(),
-      data: { message: testMessage || 'Debug test broadcast' },
-      changeType: 'DEBUG_TEST',
-      priority: 'LOW'
-    };
-
-    const clientsNotified = broadcastToBoard(boardId, testBroadcast);
-
-    return NextResponse.json({
-      success: true,
-      clientsNotified,
-      broadcastMessage: testBroadcast,
-      timestamp: new Date().toISOString()
-    });
-
-  } catch (error) {
-    console.error('[Advertisement Debug] Broadcast test error:', error);
-    return NextResponse.json({ 
-      error: 'Broadcast test failed', 
-      details: error.message 
     }, { status: 500 });
   }
 }

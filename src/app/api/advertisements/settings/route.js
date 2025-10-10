@@ -208,7 +208,7 @@ export async function POST(request) {
       }, { status: 500 });
     }
 
-    console.log(`[Ad Settings API] POST: Successfully saved settings for board ${boardId}`);
+    console.log(`[Ad Settings API] POST: Successfully saved settings for board ${boardId} - Supabase Realtime will notify subscribers`);
 
     // Convert database format to API format
     const apiSettings = {
@@ -220,22 +220,6 @@ export async function POST(request) {
       personThreshold: savedSettings.person_threshold || 1,
       detectionDuration: savedSettings.detection_duration || 0
     };
-
-    try {
-      const { broadcastToBoard } = await import('@/lib/stream-manager');
-      const broadcastMessage = {
-        type: 'advertisement_settings_updated',
-        boardId,
-        timestamp: new Date().toISOString(),
-        source: 'advertisement-settings-api',
-        data: apiSettings
-      };
-
-      const clientsNotified = broadcastToBoard(boardId, broadcastMessage);
-      console.log(`[Ad Settings API] POST: Broadcasted settings update to ${clientsNotified} clients`);
-    } catch (broadcastError) {
-      console.error('[Ad Settings API] POST: Failed to broadcast advertisement settings update:', broadcastError);
-    }
 
     return NextResponse.json(apiSettings);
     
