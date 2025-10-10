@@ -4,10 +4,9 @@ import React from 'react'
 import TimeWidget from './TimeWidget'
 import WeatherWidget from './WeatherWidget'
 import SlideshowWidget from './SlideshowWidget'
-import AnnouncementWidget from './AnnouncementWidget'
 import { WidgetProps, WidgetMode } from './types'
 
-export type WidgetType = 'time' | 'weather' | 'slideshow' | 'announcement'
+export type WidgetType = 'time' | 'weather' | 'slideshow'
 
 export interface WidgetConfig {
   type: WidgetType
@@ -38,19 +37,12 @@ export const WIDGET_CONFIGS: Record<WidgetType, WidgetConfig> = {
     description: 'Display rotating images and videos',
     defaultSize: { width: 300, height: 200 }
   },
-  announcement: {
-    type: 'announcement',
-    name: 'Announcement Widget',
-    description: 'Display time-based announcements',
-    defaultSize: { width: 400, height: 120 }
-  }
 }
 
 interface RenderWidgetProps extends WidgetProps {
   widgetType: WidgetType
   // Additional props for specific widgets
   playlist?: any[]
-  announcement?: any
   onAddToSlideshow?: (itemId: string, newPlaylist: any[]) => void
   uploadedFiles?: any[]
   onUpdateDuration?: (url: string, duration: number) => void
@@ -70,9 +62,6 @@ export const RenderWidget: React.FC<RenderWidgetProps> = ({
     case 'slideshow':
       return <SlideshowWidget {...props}/>
     
-    case 'announcement':
-      // FUNCTIONALITY DISABLED - Don't render announcement widgets
-      return null
     
     default:
       console.warn(`Unknown widget type: ${widgetType}`)
@@ -101,17 +90,7 @@ export const createWidget = (
     rotation: 0,
     // Widget-specific defaults
     ...(type === 'slideshow' && { playlist: [] }),
-    ...(type === 'announcement' && { 
-      announcement: {
-        text: "",
-        isActive: true,
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: new Date().toISOString().split('T')[0],
-        startTime: "09:00",
-        endTime: "17:00"
-      }
-    })
   }
 }
 
-export { TimeWidget, WeatherWidget, SlideshowWidget, AnnouncementWidget }
+export { TimeWidget, WeatherWidget, SlideshowWidget }

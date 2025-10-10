@@ -227,7 +227,6 @@ function OrganizePageContent() {
       time: subType === 'analog' ? { width: 150, height: 150 } : { width: 200, height: 100 },
       weather: { width: 250, height: 150 },
       slideshow: { width: 480, height: 270 }, // 16:9 aspect ratio
-      announcement: { width: 400, height: 150 }
     }
     return sizes[type] || { width: 200, height: 100 }
   }
@@ -648,12 +647,11 @@ function OrganizePageContent() {
     // Only deselect if clicking outside the main canvas area, panels, and sidebars
     const isCanvasArea = canvasRef.current?.contains(e.target)
     const isSlideshowPanel = e.target.closest('[data-slideshow-panel]')
-    const isAnnouncementPanel = e.target.closest('[data-announcement-panel]')
     const isPropertiesPanel = clickedInsidePropertiesPanel || e.target.closest('[data-properties-panel]')
     const isToolsPanel = e.target.closest('[data-tools-panel]')
     const isSidebar = e.target.closest('.w-72') || e.target.closest('.w-80')
 
-    if (!isCanvasArea && !isSlideshowPanel && !isAnnouncementPanel && !isPropertiesPanel && !isToolsPanel && !isSidebar) {
+    if (!isCanvasArea && !isSlideshowPanel && !isPropertiesPanel && !isToolsPanel && !isSidebar) {
       setSelectedItem(null)
     }
   }
@@ -773,7 +771,6 @@ function OrganizePageContent() {
     if (type === 'time') widgetName = 'Time';
     else if (type === 'weather') widgetName = 'Weather';
     else if (type === 'slideshow') widgetName = 'Slideshow';
-    else if (type === 'announcement') widgetName = 'Announcement';
 
     const widget = {
       type: 'widget',
@@ -787,14 +784,6 @@ function OrganizePageContent() {
       ) : undefined,
       playlist: type === 'slideshow' ? [] : undefined,
       locations: type === 'weather' ? [] : undefined,
-      announcement: type === 'announcement' ? {
-        text: "",
-        startDate: getCurrentDate(),
-        endDate: getCurrentDate(),
-        startTime: "09:00",
-        endTime: "17:00",
-        isActive: true
-      } : undefined
     }
     addToCanvas(widget)
   }
@@ -811,17 +800,6 @@ function OrganizePageContent() {
     // Note: Changes are now saved manually when user clicks Save button
   }, [])
 
-  // Handle updating announcement properties
-  const updateAnnouncement = useCallback((announcementId, updatedAnnouncement) => {
-    setCanvasItems(items =>
-      items.map(item =>
-        item.id === announcementId
-          ? { ...item, announcement: updatedAnnouncement }
-          : item
-      )
-    )
-    // Note: Changes are now saved manually when user clicks Save button
-  }, [])
 
   // Make uploaded files draggable
   const makeFileDraggable = (e, file) => {
@@ -995,7 +973,6 @@ function OrganizePageContent() {
             selectedItem={selectedItem}
             addToSlideshow={addToSlideshow}
             moveSlide={moveSlide}
-            updateAnnouncement={updateAnnouncement}
           />
         }
       >
@@ -1011,11 +988,6 @@ function OrganizePageContent() {
               {selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'slideshow' && (
                 <span className="ml-2 px-3 py-1 text-xs bg-blue-500/20 text-blue-300 rounded-full border border-blue-400/30 hidden sm:inline">
                   Slideshow Mode
-                </span>
-              )}
-              {selectedItem && selectedItem.type === 'widget' && selectedItem.widgetType === 'announcement' && (
-                <span className="ml-2 px-3 py-1 text-xs bg-orange-500/20 text-orange-300 rounded-full border border-orange-400/30 hidden sm:inline">
-                  Announcement Mode
                 </span>
               )}
             </h3>

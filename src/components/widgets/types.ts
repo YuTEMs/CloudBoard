@@ -34,15 +34,6 @@ export interface LocationData {
   lng: string | number
 }
 
-export interface AnnouncementData {
-  text?: string
-  isActive?: boolean
-  startDate?: string
-  endDate?: string
-  startTime?: string
-  endTime?: string
-}
-
 export interface SlideItem {
   type: 'image' | 'video'
   url: string

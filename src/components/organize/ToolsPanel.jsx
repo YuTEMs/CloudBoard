@@ -371,22 +371,6 @@ export function ToolsPanel({
               </div>
             </div>
           </Button>
-
-          {/* Announcement Widget */}
-          <Button
-            size="md"
-            variant="bordered"
-            className="w-full border-orange-300/50 text-white hover:bg-orange-500/20 hover:border-orange-300 transition-all duration-200 p-4 h-auto rounded-xl"
-            onPress={() => handleAddWidget('announcement')}
-          >
-            <div className="flex flex-col items-center gap-2 w-full">
-              <Megaphone className="w-6 h-6 text-orange-400 flex-shrink-0" />
-              <div className="text-center">
-                <div className="font-medium">Announcement Widget</div>
-                <div className="text-xs text-orange-200 mt-1">Scheduled messages</div>
-              </div>
-            </div>
-          </Button>
         </div>
       </div>
 
