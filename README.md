@@ -13,6 +13,7 @@ CloudBoard lets you create interactive digital boards with widgets, media conten
 - Advertisement management with scheduling and analytics
 - Multi-user collaboration with role-based access control
 - AI-powered person detection for targeted ad display
+- **NSFW content moderation** using Google Vision API
 - Secure authentication with Google OAuth and email/password
 
 ## Quick Start
@@ -34,7 +35,7 @@ CloudBoard lets you create interactive digital boards with widgets, media conten
 2. **Configure environment variables:**
 
    Create a `.env.local` file with:
-   ```bash 
+   ```bash
    NEXTAUTH_URL=http://localhost:3000
    NEXTAUTH_SECRET=<your-secret>
    NEXT_PUBLIC_SUPABASE_URL=<your-supabase-url>
@@ -42,7 +43,12 @@ CloudBoard lets you create interactive digital boards with widgets, media conten
    SUPABASE_SERVICE_ROLE_KEY=<your-service-key>
    NEXT_PUBLIC_SUPABASE_MEDIA_BUCKET=upload-media
    NEXT_PUBLIC_SUPABASE_ADVERTISEMENT_BUCKET=advertisement-media
+
+   # Google Vision API (for content moderation)
+   GOOGLE_VISION_CREDENTIALS='{"type":"service_account",...}'
    ```
+
+   **Note**: For NSFW content moderation setup, see [CONTENT_MODERATION_SETUP.md](CONTENT_MODERATION_SETUP.md)
 
 3. **Set up database:**
 

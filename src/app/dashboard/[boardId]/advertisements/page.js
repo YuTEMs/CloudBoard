@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { useParams, useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 import {
   Button,
   Input,
@@ -252,6 +253,14 @@ export default function AdvertisementsPage() {
     e.preventDefault();
     setUploading(true);
 
+    // Show validation toast if uploading new file
+    let validationToast = null;
+    if (formData.file) {
+      validationToast = toast.loading('Validating advertisement content...', {
+        duration: Infinity
+      });
+    }
+
     try {
       let mediaUrl = '';
       let mediaType = '';
@@ -262,8 +271,15 @@ export default function AdvertisementsPage() {
             bucket: process.env.NEXT_PUBLIC_SUPABASE_ADVERTISEMENT_BUCKET || 'advertisement-media',
             boardId,
             userId: session.user.id,
-            kind: formData.file.type.startsWith('image/') ? 'image' : 'video'
+            kind: formData.file.type.startsWith('image/') ? 'image' : 'video',
+            validateContent: true,
           });
+
+          // Dismiss validation toast on success
+          if (validationToast) {
+            toast.dismiss(validationToast);
+            validationToast = null;
+          }
 
           // Handle different response formats from uploadMedia
           if (uploadResult?.publicUrl) {
@@ -280,6 +296,18 @@ export default function AdvertisementsPage() {
           mediaType = formData.file.type.startsWith('image/') ? 'image' : 'video';
 
         } catch (uploadError) {
+          // Dismiss validation toast on error
+          if (validationToast) {
+            toast.dismiss(validationToast);
+            validationToast = null;
+          }
+
+          // Show specific error toast for blocked content
+          if (uploadError.message.startsWith('Upload blocked:')) {
+            toast.error(uploadError.message, { duration: 5000 });
+            throw uploadError;
+          }
+
           throw new Error(`Failed to upload file: ${uploadError.message}`);
         }
       }
@@ -317,6 +345,7 @@ export default function AdvertisementsPage() {
         await fetchAdvertisements();
         resetForm();
         onOpenChange();
+        toast.success('Advertisement saved successfully');
       } else {
         // Try to get response text first to see what we're getting
         const responseText = await response.text();
@@ -328,10 +357,18 @@ export default function AdvertisementsPage() {
           error = { error: `Server error: ${response.status} ${response.statusText}`, details: responseText };
         }
 
-        alert(error.error || error.message || error.details || 'Failed to save advertisement');
+        toast.error(error.error || error.message || error.details || 'Failed to save advertisement');
       }
     } catch (error) {
-      alert(`Failed to save advertisement: ${error.message}`);
+      // Dismiss validation toast if still showing
+      if (validationToast) {
+        toast.dismiss(validationToast);
+      }
+
+      // Only show error if not already shown (avoid duplicate toasts)
+      if (!error.message.startsWith('Upload blocked:')) {
+        toast.error(`Failed to save advertisement: ${error.message}`);
+      }
     } finally {
       setUploading(false);
     }
