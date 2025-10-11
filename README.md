@@ -13,7 +13,7 @@ CloudBoard lets you create interactive digital boards with widgets, media conten
 - Advertisement management with scheduling and analytics
 - Multi-user collaboration with role-based access control
 - AI-powered person detection for targeted ad display
-- **NSFW content moderation** using Google Vision API
+- Content moderation** using Google Vision API
 - Secure authentication with Google OAuth and email/password
 
 ## Quick Start
