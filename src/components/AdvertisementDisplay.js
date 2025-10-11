@@ -7,7 +7,8 @@ export default function AdvertisementDisplay({
   isVisible,
   currentAdIndex,
   advertisements,
-  onAdComplete
+  onAdComplete,
+  adSettings
 }) {
   const [isLoading, setIsLoading] = useState(true);
   const videoRef = useRef(null);
@@ -38,8 +39,10 @@ export default function AdvertisementDisplay({
     const currentAd = advertisements[currentAdIndex];
     if (!currentAd || currentAd.media_type !== 'image') return;
 
-    // Use the ad's configured display duration, or default to 10 seconds
-    const imageDuration = currentAd.display_duration || 10000;
+    // Priority: 1) individual ad duration, 2) global adSettings duration, 3) default 10 seconds
+    const imageDuration = currentAd.display_duration ||
+                         (adSettings?.adDisplayDuration ? adSettings.adDisplayDuration * 1000 : null) ||
+                         10000;
 
     console.log(`[AdvertisementDisplay] Image ad "${currentAd.title}" will display for ${imageDuration / 1000}s`);
 
@@ -48,7 +51,7 @@ export default function AdvertisementDisplay({
     }, imageDuration);
 
     return () => clearTimeout(timer);
-  }, [isVisible, currentAdIndex, advertisements, isLoading, onAdComplete]);
+  }, [isVisible, currentAdIndex, advertisements, isLoading, onAdComplete, adSettings]);
 
   // Ensure cached images clear the loading state (onLoad may not fire)
   useEffect(() => {
@@ -152,7 +155,7 @@ export default function AdvertisementDisplay({
             playsInline
             onLoadedData={handleMediaLoad}
             onEnded={handleVideoEnd}
-            onError={(e) => {
+            onError={() => {
               handleMediaLoad(); // Still proceed even if video fails
               // For videos that fail to load, treat as completed after short delay
               setTimeout(onAdComplete, 2000);
