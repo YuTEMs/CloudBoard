@@ -585,66 +585,23 @@ export const advertisementService = {
 // Database operations for advertisement settings
 export const advertisementSettingsService = {
   // Subscribe to advertisement settings changes for a specific board using Supabase Realtime
-  subscribeToSettingsChanges(boardId, callback, options = {}) {
-    if (!boardId) {
-      console.warn('[AdvertisementSettingsService] Missing boardId for subscription')
-      return null
-    }
-
-    if (typeof window === 'undefined') {
-      console.warn('[AdvertisementSettingsService] Subscription attempted during SSR - ignoring')
-      return null
-    }
-
-    const { onStatusChange } = options
-
-    console.log(`[AdvertisementSettingsService] Subscribing to settings for board ${boardId}`)
-
-    onStatusChange?.('connecting')
-
+  // EXACTLY matching boardService.subscribeToBoardChanges pattern
+  subscribeToSettingsChanges(boardId, callback) {
     const channel = supabase
       .channel(`advertisement_settings_${boardId}`)
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
           schema: 'public',
           table: 'advertisement_settings',
           filter: `board_id=eq.${boardId}`
         },
         (payload) => {
-          console.log(`[AdvertisementSettingsService] Received change for board ${boardId}:`, payload)
-
-          // Transform the payload to match the expected format
-          const message = {
-            type: 'advertisement_settings_updated',
-            data: payload.new ? {
-              boardId: payload.new.board_id,
-              timeBetweenAds: payload.new.time_between_ads,
-              initialDelay: payload.new.initial_delay,
-              adDisplayDuration: payload.new.ad_display_duration,
-              enableAI: payload.new.enable_ai || false,
-              personThreshold: payload.new.person_threshold || 1,
-              detectionDuration: payload.new.detection_duration || 0
-            } : null
-          }
-
-          callback(message)
+          callback(payload)
         }
       )
-      .subscribe((status) => {
-        console.log(`[AdvertisementSettingsService] Subscription status for board ${boardId}:`, status)
-
-        if (status === 'SUBSCRIBED') {
-          onStatusChange?.('connected')
-        } else if (status === 'CHANNEL_ERROR') {
-          onStatusChange?.('error')
-        } else if (status === 'TIMED_OUT') {
-          onStatusChange?.('error')
-        } else if (status === 'CLOSED') {
-          onStatusChange?.('disconnected')
-        }
-      })
+      .subscribe()
 
     return channel
   },

@@ -48,8 +48,6 @@ CloudBoard lets you create interactive digital boards with widgets, media conten
    GOOGLE_VISION_CREDENTIALS='{"type":"service_account",...}'
    ```
 
-   **Note**: For NSFW content moderation setup, see [CONTENT_MODERATION_SETUP.md](CONTENT_MODERATION_SETUP.md)
-
 3. **Set up database:**
 
    Run the schema in `schema.sql` on your Supabase project

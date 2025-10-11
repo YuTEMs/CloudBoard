@@ -5,6 +5,7 @@ import dynamic from 'next/dynamic'
 import { useSearchParams } from 'next/navigation'
 import { ClipboardList, XCircle, Search as SearchIcon } from 'lucide-react'
 import { useDisplayBoard } from '../../hooks/useDisplayBoard'
+import { useAdSettings } from '../../hooks/useAdSettings'
 import { usePersonDetection } from '../../hooks/usePersonDetection'
 import { useAIAdvertisement } from '../../hooks/useAIAdvertisement'
 import { RenderWidget } from '../../components/widgets'
@@ -26,6 +27,10 @@ function DisplayContent() {
   // ALL HOOKS MUST BE CALLED BEFORE ANY CONDITIONAL RETURNS
   // Use display board hook with save-based updates
   const { board, loading, error, lastUpdated, connectionStatus } = useDisplayBoard(boardId)
+
+  // Use ad settings hook - EXACTLY like board hook
+  const { adSettings: hookAdSettings, settingsStatus } = useAdSettings(boardId)
+
   const [viewportSize, setViewportSize] = useState({ width: 1920, height: 1080 })
   const [scale, setScale] = useState(1)
   const [offset, setOffset] = useState({ x: 0, y: 0 })
@@ -43,6 +48,32 @@ function DisplayContent() {
   const [showAdSettingsUpdate, setShowAdSettingsUpdate] = useState(false)
   const displayRef = useRef(null)
   const alternatingTimerRef = useRef(null)
+
+  // Sync hook settings to local state - EXACTLY like board does
+  useEffect(() => {
+    if (hookAdSettings) {
+      console.log('[Display] Ad settings updated, canceling active ads and restarting cycle');
+
+      // Cancel any active advertisement
+      setShowAdvertisement(false);
+
+      // Clear any pending timers
+      if (alternatingTimerRef.current) {
+        clearTimeout(alternatingTimerRef.current);
+      }
+
+      // Update settings
+      setAdSettings(hookAdSettings);
+    }
+  }, [hookAdSettings])
+
+  // Show update indicator when settings change - EXACTLY like board
+  useEffect(() => {
+    if (settingsStatus === 'updated') {
+      setShowAdSettingsUpdate(true)
+      setTimeout(() => setShowAdSettingsUpdate(false), 2000)
+    }
+  }, [settingsStatus])
 
   // Person detection - only enabled when AI settings are turned on
   const personDetection = usePersonDetection(adSettings.enableAI)
@@ -175,7 +206,27 @@ function DisplayContent() {
       const sortedAds = activeAds.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
       console.log(`[Display] Setting ${sortedAds.length} advertisements for display`);
 
-      setAdvertisements(sortedAds);
+      // Check if advertisements actually changed
+      setAdvertisements(prevAds => {
+        const adsChanged = JSON.stringify(prevAds.map(a => a.id)) !== JSON.stringify(sortedAds.map(a => a.id));
+
+        if (adsChanged && prevAds.length > 0) {
+          console.log('[Display] Advertisements changed, canceling active ads');
+
+          // Cancel any active advertisement
+          setShowAdvertisement(false);
+
+          // Clear any pending timers
+          if (alternatingTimerRef.current) {
+            clearTimeout(alternatingTimerRef.current);
+          }
+
+          // Reset to first ad
+          setCurrentAdIndex(0);
+        }
+
+        return sortedAds;
+      });
     } catch (error) {
       console.error('[Display] Error fetching advertisements:', error);
       setAdvertisements([]);
@@ -228,6 +279,23 @@ function DisplayContent() {
     };
   }, [boardId, loading, error, board, fetchAdvertisements, fetchAdSettings]);
 
+  // Poll for advertisement updates every 5 seconds
+  useEffect(() => {
+    if (!boardId || loading || error || !board) return;
+
+    console.log('[Display] Starting 5-second polling for advertisements');
+
+    const pollInterval = setInterval(() => {
+      console.log('[Display] Polling for advertisement updates...');
+      fetchAdvertisements();
+    }, 5000); // Poll every 5 seconds
+
+    return () => {
+      console.log('[Display] Stopping advertisement polling');
+      clearInterval(pollInterval);
+    };
+  }, [boardId, loading, error, board, fetchAdvertisements]);
+
   // Listen for real-time updates via Supabase Realtime
   useEffect(() => {
     // Handle string status values
@@ -235,7 +303,20 @@ function DisplayContent() {
       if (connectionStatus === 'updated') {
         // Board content was updated - handled by useDisplayBoard hook
       } else if (connectionStatus === 'advertisements_updated') {
-        // Advertisements were updated - refetch advertisement list
+        console.log('[Display] Advertisements updated, canceling active ads and refetching');
+
+        // Cancel any active advertisement
+        setShowAdvertisement(false);
+
+        // Clear any pending timers
+        if (alternatingTimerRef.current) {
+          clearTimeout(alternatingTimerRef.current);
+        }
+
+        // Reset to first ad
+        setCurrentAdIndex(0);
+
+        // Refetch advertisement list
         fetchAdvertisements();
       }
     }
@@ -259,51 +340,7 @@ function DisplayContent() {
     }
   }, [connectionStatus, fetchAdvertisements, fetchAdSettings]);
 
-  // Subscribe to ad settings changes via Supabase Realtime
-  useEffect(() => {
-    if (!boardId) return;
-
-    console.log(`[Display] Subscribing to advertisement settings updates for board ${boardId}`);
-
-    let indicatorTimeout = null;
-
-    const subscription = advertisementSettingsService.subscribeToSettingsChanges(
-      boardId,
-      (message) => {
-        if (!message || message.type !== 'advertisement_settings_updated') {
-          return;
-        }
-
-        console.log('[Display] Realtime: Advertisement settings message received', message);
-
-        if (message.data) {
-          setAdSettings(message.data);
-        } else {
-          fetchAdSettings();
-        }
-
-        // Show visual indicator for 2 seconds
-        setShowAdSettingsUpdate(true);
-        if (indicatorTimeout) {
-          clearTimeout(indicatorTimeout);
-        }
-        indicatorTimeout = setTimeout(() => setShowAdSettingsUpdate(false), 2000);
-      }
-    );
-
-    if (!subscription) {
-      console.warn('[Display] Failed to subscribe to advertisement settings');
-      return undefined;
-    }
-
-    return () => {
-      console.log(`[Display] Unsubscribing from advertisement settings updates`);
-      if (indicatorTimeout) {
-        clearTimeout(indicatorTimeout);
-      }
-      advertisementSettingsService.unsubscribe(subscription);
-    };
-  }, [boardId, fetchAdSettings]);
+  // Ad settings subscription is now handled by useAdSettings hook - no need for manual subscription here
 
   // Start alternating cycle when board is loaded (with AI or timer mode)
   useEffect(() => {
@@ -580,7 +617,7 @@ function DisplayContent() {
                   src={item.url}
                   alt={item.name}
                   className="w-full h-full object-cover"
-                  onError={(e) => {
+                  onError={() => {
                     // Silent fail
                   }}
                 />
@@ -593,7 +630,7 @@ function DisplayContent() {
                   muted
                   loop
                   playsInline
-                  onError={(e) => {
+                  onError={() => {
                     // Silent fail
                   }}
                 />
@@ -656,6 +693,7 @@ function DisplayContent() {
         currentAdIndex={currentAdIndex}
         advertisements={advertisements}
         onAdComplete={handleAdComplete}
+        adSettings={adSettings}
       />
     </div>
   )
