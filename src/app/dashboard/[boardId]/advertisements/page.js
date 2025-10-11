@@ -1172,50 +1172,6 @@ export default function AdvertisementsPage() {
 
           </div>
         </div>
-
-        {/* Unified Unsaved Changes Banner */}
-        {hasAnyUnsavedChanges && (
-          <div className="mb-8 p-6 bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200/50 rounded-3xl shadow-lg">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-2xl flex items-center justify-center shadow-lg">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-lg font-bold text-yellow-800 mb-1">
-                    You have unsaved changes
-                  </h3>
-                  <p className="text-yellow-700 text-sm">
-                    {hasUnsavedChanges && hasUnsavedSettings && 'Advertisement settings and configuration have been modified. '}
-                    {hasUnsavedChanges && !hasUnsavedSettings && 'Advertisement configuration has been modified. '}
-                    {!hasUnsavedChanges && hasUnsavedSettings && 'Advertisement settings have been modified. '}
-                    Click "Save All Changes" to apply them to all display screens, or "Reset All" to discard them.
-                  </p>
-                </div>
-              </div>
-              <div className="flex gap-3">
-                <Button
-                  variant="bordered"
-                  onPress={resetAllChanges}
-                  disabled={isSaving}
-                  className="border-yellow-400 text-yellow-700 hover:bg-yellow-100 font-medium transition-all duration-300 rounded-xl"
-                >
-                  Reset All
-                </Button>
-                <Button
-                  onPress={saveAllChanges}
-                  isLoading={isSaving}
-                  className="bg-gradient-to-r from-yellow-600 to-orange-600 text-white hover:from-yellow-700 hover:to-orange-700 font-semibold transition-all duration-300 hover:shadow-lg rounded-xl"
-                >
-                  {isSaving ? 'Saving...' : 'Save All Changes'}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {advertisements.map((ad) => {
             const isBeingDeleted = deletingAds.has(ad.id);
