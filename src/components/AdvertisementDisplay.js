@@ -33,31 +33,47 @@ export default function AdvertisementDisplay({
   };
 
   // For image ads, we need to detect when they're fully loaded and set a timer
-  // Store the duration in a ref to prevent timer restarts on adSettings changes
-  const imageDurationRef = useRef(null);
+  // Use refs to store values that shouldn't trigger re-renders
+  const adSettingsRef = useRef(adSettings);
+  const advertisementsRef = useRef(advertisements);
+  const timerRef = useRef(null);
+
+  // Keep refs up to date
+  useEffect(() => {
+    adSettingsRef.current = adSettings;
+    advertisementsRef.current = advertisements;
+  }, [adSettings, advertisements]);
 
   useEffect(() => {
-    if (!isVisible || !advertisements.length || isLoading) return;
+    if (!isVisible || !advertisementsRef.current.length || isLoading) return;
 
-    const currentAd = advertisements[currentAdIndex];
+    const currentAd = advertisementsRef.current[currentAdIndex];
     if (!currentAd || currentAd.media_type !== 'image') return;
 
     // Priority: 1) individual ad duration, 2) global adSettings duration, 3) default 10 seconds
     const imageDuration = currentAd.display_duration ||
-                         (adSettings?.adDisplayDuration ? adSettings.adDisplayDuration * 1000 : null) ||
+                         (adSettingsRef.current?.adDisplayDuration ? adSettingsRef.current.adDisplayDuration * 1000 : null) ||
                          10000;
 
-    // Store the duration so it doesn't change mid-display due to polling
-    imageDurationRef.current = imageDuration;
+    console.log(`[AdvertisementDisplay] Image ad "${currentAd.title}" will display for ${imageDuration / 1000}s (display_duration: ${currentAd.display_duration}, global: ${adSettingsRef.current?.adDisplayDuration})`);
 
-    console.log(`[AdvertisementDisplay] Image ad "${currentAd.title}" will display for ${imageDuration / 1000}s`);
+    // Clear any existing timer first
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+    }
 
-    const timer = setTimeout(() => {
+    timerRef.current = setTimeout(() => {
+      console.log(`[AdvertisementDisplay] Timer completed for "${currentAd.title}"`);
       onAdComplete();
     }, imageDuration);
 
-    return () => clearTimeout(timer);
-  }, [isVisible, currentAdIndex, advertisements, isLoading, onAdComplete]);
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [isVisible, currentAdIndex, isLoading, onAdComplete]);
 
   // Ensure cached images clear the loading state (onLoad may not fire)
   useEffect(() => {
