@@ -33,6 +33,9 @@ export default function AdvertisementDisplay({
   };
 
   // For image ads, we need to detect when they're fully loaded and set a timer
+  // Store the duration in a ref to prevent timer restarts on adSettings changes
+  const imageDurationRef = useRef(null);
+
   useEffect(() => {
     if (!isVisible || !advertisements.length || isLoading) return;
 
@@ -44,6 +47,9 @@ export default function AdvertisementDisplay({
                          (adSettings?.adDisplayDuration ? adSettings.adDisplayDuration * 1000 : null) ||
                          10000;
 
+    // Store the duration so it doesn't change mid-display due to polling
+    imageDurationRef.current = imageDuration;
+
     console.log(`[AdvertisementDisplay] Image ad "${currentAd.title}" will display for ${imageDuration / 1000}s`);
 
     const timer = setTimeout(() => {
@@ -51,7 +57,7 @@ export default function AdvertisementDisplay({
     }, imageDuration);
 
     return () => clearTimeout(timer);
-  }, [isVisible, currentAdIndex, advertisements, isLoading, onAdComplete, adSettings]);
+  }, [isVisible, currentAdIndex, advertisements, isLoading, onAdComplete]);
 
   // Ensure cached images clear the loading state (onLoad may not fire)
   useEffect(() => {
