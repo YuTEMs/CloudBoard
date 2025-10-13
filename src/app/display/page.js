@@ -52,18 +52,28 @@ function DisplayContent() {
   // Sync hook settings to local state - EXACTLY like board does
   useEffect(() => {
     if (hookAdSettings) {
-      console.log('[Display] Ad settings updated, canceling active ads and restarting cycle');
+      setAdSettings(prevSettings => {
+        // Check if settings actually changed
+        const settingsChanged = JSON.stringify(prevSettings) !== JSON.stringify(hookAdSettings);
 
-      // Cancel any active advertisement
-      setShowAdvertisement(false);
+        if (settingsChanged) {
+          console.log('[Display] Ad settings updated, canceling active ads and restarting cycle');
 
-      // Clear any pending timers
-      if (alternatingTimerRef.current) {
-        clearTimeout(alternatingTimerRef.current);
-      }
+          // Cancel any active advertisement
+          setShowAdvertisement(false);
 
-      // Update settings
-      setAdSettings(hookAdSettings);
+          // Clear any pending timers
+          if (alternatingTimerRef.current) {
+            clearTimeout(alternatingTimerRef.current);
+          }
+
+          return hookAdSettings;
+        }
+
+        // No change - keep current state
+        console.log('[Display] Ad settings unchanged, keeping current cycle');
+        return prevSettings;
+      });
     }
   }, [hookAdSettings])
 
@@ -210,22 +220,28 @@ function DisplayContent() {
       setAdvertisements(prevAds => {
         const adsChanged = JSON.stringify(prevAds.map(a => a.id)) !== JSON.stringify(sortedAds.map(a => a.id));
 
-        if (adsChanged && prevAds.length > 0) {
-          console.log('[Display] Advertisements changed, canceling active ads');
+        // Only update and cancel if ads actually changed
+        if (adsChanged) {
+          if (prevAds.length > 0) {
+            console.log('[Display] Advertisements changed, canceling active ads');
 
-          // Cancel any active advertisement
-          setShowAdvertisement(false);
+            // Cancel any active advertisement
+            setShowAdvertisement(false);
 
-          // Clear any pending timers
-          if (alternatingTimerRef.current) {
-            clearTimeout(alternatingTimerRef.current);
+            // Clear any pending timers
+            if (alternatingTimerRef.current) {
+              clearTimeout(alternatingTimerRef.current);
+            }
+
+            // Reset to first ad
+            setCurrentAdIndex(0);
           }
-
-          // Reset to first ad
-          setCurrentAdIndex(0);
+          return sortedAds;
         }
 
-        return sortedAds;
+        // No change - return previous state to avoid re-render
+        console.log('[Display] Advertisements unchanged, keeping current state');
+        return prevAds;
       });
     } catch (error) {
       console.error('[Display] Error fetching advertisements:', error);
