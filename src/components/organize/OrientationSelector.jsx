@@ -28,7 +28,7 @@ export function OrientationSelector({ canvasSize, onOrientationChange }) {
           }`}
           disabled={!mounted}
         >
-          Landscape (1920×1080)
+          Landscape
         </button>
         <button
           onClick={() => onOrientationChange('portrait')}
@@ -39,7 +39,7 @@ export function OrientationSelector({ canvasSize, onOrientationChange }) {
           }`}
           disabled={!mounted}
         >
-          Portrait (1080×1920)
+          Portrait
         </button>
       </div>
     </div>
